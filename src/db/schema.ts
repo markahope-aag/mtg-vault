@@ -197,3 +197,11 @@ export const deckSnapshots = pgTable(
     deckIdx: index("deck_snapshots_deck_id_idx").on(t.deckId),
   })
 );
+
+// ─── SYNC STATE ─────────────────────────────────────────────────
+
+export const syncState = pgTable("sync_state", {
+  key: text("key").primaryKey(),
+  value: jsonb("value"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

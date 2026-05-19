@@ -1,0 +1,300 @@
+import { Readable } from "node:stream";
+import StreamArray from "stream-json/streamers/StreamArray";
+import { eq, getTableColumns, sql, type Table } from "drizzle-orm";
+import { db } from "@/db/client";
+import { cards, printings, priceHistory, syncState } from "@/db/schema";
+import { MASS_LAND_DENIAL_NAMES } from "@/lib/curated/mld";
+
+const SCRYFALL_HEADERS = {
+  "User-Agent": "MTG-Vault/0.1 (personal use)",
+  Accept: "application/json",
+};
+const SCRYFALL_DELAY_MS = 100;
+const BULK_META = "https://api.scryfall.com/bulk-data";
+const BATCH_SIZE = 500;
+const LOG_INTERVAL = 10_000;
+const SYNC_KEY = "scryfall_default_cards";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchScryfall(url: string): Promise<Response> {
+  const res = await fetch(url, { headers: SCRYFALL_HEADERS });
+  if (!res.ok) {
+    throw new Error(`Scryfall ${res.status} ${res.statusText}: ${url}`);
+  }
+  return res;
+}
+
+// Build a SET clause for ON CONFLICT DO UPDATE that copies every column from
+// the proposed-insert row (`excluded.<col>`) except the ones in `exclude`.
+function excludedSet(table: Table, exclude: string[] = []) {
+  const cols = getTableColumns(table);
+  const set: Record<string, ReturnType<typeof sql.raw>> = {};
+  for (const [key, col] of Object.entries(cols)) {
+    if (exclude.includes(key)) continue;
+    set[key] = sql.raw(`excluded."${col.name}"`);
+  }
+  return set;
+}
+
+async function getLastSyncedAt(key: string): Promise<Date | null> {
+  const rows = await db
+    .select()
+    .from(syncState)
+    .where(eq(syncState.key, key))
+    .limit(1);
+  const value = rows[0]?.value as { updatedAt?: string } | undefined;
+  return value?.updatedAt ? new Date(value.updatedAt) : null;
+}
+
+async function setLastSyncedAt(key: string, when: Date) {
+  await db
+    .insert(syncState)
+    .values({ key, value: { updatedAt: when.toISOString() } })
+    .onConflictDoUpdate({
+      target: syncState.key,
+      set: {
+        value: { updatedAt: when.toISOString() },
+        updatedAt: sql`now()`,
+      },
+    });
+}
+
+type ScryfallPrices = {
+  usd?: string | null;
+  usd_foil?: string | null;
+  usd_etched?: string | null;
+  eur?: string | null;
+  tix?: string | null;
+};
+
+type ScryfallCardFace = {
+  oracle_text?: string;
+};
+
+type ScryfallBulkRow = {
+  id: string;
+  oracle_id?: string;
+  name: string;
+  lang: string;
+  mana_cost?: string;
+  cmc?: number;
+  type_line?: string;
+  oracle_text?: string;
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
+  colors?: string[];
+  color_identity?: string[];
+  keywords?: string[];
+  layout?: string;
+  card_faces?: ScryfallCardFace[];
+  edhrec_rank?: number;
+  reserved?: boolean;
+  legalities?: Record<string, string>;
+  set: string;
+  set_name: string;
+  collector_number: string;
+  rarity?: string;
+  image_uris?: Record<string, string>;
+  released_at?: string;
+  prices?: ScryfallPrices;
+  finishes?: string[];
+  promo_types?: string[];
+  scryfall_uri?: string;
+};
+
+export async function syncScryfall(opts: { source: "local" | "cron" }) {
+  console.log(`[scryfall] starting (source=${opts.source})`);
+
+  const meta = (await fetchScryfall(BULK_META).then((r) => r.json())) as {
+    data: Array<{ type: string; download_uri: string; updated_at: string }>;
+  };
+  const defaultCards = meta.data.find((d) => d.type === "default_cards");
+  if (!defaultCards) throw new Error("No default_cards bulk file in metadata");
+
+  const remoteUpdated = new Date(defaultCards.updated_at);
+  const lastSynced = await getLastSyncedAt(SYNC_KEY);
+  if (lastSynced && remoteUpdated.getTime() <= lastSynced.getTime()) {
+    console.log(
+      `[scryfall] already up to date (remote=${remoteUpdated.toISOString()})`,
+    );
+    return { skipped: true, remoteUpdated: remoteUpdated.toISOString() };
+  }
+
+  console.log(`[scryfall] downloading ${defaultCards.download_uri}`);
+  const res = await fetchScryfall(defaultCards.download_uri);
+  if (!res.body) throw new Error("Empty response body for bulk download");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const nodeStream = Readable.fromWeb(
+    res.body as unknown as Parameters<typeof Readable.fromWeb>[0],
+  );
+  const parser = nodeStream.pipe(StreamArray.withParser());
+
+  let cardsBatch = new Map<string, typeof cards.$inferInsert>();
+  let printingsBatch: (typeof printings.$inferInsert)[] = [];
+  let priceBatch: (typeof priceHistory.$inferInsert)[] = [];
+  let count = 0;
+  let skipped = 0;
+
+  async function flush() {
+    if (cardsBatch.size > 0) {
+      await db
+        .insert(cards)
+        .values([...cardsBatch.values()])
+        .onConflictDoUpdate({
+          target: cards.oracleId,
+          set: { ...excludedSet(cards, ["oracleId"]), updatedAt: sql`now()` },
+        });
+      cardsBatch = new Map();
+    }
+    if (printingsBatch.length > 0) {
+      await db
+        .insert(printings)
+        .values(printingsBatch)
+        .onConflictDoUpdate({
+          target: printings.id,
+          set: { ...excludedSet(printings, ["id"]), updatedAt: sql`now()` },
+        });
+      printingsBatch = [];
+    }
+    if (priceBatch.length > 0) {
+      await db
+        .insert(priceHistory)
+        .values(priceBatch)
+        .onConflictDoUpdate({
+          target: [priceHistory.printingId, priceHistory.date],
+          set: excludedSet(priceHistory, ["printingId", "date"]),
+        });
+      priceBatch = [];
+    }
+  }
+
+  for await (const chunk of parser) {
+    const c = chunk.value as ScryfallBulkRow;
+
+    if (c.lang !== "en") {
+      skipped++;
+      continue;
+    }
+    if (!c.oracle_id) {
+      skipped++;
+      continue;
+    }
+
+    const mergedOracleText =
+      c.oracle_text ??
+      (Array.isArray(c.card_faces)
+        ? c.card_faces.map((f) => f.oracle_text ?? "").join(" // ")
+        : "");
+    const typeLine = c.type_line ?? "";
+    const isExtraTurn =
+      /take an extra turn/i.test(mergedOracleText) && !/Land/i.test(typeLine);
+    const isMassLandDenial = MASS_LAND_DENIAL_NAMES.has(c.name);
+
+    cardsBatch.set(c.oracle_id, {
+      oracleId: c.oracle_id,
+      name: c.name,
+      manaCost: c.mana_cost ?? null,
+      cmc: c.cmc != null ? String(c.cmc) : null,
+      typeLine,
+      oracleText: c.oracle_text ?? null,
+      power: c.power ?? null,
+      toughness: c.toughness ?? null,
+      loyalty: c.loyalty ?? null,
+      colors: c.colors ?? null,
+      colorIdentity: c.color_identity ?? null,
+      keywords: c.keywords ?? null,
+      layout: c.layout ?? null,
+      cardFaces: c.card_faces ?? null,
+      edhrecRank: c.edhrec_rank ?? null,
+      isCommanderLegal: c.legalities?.commander === "legal",
+      isReservedList: !!c.reserved,
+      isExtraTurn,
+      isMassLandDenial,
+    });
+
+    printingsBatch.push({
+      id: c.id,
+      oracleId: c.oracle_id,
+      setCode: c.set,
+      setName: c.set_name,
+      collectorNumber: c.collector_number,
+      rarity: c.rarity ?? null,
+      imageUris: c.image_uris ?? null,
+      releasedAt: c.released_at ? new Date(c.released_at) : null,
+      usd: c.prices?.usd ?? null,
+      usdFoil: c.prices?.usd_foil ?? null,
+      usdEtched: c.prices?.usd_etched ?? null,
+      eur: c.prices?.eur ?? null,
+      tix: c.prices?.tix ?? null,
+      finishes: c.finishes ?? null,
+      promoTypes: c.promo_types ?? null,
+      scryfallUri: c.scryfall_uri ?? null,
+    });
+
+    if (c.prices && (c.prices.usd != null || c.prices.usd_foil != null)) {
+      priceBatch.push({
+        printingId: c.id,
+        date: today,
+        usd: c.prices.usd ?? null,
+        usdFoil: c.prices.usd_foil ?? null,
+      });
+    }
+
+    count++;
+    if (cardsBatch.size >= BATCH_SIZE || printingsBatch.length >= BATCH_SIZE) {
+      await flush();
+    }
+    if (count % LOG_INTERVAL === 0) {
+      console.log(`[scryfall] processed ${count} cards`);
+    }
+  }
+
+  await flush();
+  await setLastSyncedAt(SYNC_KEY, remoteUpdated);
+
+  console.log(
+    `[scryfall] done — processed=${count} skipped=${skipped} remoteUpdated=${remoteUpdated.toISOString()}`,
+  );
+  return {
+    count,
+    skipped,
+    remoteUpdated: remoteUpdated.toISOString(),
+  };
+}
+
+export async function syncTutors() {
+  console.log("[scryfall] syncing tutors");
+  let nextUrl: string | null =
+    "https://api.scryfall.com/cards/search?q=is%3Atutor&unique=cards";
+  const oracleIds = new Set<string>();
+
+  while (nextUrl) {
+    const data = (await fetchScryfall(nextUrl).then((r) => r.json())) as {
+      data: Array<{ oracle_id?: string }>;
+      has_more: boolean;
+      next_page?: string;
+    };
+    for (const c of data.data ?? []) {
+      if (c.oracle_id) oracleIds.add(c.oracle_id);
+    }
+    nextUrl = data.has_more && data.next_page ? data.next_page : null;
+    if (nextUrl) await sleep(SCRYFALL_DELAY_MS);
+  }
+
+  if (oracleIds.size === 0) {
+    console.log("[scryfall] no tutors returned; leaving flags untouched");
+    return { count: 0 };
+  }
+
+  await db.update(cards).set({ isTutor: false });
+  await db
+    .update(cards)
+    .set({ isTutor: true })
+    .where(sql`oracle_id = ANY(${[...oracleIds]}::uuid[])`);
+
+  console.log(`[scryfall] tutors set: ${oracleIds.size}`);
+  return { count: oracleIds.size };
+}

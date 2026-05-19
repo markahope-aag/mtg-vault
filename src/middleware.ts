@@ -33,11 +33,18 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const allowList = (process.env.ALLOWED_EMAIL ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const userEmail = user?.email?.toLowerCase() ?? null;
+  const isAllowed = userEmail !== null && allowList.includes(userEmail);
+
   const isAuthRoute =
     path.startsWith("/login") || path.startsWith("/auth/");
 
   if (isAuthRoute) {
-    if (user && user.email === process.env.ALLOWED_EMAIL) {
+    if (isAllowed) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     return res;
@@ -47,7 +54,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  if (user.email !== process.env.ALLOWED_EMAIL) {
+  if (!isAllowed) {
     await supabase.auth.signOut();
     return NextResponse.redirect(
       new URL("/login?error=not_allowed", req.url),
