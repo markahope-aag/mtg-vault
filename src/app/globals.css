@@ -2,41 +2,43 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant light (&:is(.light *));
 
 /*
- * MTG Vault — Trading Desk design system.
- * Tokens are the only source of color; components must never reach for raw
- * hex/oklch values. Dark is the default; light is a coherent inversion for
- * daytime use. The brand accent is a refined amber/gold — Bloomberg-adjacent
- * without being on-the-nose.
+ * MTG VAULT — TRADING DESK DESIGN SYSTEM
+ *
+ * Direction: a financial terminal for a personal MTG asset. Dark by default.
+ * Light is an override class, never the default. Elevation is conveyed by
+ * surface contrast — panels are physically lighter than the page, not just
+ * outlined. Numerics are mono with tabular figures everywhere. One accent
+ * (amber/gold) carries primary actions, active state, focus.
  */
 
 @theme inline {
-  /* shadcn semantic colour aliases */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+  /* shadcn semantic colour aliases — read from the tokens below */
+  --color-background: var(--surface-base);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-raised);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-overlay);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--brand);
+  --color-primary-foreground: var(--brand-fg);
+  --color-secondary: var(--surface-overlay);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--surface-inset);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--brand-soft);
+  --color-accent-foreground: var(--brand-strong);
+  --color-destructive: var(--value-negative);
+  --color-border: var(--border-default);
+  --color-input: var(--border-default);
+  --color-ring: var(--brand);
+  --color-chart-1: var(--brand);
+  --color-chart-2: var(--value-positive);
+  --color-chart-3: var(--value-negative);
+  --color-chart-4: var(--mtg-blue);
+  --color-chart-5: var(--text-muted);
 
   /* MTG Vault semantic tokens */
   --color-surface-base: var(--surface-base);
@@ -44,6 +46,7 @@
   --color-surface-overlay: var(--surface-overlay);
   --color-surface-inset: var(--surface-inset);
   --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
   --color-border-strong: var(--border-strong);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
@@ -52,6 +55,7 @@
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
+  --color-brand-fg: var(--brand-fg);
   --color-value-positive: var(--value-positive);
   --color-value-negative: var(--value-negative);
   --color-value-neutral: var(--value-neutral);
@@ -79,12 +83,12 @@
   --color-rarity-rare: var(--rarity-rare);
   --color-rarity-mythic: var(--rarity-mythic);
 
-  /* Fonts */
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --font-heading: var(--font-sans);
+  /* Fonts — referenced directly, no recursive var() */
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
 
-  /* Radii — tight on purpose (trading-desk discipline) */
+  /* Radii — tight on purpose */
   --radius-sm: 3px;
   --radius-md: 4px;
   --radius-lg: 6px;
@@ -95,173 +99,206 @@
   --motion-fast: 120ms;
   --motion-base: 200ms;
   --motion-slow: 320ms;
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* ───── LIGHT (daytime trading floor) ───── */
-:root {
-  /* shadcn aliases */
-  --background: oklch(0.985 0.002 90);
-  --foreground: oklch(0.205 0.015 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.205 0.015 60);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.205 0.015 60);
-  --primary: oklch(0.72 0.16 70);              /* amber */
-  --primary-foreground: oklch(0.15 0.02 60);
-  --secondary: oklch(0.95 0.004 80);
-  --secondary-foreground: oklch(0.25 0.015 60);
-  --muted: oklch(0.95 0.004 80);
-  --muted-foreground: oklch(0.48 0.012 60);
-  --accent: oklch(0.93 0.02 80);
-  --accent-foreground: oklch(0.25 0.015 60);
-  --destructive: oklch(0.58 0.21 25);
-  --border: oklch(0.88 0.005 80);
-  --input: oklch(0.88 0.005 80);
-  --ring: oklch(0.72 0.16 70);
-  --chart-1: oklch(0.72 0.16 70);
-  --chart-2: oklch(0.55 0.18 145);
-  --chart-3: oklch(0.62 0.19 25);
-  --chart-4: oklch(0.55 0.15 240);
-  --chart-5: oklch(0.45 0 0);
+/* ═════════════════════════════════════════════════════════════════════
+   DARK — DEFAULT
+   :root carries the dark theme so the page is dark with no class needed.
+   ═════════════════════════════════════════════════════════════════════ */
 
-  /* MTG Vault semantic */
-  --surface-base: oklch(0.985 0.002 90);
+:root {
+  /* Surfaces — visible elevation steps so panels physically float */
+  --surface-base: oklch(0.135 0.012 240);    /* near-black slate */
+  --surface-raised: oklch(0.195 0.014 240);  /* card / panel — clear step up */
+  --surface-overlay: oklch(0.255 0.016 240); /* modal / popover */
+  --surface-inset: oklch(0.105 0.010 240);   /* well / table header */
+
+  /* Borders — present but not load-bearing for elevation */
+  --border-subtle: oklch(1 0 0 / 0.06);
+  --border-default: oklch(1 0 0 / 0.10);
+  --border-strong: oklch(1 0 0 / 0.18);
+
+  /* Text — near-white, high contrast on dark */
+  --text-primary: oklch(0.97 0.005 80);
+  --text-secondary: oklch(0.82 0.008 80);
+  --text-muted: oklch(0.62 0.012 80);
+  --text-disabled: oklch(0.42 0.010 240);
+
+  /* Brand — vivid amber/gold accent */
+  --brand: oklch(0.80 0.16 78);
+  --brand-strong: oklch(0.86 0.15 80);
+  --brand-soft: oklch(0.30 0.08 75);          /* surface tint */
+  --brand-fg: oklch(0.16 0.02 75);            /* text on brand */
+
+  /* Financial value semantics */
+  --value-positive: oklch(0.74 0.18 145);
+  --value-negative: oklch(0.70 0.20 24);
+  --value-neutral: oklch(0.60 0.012 80);
+
+  /* MTG color identity */
+  --mtg-white: oklch(0.88 0.04 85);
+  --mtg-blue: oklch(0.70 0.14 240);
+  --mtg-black: oklch(0.42 0.02 280);
+  --mtg-red: oklch(0.68 0.20 25);
+  --mtg-green: oklch(0.68 0.16 145);
+  --mtg-colorless: oklch(0.66 0.010 60);
+  --mtg-multicolor: oklch(0.80 0.14 80);
+
+  /* Brackets — power scale */
+  --bracket-1: oklch(0.62 0.012 240);
+  --bracket-2: oklch(0.70 0.16 145);
+  --bracket-3: oklch(0.82 0.14 80);
+  --bracket-4: oklch(0.74 0.19 50);
+  --bracket-5: oklch(0.70 0.21 25);
+
+  /* Ownership semantics */
+  --owned-available: oklch(0.74 0.18 145);
+  --owned-committed: oklch(0.82 0.14 80);
+  --unowned: oklch(0.70 0.20 24);
+
+  /* Rarity tiers */
+  --rarity-common: oklch(0.55 0.005 60);
+  --rarity-uncommon: oklch(0.74 0.012 240);
+  --rarity-rare: oklch(0.82 0.14 80);
+  --rarity-mythic: oklch(0.72 0.20 35);
+
+  --radius: 0.4rem;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   LIGHT — opt-in override
+   ═════════════════════════════════════════════════════════════════════ */
+
+.light {
+  --surface-base: oklch(0.985 0.003 90);
   --surface-raised: oklch(1 0 0);
   --surface-overlay: oklch(1 0 0);
-  --surface-inset: oklch(0.96 0.003 80);
-  --border-subtle: oklch(0.92 0.003 80);
-  --border-strong: oklch(0.78 0.005 80);
-  --text-primary: oklch(0.205 0.015 60);
-  --text-secondary: oklch(0.4 0.015 60);
-  --text-muted: oklch(0.55 0.012 60);
-  --text-disabled: oklch(0.72 0.008 60);
-  --brand: oklch(0.72 0.16 70);
-  --brand-strong: oklch(0.62 0.18 68);
-  --brand-soft: oklch(0.94 0.04 80);
-  --value-positive: oklch(0.55 0.16 145);
-  --value-negative: oklch(0.58 0.21 25);
-  --value-neutral: oklch(0.55 0.012 60);
+  --surface-inset: oklch(0.955 0.004 80);
+
+  --border-subtle: oklch(0 0 0 / 0.06);
+  --border-default: oklch(0 0 0 / 0.10);
+  --border-strong: oklch(0 0 0 / 0.18);
+
+  --text-primary: oklch(0.16 0.014 60);
+  --text-secondary: oklch(0.36 0.012 60);
+  --text-muted: oklch(0.52 0.010 60);
+  --text-disabled: oklch(0.72 0.006 60);
+
+  --brand: oklch(0.66 0.17 60);
+  --brand-strong: oklch(0.58 0.18 58);
+  --brand-soft: oklch(0.95 0.05 80);
+  --brand-fg: oklch(0.99 0 0);
+
+  --value-positive: oklch(0.54 0.16 145);
+  --value-negative: oklch(0.55 0.21 25);
+  --value-neutral: oklch(0.52 0.010 60);
 
   --mtg-white: oklch(0.92 0.04 85);
-  --mtg-blue: oklch(0.7 0.13 240);
-  --mtg-black: oklch(0.25 0.01 280);
-  --mtg-red: oklch(0.62 0.2 25);
-  --mtg-green: oklch(0.6 0.16 145);
-  --mtg-colorless: oklch(0.78 0.01 60);
-  --mtg-multicolor: oklch(0.78 0.14 80);
+  --mtg-blue: oklch(0.62 0.16 240);
+  --mtg-black: oklch(0.20 0.02 280);
+  --mtg-red: oklch(0.60 0.21 25);
+  --mtg-green: oklch(0.55 0.16 145);
+  --mtg-colorless: oklch(0.72 0.010 60);
+  --mtg-multicolor: oklch(0.74 0.15 80);
 
-  --bracket-1: oklch(0.62 0.01 60);
-  --bracket-2: oklch(0.6 0.16 145);
-  --bracket-3: oklch(0.74 0.14 80);
-  --bracket-4: oklch(0.66 0.19 50);
-  --bracket-5: oklch(0.58 0.21 25);
+  --bracket-1: oklch(0.58 0.010 60);
+  --bracket-2: oklch(0.54 0.16 145);
+  --bracket-3: oklch(0.70 0.15 80);
+  --bracket-4: oklch(0.62 0.20 50);
+  --bracket-5: oklch(0.55 0.21 25);
 
-  --owned-available: oklch(0.55 0.16 145);
-  --owned-committed: oklch(0.7 0.14 80);
-  --unowned: oklch(0.58 0.18 25);
+  --owned-available: oklch(0.54 0.16 145);
+  --owned-committed: oklch(0.66 0.14 80);
+  --unowned: oklch(0.55 0.21 25);
 
-  --rarity-common: oklch(0.35 0.005 60);
-  --rarity-uncommon: oklch(0.62 0.01 240);
-  --rarity-rare: oklch(0.7 0.14 80);
-  --rarity-mythic: oklch(0.62 0.2 35);
+  --rarity-common: oklch(0.32 0.005 60);
+  --rarity-uncommon: oklch(0.60 0.010 240);
+  --rarity-rare: oklch(0.66 0.15 80);
+  --rarity-mythic: oklch(0.58 0.21 30);
 }
 
-/* ───── DARK (default — long-session trading desk) ───── */
-.dark {
-  /* shadcn aliases */
-  --background: oklch(0.16 0.008 240);
-  --foreground: oklch(0.96 0.005 80);
-  --card: oklch(0.21 0.01 240);
-  --card-foreground: oklch(0.96 0.005 80);
-  --popover: oklch(0.235 0.012 240);
-  --popover-foreground: oklch(0.96 0.005 80);
-  --primary: oklch(0.78 0.15 75);              /* amber */
-  --primary-foreground: oklch(0.18 0.01 240);
-  --secondary: oklch(0.26 0.012 240);
-  --secondary-foreground: oklch(0.96 0.005 80);
-  --muted: oklch(0.245 0.01 240);
-  --muted-foreground: oklch(0.66 0.012 80);
-  --accent: oklch(0.28 0.02 80);
-  --accent-foreground: oklch(0.96 0.005 80);
-  --destructive: oklch(0.66 0.2 22);
-  --border: oklch(0.32 0.01 240);
-  --input: oklch(0.3 0.01 240);
-  --ring: oklch(0.78 0.15 75);
-  --chart-1: oklch(0.78 0.15 75);
-  --chart-2: oklch(0.7 0.16 145);
-  --chart-3: oklch(0.7 0.18 25);
-  --chart-4: oklch(0.7 0.14 240);
-  --chart-5: oklch(0.55 0.01 80);
-
-  /* MTG Vault semantic */
-  --surface-base: oklch(0.13 0.008 240);
-  --surface-raised: oklch(0.19 0.01 240);
-  --surface-overlay: oklch(0.22 0.012 240);
-  --surface-inset: oklch(0.16 0.008 240);
-  --border-subtle: oklch(0.27 0.01 240);
-  --border-strong: oklch(0.4 0.012 240);
-  --text-primary: oklch(0.96 0.005 80);
-  --text-secondary: oklch(0.78 0.008 80);
-  --text-muted: oklch(0.6 0.012 80);
-  --text-disabled: oklch(0.42 0.01 240);
-  --brand: oklch(0.78 0.15 75);
-  --brand-strong: oklch(0.85 0.15 78);
-  --brand-soft: oklch(0.3 0.06 75);
-  --value-positive: oklch(0.72 0.18 145);
-  --value-negative: oklch(0.7 0.2 25);
-  --value-neutral: oklch(0.6 0.012 80);
-
-  --mtg-white: oklch(0.86 0.04 85);
-  --mtg-blue: oklch(0.7 0.13 240);
-  --mtg-black: oklch(0.32 0.02 280);
-  --mtg-red: oklch(0.66 0.2 25);
-  --mtg-green: oklch(0.66 0.16 145);
-  --mtg-colorless: oklch(0.65 0.008 60);
-  --mtg-multicolor: oklch(0.78 0.14 80);
-
-  --bracket-1: oklch(0.55 0.01 240);
-  --bracket-2: oklch(0.66 0.16 145);
-  --bracket-3: oklch(0.78 0.14 80);
-  --bracket-4: oklch(0.72 0.19 50);
-  --bracket-5: oklch(0.7 0.21 25);
-
-  --owned-available: oklch(0.72 0.18 145);
-  --owned-committed: oklch(0.78 0.14 80);
-  --unowned: oklch(0.7 0.2 25);
-
-  --rarity-common: oklch(0.55 0.005 60);
-  --rarity-uncommon: oklch(0.7 0.01 240);
-  --rarity-rare: oklch(0.78 0.14 80);
-  --rarity-mythic: oklch(0.7 0.2 35);
-}
+/* ═════════════════════════════════════════════════════════════════════
+   BASE LAYER
+   ═════════════════════════════════════════════════════════════════════ */
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border-default);
   }
+
   html {
-    @apply font-sans;
+    font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color-scheme: dark;
   }
+  html.light {
+    color-scheme: light;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "ss01", "cv11";
+    background-color: var(--surface-base);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: 0.005em;
   }
 
-  /* Tabular figures everywhere we care about column alignment.
-   * Apply via the .num utility — opt-in, not opt-out. */
-  .num {
+  /* Headers always use the display face — no fallback to serif possible
+   * because the explicit family chain ends in sans-serif keywords. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+
+  code, kbd, samp, pre {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  }
+
+  /* The single most important rule for the trading-desk feel:
+   * every numeric value the user reads opts into the mono face with
+   * tabular figures via the .num utility. */
+  .num,
+  .tabular-nums,
+  [data-num="true"] {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
     font-variant-numeric: tabular-nums;
-    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
   }
 
-  /* Headings get tighter tracking; bold by default. */
-  h1, h2, h3 {
-    @apply font-semibold tracking-tight;
-  }
-
-  /* Mana font slight nudge for visual alignment with surrounding text. */
+  /* Mana font cost-pip nudge — keep the small ring around cost circles
+   * legible on dark surfaces. */
   .ms.ms-cost {
-    box-shadow: 0 0 0 1px oklch(0 0 0 / 0.18);
+    box-shadow: 0 0 0 1px oklch(0 0 0 / 0.25);
+  }
+
+  /* Selection — brand-tinted */
+  ::selection {
+    background-color: var(--brand-soft);
+    color: var(--text-primary);
+  }
+
+  /* Focus ring — brand */
+  :where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ═════════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
   }
 }

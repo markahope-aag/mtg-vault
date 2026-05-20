@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 function readInitial(): "dark" | "light" {
   if (typeof document === "undefined") return "dark";
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  return document.documentElement.classList.contains("light") ? "light" : "dark";
 }
 
 export function ThemeToggle() {
@@ -14,11 +14,9 @@ export function ThemeToggle() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
+    if (theme === "light") root.classList.add("light");
+    else root.classList.remove("light");
     root.dataset.theme = theme;
-    // Cookie so server-rendered html.dark class matches on next request,
-    // preventing first-paint flash.
     document.cookie = `theme=${theme}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
   }, [theme]);
 
@@ -27,7 +25,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      className="inline-flex size-7 items-center justify-center rounded-md border border-border-subtle bg-surface-raised text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+      className="inline-flex size-7 items-center justify-center rounded-md border border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
     >
       {theme === "dark" ? (
         <Sun className="size-3.5" />
