@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageOff, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,13 +28,34 @@ export function DeckbuilderHeader({
   commanderImg,
   onExport,
   onRefreshed,
+  onOpenBracket,
 }: {
   deck: DeckDetail;
   commanderImg: string | null;
   onExport: () => void;
   onRefreshed: () => void;
+  onOpenBracket?: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [calculatedBracket, setCalculatedBracket] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/decks/${deck.deck.id}/snapshots`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { snapshots?: Array<{ calculatedBracket: number | null }> }) => {
+        if (cancelled || !d?.snapshots?.length) return;
+        const latest = d.snapshots[0];
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCalculatedBracket(latest.calculatedBracket);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [deck.deck.id, deck.deck.updatedAt]);
 
   const totalsTone =
     deck.totalCards === 100
@@ -130,9 +151,31 @@ export function DeckbuilderHeader({
               Target {BRACKET_LABELS[deck.deck.targetBracket]}
             </Badge>
           )}
-          <Badge variant="outline" className="text-[10px]">
-            Calculated —
-          </Badge>
+          <button
+            type="button"
+            onClick={onOpenBracket}
+            className="inline-flex"
+            title={
+              calculatedBracket == null
+                ? "Press ⌘B to calculate"
+                : `Calculated bracket — open panel`
+            }
+          >
+            <Badge
+              variant={calculatedBracket == null ? "outline" : "secondary"}
+              className="text-[10px]"
+            >
+              Calculated{" "}
+              {calculatedBracket == null
+                ? "—"
+                : BRACKET_LABELS[calculatedBracket]}
+              {deck.deck.targetBracket != null &&
+                calculatedBracket != null &&
+                calculatedBracket > deck.deck.targetBracket && (
+                  <span className="ml-1 inline-block size-1.5 rounded-full bg-amber-500" />
+                )}
+            </Badge>
+          </button>
         </div>
 
         <div className="ml-auto">

@@ -11,7 +11,7 @@ import { Decklist } from "./decklist";
 import { DetailPane } from "./detail-pane";
 import { ShortcutFooter } from "./shortcut-footer";
 import { ExportDialog } from "./export-dialog";
-import { BracketDrawer } from "./bracket-drawer";
+import { BracketPanel } from "./bracket-panel";
 
 export type ActiveCard = {
   oracleId: string;
@@ -264,11 +264,21 @@ export function DeckbuilderShell({
       if (cmd && e.key.toLowerCase() === "s") {
         e.preventDefault();
         try {
-          const res = await fetch(`/api/decks/${deck.deck.id}/snapshot`, {
-            method: "POST",
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          toast.success("Snapshot saved");
+          const res = await fetch(
+            `/api/decks/${deck.deck.id}/bracket?writeSnapshot=true`,
+            { method: "POST" },
+          );
+          if (!res.ok) {
+            const detail = await res.json().catch(() => ({}));
+            throw new Error(detail.error ?? `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          const bracketLabel =
+            data.bracket != null ? `Bracket ${data.bracket}` : "Bracket pending";
+          const value = data.snapshot?.totalValueUsd ?? 0;
+          toast.success(
+            `Snapshot saved: $${Number(value).toFixed(2)} · ${bracketLabel}`,
+          );
         } catch (err) {
           toast.error(
             `Snapshot failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -327,6 +337,7 @@ export function DeckbuilderShell({
           commanderImg={commanderImg}
           onExport={() => setExportOpen(true)}
           onRefreshed={() => router.refresh()}
+          onOpenBracket={() => setBracketOpen(true)}
         />
 
         <div className="grid flex-1 grid-cols-1 gap-4 px-4 py-4 lg:grid-cols-[360px_minmax(0,1fr)_380px]">
@@ -341,7 +352,22 @@ export function DeckbuilderShell({
           onOpenChange={setExportOpen}
           deck={deck}
         />
-        <BracketDrawer open={bracketOpen} onOpenChange={setBracketOpen} />
+        <BracketPanel
+          open={bracketOpen}
+          onOpenChange={setBracketOpen}
+          deckId={deck.deck.id}
+          targetBracket={deck.deck.targetBracket}
+          onRemoveCard={async (oracleId) => {
+            const target = deck.cards.find(
+              (c) => c.card.oracleId === oracleId,
+            );
+            if (!target) return;
+            await removeCard(
+              target.deckCardRow.printingId,
+              target.deckCardRow.category,
+            );
+          }}
+        />
       </div>
     </DeckbuilderContext.Provider>
   );
