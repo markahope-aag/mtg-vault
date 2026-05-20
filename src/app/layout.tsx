@@ -38,7 +38,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const theme = cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+  // Read the v2 cookie so prior "theme=light" sticky-toggle preferences from
+  // the previous design system don't carry through. Dark is unequivocally the
+  // default unless the user has explicitly opted into light in the new system.
+  const theme =
+    cookieStore.get("mtgv-theme")?.value === "light" ? "light" : "dark";
   return (
     <html
       lang="en"

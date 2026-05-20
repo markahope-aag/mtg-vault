@@ -17,7 +17,9 @@ export function ThemeToggle() {
     if (theme === "light") root.classList.add("light");
     else root.classList.remove("light");
     root.dataset.theme = theme;
-    document.cookie = `theme=${theme}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    document.cookie = `mtgv-theme=${theme}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    // Clear the legacy v1 cookie so it can't override the v2 preference.
+    document.cookie = "theme=; path=/; max-age=0; samesite=lax";
   }, [theme]);
 
   return (
