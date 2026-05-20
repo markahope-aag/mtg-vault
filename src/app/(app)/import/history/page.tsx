@@ -46,8 +46,8 @@ export default async function ImportHistoryPage() {
         </CardHeader>
         <CardContent className="p-0">
           {batches.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">
-              No imports yet.
+            <p className="empty-terminal p-6 text-center">
+              no imports recorded
             </p>
           ) : (
             <table className="w-full text-sm">

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { BracketBadge } from "@/components/bracket-badge";
 import { ValueDelta } from "@/components/value-delta";
+import { ManaCost } from "@/components/mana-cost";
 import { computeCollectionValue } from "@/db/queries/collection-value";
 import {
   fetchSnapshots,
@@ -38,6 +39,18 @@ const COLOR_LABEL: Record<string, string> = {
   G: "Green",
   Colorless: "Colorless",
   Multicolor: "Multicolor",
+};
+
+// Maps the distribution key to a mana-cost string so ManaCost renders a
+// proper Mana-font glyph next to each row in the "By color" insight panel.
+const COLOR_MANA: Record<string, string | null> = {
+  W: "{W}",
+  U: "{U}",
+  B: "{B}",
+  R: "{R}",
+  G: "{G}",
+  Colorless: "{C}",
+  Multicolor: null,
 };
 
 export default async function DashboardPage() {
@@ -90,27 +103,28 @@ export default async function DashboardPage() {
       </header>
 
       {/* ── Hero: collection value ── */}
-      <section className="rounded-md border border-border-strong bg-surface-raised">
-        <div className="grid grid-cols-1 gap-x-8 gap-y-3 px-6 py-5 lg:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">
+      <section className="hero-surface relative overflow-hidden">
+        <div className="grid-bg absolute inset-0 opacity-40" aria-hidden />
+        <div className="relative grid grid-cols-1 gap-x-10 gap-y-4 px-7 py-6 lg:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-3">
+            <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.28em] text-[var(--brand)]">
               Market value
             </p>
-            <p className="num text-[56px] font-semibold leading-none text-text-primary">
-              <span className="text-[28px] text-text-muted">$</span>
+            <p className="num text-[56px] font-semibold leading-none text-[var(--text-primary)]">
+              <span className="text-[28px] text-[var(--text-muted)]">$</span>
               {value.marketValueUsd.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </p>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-wide">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[12px] uppercase tracking-wide">
               {valueDelta30d != null ? (
                 <>
-                  <ValueDelta value={valueDelta30d} className="text-[13px]" />
+                  <ValueDelta value={valueDelta30d} className="text-[14px]" />
                   {valueDelta30dPct != null && (
                     <span
                       className={cn(
-                        "num text-[11px]",
+                        "num text-[12px]",
                         valueDelta30dPct >= 0
                           ? "text-[var(--color-value-positive)]"
                           : "text-[var(--color-value-negative)]",
@@ -120,17 +134,17 @@ export default async function DashboardPage() {
                       {valueDelta30dPct.toFixed(2)}%
                     </span>
                   )}
-                  <span className="text-text-muted">· vs 30d ago</span>
+                  <span className="text-[var(--text-muted)]">
+                    · vs 30d ago
+                  </span>
                 </>
               ) : (
-                <span className="text-text-muted">
-                  30d trend accumulating
-                </span>
+                <span className="empty-terminal">30d trend accumulating</span>
               )}
             </div>
           </div>
 
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 self-end font-mono text-[11px] lg:border-l lg:border-border-subtle lg:pl-8">
+          <dl className="grid grid-cols-2 gap-x-7 gap-y-3 self-end lg:border-l lg:border-[var(--border-subtle)] lg:pl-9">
             <LedgerRow
               label="Cost basis"
               value={`$${formatNum(value.costBasisUsd)}`}
@@ -151,7 +165,7 @@ export default async function DashboardPage() {
                   {value.unrealizedGainUsd >= 0 ? "+" : "−"}$
                   {formatNum(Math.abs(value.unrealizedGainUsd))}
                   {unrealizedPct != null && (
-                    <span className="ml-1 text-text-muted">
+                    <span className="ml-1 text-[12px] text-[var(--text-muted)]">
                       ({unrealizedPct >= 0 ? "+" : ""}
                       {unrealizedPct.toFixed(1)}%)
                     </span>
@@ -189,7 +203,7 @@ export default async function DashboardPage() {
               <LedgerRow
                 label="Updated"
                 value={
-                  <span className="text-text-muted">
+                  <span className="text-[var(--text-muted)]">
                     {new Date(latestSnapshot.date).toLocaleDateString()}
                   </span>
                 }
@@ -245,8 +259,8 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             {deckSummaries.length === 0 ? (
-              <p className="px-5 py-6 text-center text-xs text-text-muted">
-                No decks yet.
+              <p className="empty-terminal px-5 py-6 text-center">
+                no decks recorded
               </p>
             ) : (
               <table className="w-full text-[13px]">
@@ -322,6 +336,7 @@ export default async function DashboardPage() {
             entries={insights.colorDistribution}
             getTint={(label) => COLOR_TOKEN[label]}
             relabel={(label) => COLOR_LABEL[label] ?? label}
+            getIcon={(label) => COLOR_MANA[label] ?? null}
           />
           <InsightCard title="By type" entries={insights.typeDistribution} />
           <InsightCard title="Top sets" entries={insights.topSets} mono />
@@ -337,8 +352,8 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent className="p-0">
           {topCards.length === 0 ? (
-            <p className="px-5 py-6 text-center text-xs text-text-muted">
-              No inventory yet.
+            <p className="empty-terminal px-5 py-6 text-center">
+              no inventory recorded
             </p>
           ) : (
             <div className="grid grid-cols-1 divide-y divide-border-subtle md:grid-cols-2 md:divide-x md:divide-y-0">
@@ -413,11 +428,13 @@ function LedgerRow({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle/60 pb-1 last:border-b-0 last:pb-0">
-      <dt className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
+    <div className="flex flex-col gap-0.5 border-b border-[var(--border-subtle)]/60 pb-2 last:border-b-0 last:pb-0">
+      <dt className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
         {label}
       </dt>
-      <dd className="num text-right text-[12px] text-text-primary">{value}</dd>
+      <dd className="num text-[16px] font-medium text-[var(--text-primary)]">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -427,53 +444,66 @@ function InsightCard({
   entries,
   getTint,
   relabel,
+  getIcon,
   mono,
 }: {
   title: string;
   entries: Array<{ label: string; count: number }>;
   getTint?: (label: string) => string | undefined;
   relabel?: (label: string) => string;
+  getIcon?: (label: string) => string | null;
   mono?: boolean;
 }) {
   const max = Math.max(1, ...entries.map((e) => e.count));
   return (
     <Card>
       <CardHeader className="pb-1.5">
-        <CardTitle className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+        <CardTitle className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 px-3 pb-3">
         {entries.length === 0 ? (
-          <p className="text-[11px] text-text-muted">No data.</p>
+          <p className="empty-terminal">no data</p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="space-y-1.5">
             {entries.slice(0, 7).map((e) => {
               const tint = getTint?.(e.label) ?? "var(--color-text-secondary)";
               const width = Math.max(2, Math.round((e.count / max) * 100));
+              const mana = getIcon?.(e.label) ?? null;
               return (
                 <li key={e.label} className="space-y-0.5">
-                  <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span
-                      className={cn(
-                        "truncate",
-                        mono &&
-                          "font-mono uppercase tracking-wide text-text-secondary",
+                  <div className="flex items-center justify-between gap-2 text-[12px]">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {mana ? (
+                        <ManaCost cost={mana} size="xs" />
+                      ) : (
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ background: tint }}
+                        />
                       )}
-                    >
-                      {relabel ? relabel(e.label) : e.label}
+                      <span
+                        className={cn(
+                          "truncate",
+                          mono &&
+                            "font-mono uppercase tracking-wide text-text-secondary",
+                        )}
+                      >
+                        {relabel ? relabel(e.label) : e.label}
+                      </span>
                     </span>
                     <span className="num shrink-0 text-text-muted">
                       {e.count.toLocaleString()}
                     </span>
                   </div>
-                  <div className="h-1 rounded-full bg-surface-inset/60">
+                  <div className="h-1.5 rounded-full bg-[var(--surface-inset)]/60">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${width}%`,
                         background: tint,
-                        opacity: getTint ? 0.8 : 0.4,
+                        opacity: getTint ? 0.85 : 0.45,
                       }}
                     />
                   </div>

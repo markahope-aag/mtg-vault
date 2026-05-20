@@ -934,9 +934,9 @@ function ActiveChip({
 
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-        {hasFilters ? "No matches" : "Empty inventory"}
+    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+      <p className="empty-terminal">
+        {hasFilters ? "no matches" : "no inventory recorded"}
       </p>
       {hasFilters ? (
         <p className="text-sm text-text-secondary">

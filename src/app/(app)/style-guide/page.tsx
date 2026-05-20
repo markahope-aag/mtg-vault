@@ -12,6 +12,7 @@ export default function StyleGuide() {
         <Header />
         <div className="mt-8 space-y-12">
           <SurfaceElevation />
+          <SignatureMoves />
           <Typography />
           <TypeScale />
           <Numerics />
@@ -306,6 +307,154 @@ function Numerics() {
               </p>
             </div>
           ))}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/* ────────────────────────── Signature moves ────────────────────────── */
+
+function SignatureMoves() {
+  return (
+    <Section
+      label="01b — Signature"
+      title="A few deliberate moves give the system character"
+      desc="These are the moments amber actually shows up, the hero panel reads as THE number, the grid hints at terminal, and MTG colors render with proper Mana glyphs. Use sparingly — 3–5 per page max."
+    >
+      <div className="grid gap-3 lg:grid-cols-2">
+        {/* Hero surface */}
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+            Hero surface
+          </p>
+          <div className="hero-surface relative overflow-hidden">
+            <div
+              className="grid-bg absolute inset-0 opacity-40"
+              aria-hidden
+            />
+            <div className="relative px-6 py-5">
+              <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.28em] text-[var(--brand)]">
+                Market value
+              </p>
+              <p className="num mt-2 text-[44px] font-semibold leading-none">
+                <span className="text-[22px] text-[var(--text-muted)]">$</span>
+                1,247.83
+              </p>
+              <p className="mt-2 font-[var(--font-mono)] text-[11px] uppercase tracking-wide text-[var(--value-positive)]">
+                ▲ +$142.50 · +12.95% · vs 30d ago
+              </p>
+            </div>
+          </div>
+          <p className="font-[var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+            .hero-surface · brand-amber top edge · raised shadow · grid-bg
+            backdrop
+          </p>
+        </div>
+
+        {/* Active nav */}
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+            Active nav state
+          </p>
+          <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-5 py-4">
+            <nav className="flex items-center gap-6 text-[14px]">
+              <span className="font-medium text-[var(--text-secondary)]">
+                Dashboard
+              </span>
+              <span className="nav-active font-medium text-[var(--text-primary)]">
+                Inventory
+              </span>
+              <span className="font-medium text-[var(--text-secondary)]">
+                Decks
+              </span>
+              <span className="font-medium text-[var(--text-secondary)]">
+                Import
+              </span>
+            </nav>
+          </div>
+          <p className="font-[var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+            .nav-active · 2px brand underline · primary text color
+          </p>
+        </div>
+
+        {/* MTG colors with Mana glyphs */}
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+            MTG color bars
+          </p>
+          <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+            <p className="mb-3 font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+              By color
+            </p>
+            <ul className="space-y-1.5">
+              {[
+                { label: "Blue", token: "var(--color-mtg-blue)", count: 87, mana: "{U}" },
+                { label: "Green", token: "var(--color-mtg-green)", count: 64, mana: "{G}" },
+                { label: "Black", token: "var(--color-mtg-black)", count: 41, mana: "{B}" },
+                { label: "Red", token: "var(--color-mtg-red)", count: 33, mana: "{R}" },
+                { label: "White", token: "var(--color-mtg-white)", count: 28, mana: "{W}" },
+                { label: "Colorless", token: "var(--color-mtg-colorless)", count: 12, mana: "{C}" },
+              ].map((row, i, arr) => {
+                const max = Math.max(...arr.map((r) => r.count));
+                const width = Math.round((row.count / max) * 100);
+                return (
+                  <li key={row.label} className="space-y-0.5">
+                    <div className="flex items-center justify-between gap-2 text-[12px]">
+                      <span className="flex items-center gap-1.5">
+                        <ManaCost cost={row.mana} size="xs" />
+                        <span>{row.label}</span>
+                      </span>
+                      <span className="num text-[var(--text-muted)]">
+                        {row.count}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-[var(--surface-inset)]/60">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${width}%`,
+                          background: row.token,
+                          opacity: 0.85,
+                        }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <p className="font-[var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+            Mana glyph + tinted bar using --color-mtg-*
+          </p>
+        </div>
+
+        {/* Empty state */}
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+            Terminal empty state
+          </p>
+          <div className="flex h-[178px] flex-col items-center justify-center rounded-md border border-dashed border-[var(--border-subtle)] bg-[var(--surface-inset)]/60">
+            <p className="empty-terminal">no decks recorded</p>
+            <p className="mt-3 text-[13px] text-[var(--text-secondary)]">
+              Create one to start tracking what you&rsquo;re building.
+            </p>
+          </div>
+          <p className="font-[var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+            .empty-terminal · 11px mono uppercase 0.22em · prefixed with //
+          </p>
+        </div>
+
+        {/* Grid-bg utility */}
+        <div className="space-y-2 lg:col-span-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+            Grid backdrop
+          </p>
+          <div className="grid-bg h-32 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-base)]" />
+          <p className="font-[var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+            .grid-bg · 32px hairline grid · use behind hero zones or empty
+            slates · opacity 0.3–0.5 when layered behind content
+          </p>
         </div>
       </div>
     </Section>

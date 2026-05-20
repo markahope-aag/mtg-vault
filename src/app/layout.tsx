@@ -5,22 +5,25 @@ import "mana-font/css/mana.css";
 import "keyrune/css/keyrune.css";
 import "./globals.css";
 
+// Rename the loader variables so they do NOT collide with the theme tokens
+// of the same name in globals.css. Previously --font-display referenced
+// itself via @theme inline, which collapsed the family to serif fallback.
 const display = Space_Grotesk({
-  variable: "--font-display",
+  variable: "--font-display-loaded",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
 const body = Inter({
-  variable: "--font-body",
+  variable: "--font-body-loaded",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
 });
 
 const mono = JetBrains_Mono({
-  variable: "--font-mono",
+  variable: "--font-mono-loaded",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",

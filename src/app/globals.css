@@ -83,10 +83,14 @@
   --color-rarity-rare: var(--rarity-rare);
   --color-rarity-mythic: var(--rarity-mythic);
 
-  /* Fonts — referenced directly, no recursive var() */
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  /* Fonts — the next/font loader emits --font-*-loaded on <html>; these
+   * theme tokens compose them into a full family chain. Renaming the
+   * loader vars breaks the self-recursion that previously collapsed
+   * headers to the browser default serif. */
+  --font-sans: var(--font-body-loaded), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-body-loaded), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-loaded), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-loaded), ui-monospace, SFMono-Regular, monospace;
 
   /* Radii — tight on purpose */
   --radius-sm: 3px;
@@ -170,14 +174,17 @@
    ═════════════════════════════════════════════════════════════════════ */
 
 .light {
-  --surface-base: oklch(0.985 0.003 90);
-  --surface-raised: oklch(1 0 0);
+  /* Light palette — same elevation discipline as dark. The base is a warm
+   * off-paper; raised cards are crisp paper-white; inset wells are clearly
+   * darker. Steps are visible at a glance, not implied by border alone. */
+  --surface-base: oklch(0.962 0.005 85);
+  --surface-raised: oklch(0.998 0.002 85);
   --surface-overlay: oklch(1 0 0);
-  --surface-inset: oklch(0.955 0.004 80);
+  --surface-inset: oklch(0.918 0.008 80);
 
-  --border-subtle: oklch(0 0 0 / 0.06);
-  --border-default: oklch(0 0 0 / 0.10);
-  --border-strong: oklch(0 0 0 / 0.18);
+  --border-subtle: oklch(0 0 0 / 0.08);
+  --border-default: oklch(0 0 0 / 0.14);
+  --border-strong: oklch(0 0 0 / 0.22);
 
   --text-primary: oklch(0.16 0.014 60);
   --text-secondary: oklch(0.36 0.012 60);
@@ -297,6 +304,70 @@
       linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
     background-size: 32px 32px;
   }
+
+  /* Hero surface — the one panel on each page that anchors the page's
+   * primary value. Brand-amber top edge reads as "lit from above"; raised
+   * shadow physically separates it from the page; corner inset bumps the
+   * radius slightly so it sits taller than secondary cards. */
+  .hero-surface {
+    position: relative;
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      0 1px 0 0 oklch(1 0 0 / 0.04) inset,
+      0 10px 30px -12px oklch(0 0 0 / 0.55),
+      0 2px 6px -2px oklch(0 0 0 / 0.35);
+  }
+  .light .hero-surface {
+    box-shadow:
+      0 1px 0 0 oklch(1 0 0 / 0.9) inset,
+      0 12px 28px -16px oklch(0 0 0 / 0.18),
+      0 2px 6px -3px oklch(0 0 0 / 0.10);
+  }
+  .hero-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--brand) 18%,
+      var(--brand) 82%,
+      transparent
+    );
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+    opacity: 0.9;
+  }
+
+  /* Active nav link — amber underline + brand-tinted text. */
+  .nav-active {
+    color: var(--text-primary);
+    position: relative;
+  }
+  .nav-active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -14px;
+    height: 2px;
+    background: var(--brand);
+    border-radius: 1px;
+  }
+
+  /* Terminal-style empty state — used for any zero-data placeholder so the
+   * "No data" copy doesn't look limp. */
+  .empty-terminal {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--text-muted);
+  }
+  .empty-terminal::before { content: "// "; opacity: 0.6; }
 
   .text-balance {
     text-wrap: balance;

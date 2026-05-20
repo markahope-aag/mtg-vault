@@ -6,6 +6,7 @@ import { CommandPaletteProvider } from "@/components/card-search/command-palette
 import { QueryProvider } from "@/components/query-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
+import { NavLink } from "@/components/nav-link";
 
 export default async function AppLayout({
   children,
@@ -58,19 +59,3 @@ export default async function AppLayout({
   );
 }
 
-function NavLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="font-medium text-text-secondary transition-colors hover:text-text-primary"
-    >
-      {children}
-    </Link>
-  );
-}
