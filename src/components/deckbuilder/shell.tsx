@@ -331,7 +331,7 @@ export function DeckbuilderShell({
 
   return (
     <DeckbuilderContext.Provider value={ctxValue}>
-      <div className="flex min-h-[calc(100vh-49px)] flex-col">
+      <div className="flex min-h-[calc(100vh-49px)] flex-col bg-background">
         <DeckbuilderHeader
           deck={deck}
           commanderImg={commanderImg}
@@ -340,10 +340,26 @@ export function DeckbuilderShell({
           onOpenBracket={() => setBracketOpen(true)}
         />
 
-        <div className="grid flex-1 grid-cols-1 gap-4 px-4 py-4 lg:grid-cols-[360px_minmax(0,1fr)_380px]">
+        <div className="hidden flex-1 grid-cols-[340px_minmax(0,1fr)_380px] gap-3 p-3 lg:grid">
           <SearchPane />
           <Decklist />
           <DetailPane />
+        </div>
+
+        {/* Below 1024px the three panes don't fit. Render the decklist alone
+             and surface the trading-desk-voiced banner so the experience
+             degrades on-brand rather than collapsing into broken columns. */}
+        <div className="flex flex-1 flex-col gap-3 p-3 lg:hidden">
+          <div className="rounded-md border border-border-subtle bg-surface-inset px-4 py-3 text-xs">
+            <p className="font-mono uppercase tracking-[0.18em] text-text-muted">
+              terminal width
+            </p>
+            <p className="mt-1 text-text-secondary">
+              The deckbuilder is built for ≥1024px. Decklist shown; search and
+              detail panes are hidden until you widen the window.
+            </p>
+          </div>
+          <Decklist />
         </div>
 
         <ShortcutFooter />

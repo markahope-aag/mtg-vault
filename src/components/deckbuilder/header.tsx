@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { ImageOff, MoreHorizontal } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,17 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ManaCost } from "@/components/mana-cost";
+import { ColorIdentityPips } from "@/components/mana-cost";
+import { BracketBadge } from "@/components/bracket-badge";
 import type { DeckDetail } from "@/lib/decks/types";
 import { EditDeckDialog } from "@/components/decks/edit-deck-dialog";
-
-const BRACKET_LABELS: Record<number, string> = {
-  1: "B1",
-  2: "B2",
-  3: "B3",
-  4: "B4",
-  5: "B5",
-};
+import { cn } from "@/lib/utils";
 
 export function DeckbuilderHeader({
   deck,
@@ -57,12 +49,14 @@ export function DeckbuilderHeader({
     };
   }, [deck.deck.id, deck.deck.updatedAt]);
 
+  // N/100 — the critical feedback signal. Green when exactly 100, amber when
+  // below, red when over.
   const totalsTone =
     deck.totalCards === 100
-      ? "text-emerald-700"
+      ? "text-[var(--color-value-positive)]"
       : deck.totalCards > 100
-        ? "text-rose-700"
-        : "text-amber-700";
+        ? "text-[var(--color-value-negative)]"
+        : "text-[var(--color-bracket-3)]";
 
   const editable = {
     id: deck.deck.id,
@@ -113,97 +107,122 @@ export function DeckbuilderHeader({
     if (res.ok) window.location.href = "/decks";
   }
 
+  const overTarget =
+    deck.deck.targetBracket != null &&
+    calculatedBracket != null &&
+    calculatedBracket > deck.deck.targetBracket;
+
   return (
-    <div className="sticky top-0 z-30 border-b bg-background/95 px-4 py-2 backdrop-blur">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="sticky top-0 z-30 border-b border-border-subtle bg-surface-base/90 backdrop-blur">
+      <div className="flex items-center gap-3 px-4 py-2">
         {commanderImg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={commanderImg}
             alt={deck.commander?.name ?? deck.deck.name}
-            className="size-9 shrink-0 rounded-full object-cover"
+            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-border-subtle"
           />
         ) : (
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <ImageOff className="size-4" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-inset text-text-muted ring-1 ring-border-subtle">
+            <ImageOff className="size-3.5" />
           </div>
         )}
-        <h1 className="text-base font-semibold tracking-tight">
-          {deck.deck.name}
-        </h1>
-        {deck.colorIdentity.length > 0 ? (
-          <ManaCost
-            cost={deck.colorIdentity.map((c) => `{${c}}`).join("")}
-            size="xs"
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground">colorless</span>
-        )}
-        <div className="ml-2 flex items-center gap-3 text-xs">
-          <span className={`font-semibold tabular-nums ${totalsTone}`}>
-            {deck.totalCards}/100
-          </span>
-          <span className="tabular-nums text-muted-foreground">
-            ${deck.totalValueUsd.toFixed(2)}
-          </span>
-          {deck.deck.targetBracket && (
-            <Badge variant="secondary" className="text-[10px]">
-              Target {BRACKET_LABELS[deck.deck.targetBracket]}
-            </Badge>
+
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-semibold tracking-tight text-text-primary">
+            {deck.deck.name}
+          </h1>
+          {deck.commander && (
+            <p className="truncate font-mono text-[10px] uppercase tracking-wide text-text-muted">
+              {deck.commander.name}
+              {deck.partner && ` · ${deck.partner.name}`}
+            </p>
           )}
-          <button
-            type="button"
-            onClick={onOpenBracket}
-            className="inline-flex"
-            title={
-              calculatedBracket == null
-                ? "Press ⌘B to calculate"
-                : `Calculated bracket — open panel`
-            }
-          >
-            <Badge
-              variant={calculatedBracket == null ? "outline" : "secondary"}
-              className="text-[10px]"
-            >
-              Calculated{" "}
-              {calculatedBracket == null
-                ? "—"
-                : BRACKET_LABELS[calculatedBracket]}
-              {deck.deck.targetBracket != null &&
-                calculatedBracket != null &&
-                calculatedBracket > deck.deck.targetBracket && (
-                  <span className="ml-1 inline-block size-1.5 rounded-full bg-amber-500" />
-                )}
-            </Badge>
-          </button>
         </div>
 
-        <div className="ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-2 text-sm hover:bg-muted">
-              <MoreHorizontal className="size-4" />
-              Actions
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                Edit deck
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onDuplicate}>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onExport}>
-                Export decklist
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={onDelete}
-                className="text-destructive focus:text-destructive"
-              >
-                Delete deck
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <span className="mx-1 hidden h-7 w-px bg-border-subtle sm:block" />
+
+        <ColorIdentityPips
+          identity={deck.colorIdentity}
+          size="xs"
+          className="shrink-0"
+        />
+
+        <div className="ml-auto flex items-center gap-4 font-mono text-[12px]">
+          {/* N/100 — the critical feedback. */}
+          <div className="flex items-baseline gap-1">
+            <span
+              className={cn("font-semibold tabular-nums", totalsTone)}
+              aria-label={`${deck.totalCards} of 100 cards`}
+            >
+              {deck.totalCards}
+              <span className="opacity-60">/100</span>
+            </span>
+          </div>
+
+          <span className="hidden tabular-nums text-text-muted sm:inline">
+            ${deck.totalValueUsd.toFixed(2)}
+          </span>
+
+          <span className="hidden h-4 w-px bg-border-subtle sm:block" />
+
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <BracketBadge bracket={deck.deck.targetBracket} prefix="Target" />
+            <button
+              type="button"
+              onClick={onOpenBracket}
+              className="group inline-flex items-center transition-opacity hover:opacity-80"
+              title={
+                calculatedBracket == null
+                  ? "Press ⌘B to calculate"
+                  : "Open bracket panel"
+              }
+            >
+              <BracketBadge
+                bracket={calculatedBracket}
+                prefix="Calc"
+                className={cn(
+                  "transition-colors",
+                  overTarget && "ring-1 ring-[var(--color-bracket-3)]/40",
+                )}
+              />
+              {overTarget && (
+                <span
+                  className="ml-1 inline-block size-1.5 rounded-full bg-[var(--color-bracket-3)]"
+                  aria-label="Over target bracket"
+                />
+              )}
+            </button>
+          </div>
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="ml-1 inline-flex h-7 items-center gap-1 rounded-md border border-border-subtle bg-surface-raised px-2 font-mono text-[11px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+            aria-label="Deck actions"
+          >
+            <MoreHorizontal className="size-3.5" />
+            Actions
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+              Edit deck
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDuplicate}>
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onExport}>
+              Export decklist
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={onDelete}
+              className="text-destructive focus:text-destructive"
+            >
+              Delete deck
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <EditDeckDialog
