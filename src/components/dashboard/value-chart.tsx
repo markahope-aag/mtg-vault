@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { DailySnapshot } from "@/lib/dashboard/queries";
+import { cn } from "@/lib/utils";
 
 const RANGES = [
   { label: "30d", days: 30 },
@@ -23,8 +24,8 @@ const RANGES = [
 export function ValueChart({ snapshots }: { snapshots: DailySnapshot[] }) {
   const [rangeIdx, setRangeIdx] = useState(0);
   const range = RANGES[rangeIdx];
-
   const [nowMs] = useState(() => Date.now());
+
   const data = useMemo(() => {
     if (range.days == null) return snapshots;
     const cutoffMs = nowMs - range.days * 86_400_000;
@@ -35,73 +36,140 @@ export function ValueChart({ snapshots }: { snapshots: DailySnapshot[] }) {
 
   if (snapshots.length < 2) {
     return (
-      <div className="flex h-56 flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">
-          Collection value tracking is just getting started.
+      <div className="flex h-56 flex-col items-center justify-center rounded-md border border-dashed border-border-subtle p-6 text-center">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+          Accumulating
         </p>
-        <p className="mt-1 text-xs">
-          The daily snapshot runs after the Scryfall price refresh. Trends
-          appear once a few days of data have accumulated.
-          {snapshots.length === 1 && (
-            <> Today&rsquo;s value: ${snapshots[0].marketValueUsd.toFixed(2)}.</>
-          )}
+        <p className="mt-1 max-w-[42ch] text-xs text-text-secondary">
+          The daily snapshot runs after the Scryfall price refresh.
+          Trends appear once a few days of data have accumulated.
         </p>
+        {snapshots.length === 1 && (
+          <p className="num mt-2 text-[13px] text-text-primary">
+            Today: ${snapshots[0].marketValueUsd.toFixed(2)}
+          </p>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-1 text-xs">
-        {RANGES.map((r, i) => (
-          <button
-            key={r.label}
-            type="button"
-            onClick={() => setRangeIdx(i)}
-            className={`rounded-md px-2 py-1 ${i === rangeIdx ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            {r.label}
-          </button>
-        ))}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+          {data.length} points
+        </p>
+        <div className="inline-flex overflow-hidden rounded-sm border border-border-subtle">
+          {RANGES.map((r, i) => (
+            <button
+              key={r.label}
+              type="button"
+              onClick={() => setRangeIdx(i)}
+              className={cn(
+                "border-l border-border-subtle px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors first:border-l-0",
+                i === rangeIdx
+                  ? "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]"
+                  : "bg-surface-raised text-text-muted hover:text-text-primary",
+              )}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="h-64 w-full">
         <ResponsiveContainer>
-          <AreaChart data={data}>
+          <AreaChart
+            data={data}
+            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+          >
             <defs>
-              <linearGradient id="marketFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#10b981" stopOpacity={0.05} />
+              <linearGradient id="valueChartFill" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor="var(--color-value-positive)"
+                  stopOpacity={0.32}
+                />
+                <stop
+                  offset="100%"
+                  stopColor="var(--color-value-positive)"
+                  stopOpacity={0.02}
+                />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeOpacity={0.1} vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={20} />
+            <CartesianGrid
+              stroke="var(--color-border-subtle)"
+              strokeOpacity={0.6}
+              strokeDasharray="2 3"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="date"
+              tick={{
+                fontSize: 10,
+                fontFamily: "var(--font-mono)",
+                fill: "var(--color-text-muted)",
+              }}
+              tickLine={false}
+              axisLine={{ stroke: "var(--color-border-subtle)" }}
+              minTickGap={28}
+            />
             <YAxis
-              tickFormatter={(v: number) => `$${Math.round(v).toLocaleString()}`}
-              tick={{ fontSize: 11 }}
-              width={70}
+              tickFormatter={(v: number) =>
+                `$${Math.round(v).toLocaleString()}`
+              }
+              tick={{
+                fontSize: 10,
+                fontFamily: "var(--font-mono)",
+                fill: "var(--color-text-muted)",
+              }}
+              tickLine={false}
+              axisLine={false}
+              width={64}
             />
             <Tooltip
+              cursor={{
+                stroke: "var(--color-border-strong)",
+                strokeWidth: 1,
+              }}
+              contentStyle={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                backgroundColor: "var(--color-surface-overlay)",
+                border: "1px solid var(--color-border-subtle)",
+                borderRadius: 4,
+                color: "var(--color-text-primary)",
+              }}
+              itemStyle={{
+                color: "var(--color-text-primary)",
+                padding: 0,
+              }}
+              labelStyle={{
+                color: "var(--color-text-muted)",
+                fontSize: 10,
+                marginBottom: 2,
+              }}
               formatter={(value) =>
-                typeof value === "number" ? `$${value.toFixed(2)}` : String(value)
+                typeof value === "number"
+                  ? `$${value.toFixed(2)}`
+                  : String(value)
               }
-              labelClassName="text-xs"
-              wrapperClassName="text-xs"
             />
             <Area
               type="monotone"
               dataKey="marketValueUsd"
-              name="Market value"
-              stroke="#10b981"
+              name="Market"
+              stroke="var(--color-value-positive)"
               strokeWidth={2}
-              fill="url(#marketFill)"
+              fill="url(#valueChartFill)"
             />
             <Line
               type="monotone"
               dataKey="costBasisUsd"
               name="Cost basis"
-              stroke="#71717a"
-              strokeDasharray="4 3"
-              strokeWidth={1.5}
+              stroke="var(--color-text-muted)"
+              strokeDasharray="3 3"
+              strokeWidth={1.25}
               dot={false}
             />
           </AreaChart>
