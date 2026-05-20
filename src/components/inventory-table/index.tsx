@@ -42,6 +42,7 @@ import { currentValueOf } from "@/lib/inventory/types";
 import { cn } from "@/lib/utils";
 import { EditRowDialog } from "./edit-row-dialog";
 import { DisposeDialog } from "./dispose-dialog";
+import { AddCardsPicker } from "./add-cards-picker";
 
 type SortField =
   | "name"
@@ -116,6 +117,7 @@ export function InventoryTable({
     [],
   );
   const [disposeOpen, setDisposeOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const nameTimerRef = useRef<number | null>(null);
   const handleNameChange = useCallback((v: string) => {
@@ -385,40 +387,50 @@ export function InventoryTable({
     foilsOnly;
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-3 px-4 py-4">
-      {/* ──── Header ──── */}
-      <header className="flex flex-wrap items-end justify-between gap-3 pb-2">
-        <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6">
+      {/* ──── Page header (canonical) ──── */}
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
             Inventory
           </p>
-          <div className="flex items-baseline gap-4">
-            <h1 className="num text-[28px] font-semibold leading-none">
-              {totals.totalCount.toLocaleString()}
-              <span className="ml-1 text-[12px] text-text-muted">cards</span>
-            </h1>
-            <div className="flex items-baseline gap-1.5 font-mono text-[14px]">
-              <span className="text-text-muted">$</span>
-              <span className="num font-semibold">
+          <h1 className="font-[var(--font-display)] text-[44px] font-semibold leading-[1.05] tracking-tight">
+            Your collection
+          </h1>
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[14px] text-[var(--text-secondary)]">
+            <span>
+              <span className="num font-medium text-[var(--text-primary)]">
+                {totals.totalCount.toLocaleString()}
+              </span>{" "}
+              cards
+            </span>
+            <span className="text-[var(--text-muted)]">·</span>
+            <span>
+              <span className="num font-medium text-[var(--text-primary)]">
+                $
                 {totals.totalValueUsd.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
-              </span>
-            </div>
+              </span>{" "}
+              market value
+            </span>
             {grouped && groups && (
-              <span className="font-mono text-[11px] text-text-muted">
-                · <span className="num">{groups.length}</span> unique
-              </span>
+              <>
+                <span className="text-[var(--text-muted)]">·</span>
+                <span>
+                  <span className="num font-medium text-[var(--text-primary)]">
+                    {groups.length}
+                  </span>{" "}
+                  unique
+                </span>
+              </>
             )}
-          </div>
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <ViewToggle
-            grouped={grouped}
-            onChange={setGrouped}
-          />
+          <ViewToggle grouped={grouped} onChange={setGrouped} />
           <a
             href="/api/inventory/export"
             download
@@ -432,7 +444,11 @@ export function InventoryTable({
           >
             <ArrowUpFromLine className="size-3.5" /> Import CSV
           </Link>
-          <Button disabled size="sm" className="h-7 gap-1.5">
+          <Button
+            size="sm"
+            className="h-7 gap-1.5"
+            onClick={() => setAddOpen(true)}
+          >
             <Plus className="size-3.5" /> Add cards
           </Button>
         </div>
@@ -799,6 +815,13 @@ export function InventoryTable({
         onOpenChange={(v) => {
           setDisposeOpen(v);
           if (!v) setDisposingRows([]);
+        }}
+      />
+      <AddCardsPicker
+        open={addOpen}
+        onOpenChange={(v) => {
+          setAddOpen(v);
+          if (!v) refetch();
         }}
       />
     </div>
