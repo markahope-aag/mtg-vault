@@ -143,6 +143,7 @@ export const inventory = pgTable(
     gradingCompany: text("grading_company"),
     grade: text("grade"),
     notes: text("notes"),
+    importBatchId: uuid("import_batch_id"),
     // Disposal fields — set when the card is sold/traded/lost. The row is
     // never deleted on disposal so it remains available for historical
     // value/cost-basis tracking.
@@ -218,3 +219,25 @@ export const syncState = pgTable("sync_state", {
   value: jsonb("value"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// ─── IMPORT BATCHES ─────────────────────────────────────────────
+
+export const importBatches = pgTable(
+  "import_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    filename: text("filename").notNull(),
+    fileHash: text("file_hash").notNull(),
+    format: text("format").notNull(),
+    totalRows: integer("total_rows").notNull(),
+    importedRows: integer("imported_rows").notNull(),
+    unmatchedRows: integer("unmatched_rows").notNull(),
+    skippedRows: integer("skipped_rows").notNull(),
+    defaultLocation: text("default_location"),
+    mode: text("mode").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    hashIdx: index("import_batches_hash_idx").on(t.fileHash),
+  }),
+);

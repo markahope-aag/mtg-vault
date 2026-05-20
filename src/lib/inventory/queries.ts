@@ -24,6 +24,7 @@ export type ListFilters = {
   foilOnly?: boolean;
   location?: string;
   includeDisposed?: boolean;
+  importBatchId?: string;
 };
 
 export type ListOptions = {
@@ -53,6 +54,9 @@ function buildWhere(filters: ListFilters): SQL {
   if (filters.foilOnly) clauses.push(sql`i.foil = true`);
   if (filters.location && filters.location.trim()) {
     clauses.push(sql`i.location = ${filters.location.trim()}`);
+  }
+  if (filters.importBatchId) {
+    clauses.push(sql`i.import_batch_id = ${filters.importBatchId}::uuid`);
   }
   if (!filters.includeDisposed) clauses.push(sql`i.disposed_at IS NULL`);
 

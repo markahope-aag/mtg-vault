@@ -15,6 +15,7 @@ import {
   Search,
   Trash2,
   Undo2,
+  Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -393,6 +394,12 @@ export function InventoryTable({
             />
             Group by card
           </label>
+          <Link
+            href="/import"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-sm font-medium hover:bg-muted"
+          >
+            <Upload className="size-4" /> Import CSV
+          </Link>
           <Button disabled variant="outline" size="sm">
             <Plus className="size-4" /> Add cards
           </Button>
