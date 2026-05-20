@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     { "path": "/api/cron/scryfall-sync", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/game-changers-sync", "schedule": "30 6 * * *" }
+    { "path": "/api/cron/game-changers-sync", "schedule": "30 6 * * *" },
+    { "path": "/api/cron/refresh-bracket-flags", "schedule": "0 8 * * *" }
   ]
 }

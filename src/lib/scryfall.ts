@@ -3,7 +3,11 @@ import StreamArray from "stream-json/streamers/StreamArray";
 import { eq, getTableColumns, sql, type Table } from "drizzle-orm";
 import { db } from "@/db/client";
 import { cards, printings, priceHistory, syncState } from "@/db/schema";
-import { MASS_LAND_DENIAL_NAMES } from "@/lib/curated/mld";
+import {
+  updateExtraTurnFlags,
+  updateMldFlags,
+  updateTutorFlags,
+} from "@/lib/bracket-flags";
 
 const SCRYFALL_HEADERS = {
   "User-Agent": "MTG-Vault/0.1 (personal use)",
@@ -183,16 +187,12 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
       continue;
     }
 
-    const mergedOracleText =
-      c.oracle_text ??
-      (Array.isArray(c.card_faces)
-        ? c.card_faces.map((f) => f.oracle_text ?? "").join(" // ")
-        : "");
     const typeLine = c.type_line ?? "";
-    const isExtraTurn =
-      /take an extra turn/i.test(mergedOracleText) && !/Land/i.test(typeLine);
-    const isMassLandDenial = MASS_LAND_DENIAL_NAMES.has(c.name);
 
+    // isExtraTurn / isMassLandDenial / isTutor / isGameChanger are all set in
+    // post-passes by bracket-flags.ts after the bulk insert. Keep them at the
+    // schema default (false) during the upsert so there's one source of truth
+    // for those rules.
     cardsBatch.set(c.oracle_id, {
       oracleId: c.oracle_id,
       name: c.name,
@@ -211,8 +211,6 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
       edhrecRank: c.edhrec_rank ?? null,
       isCommanderLegal: c.legalities?.commander === "legal",
       isReservedList: !!c.reserved,
-      isExtraTurn,
-      isMassLandDenial,
     });
 
     printingsBatch.push({
@@ -253,6 +251,11 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
   }
 
   await flush();
+
+  // Run the canonical bracket-flag passes against the freshly upserted data.
+  await updateExtraTurnFlags();
+  await updateMldFlags();
+
   await setLastSyncedAt(SYNC_KEY, remoteUpdated);
 
   console.log(
@@ -265,36 +268,9 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
   };
 }
 
+// Thin wrapper kept for the standalone seed script. Canonical logic lives in
+// bracket-flags.ts so /api/cron/refresh-bracket-flags can share it.
 export async function syncTutors() {
-  console.log("[scryfall] syncing tutors");
-  let nextUrl: string | null =
-    "https://api.scryfall.com/cards/search?q=is%3Atutor&unique=cards";
-  const oracleIds = new Set<string>();
-
-  while (nextUrl) {
-    const data = (await fetchScryfall(nextUrl).then((r) => r.json())) as {
-      data: Array<{ oracle_id?: string }>;
-      has_more: boolean;
-      next_page?: string;
-    };
-    for (const c of data.data ?? []) {
-      if (c.oracle_id) oracleIds.add(c.oracle_id);
-    }
-    nextUrl = data.has_more && data.next_page ? data.next_page : null;
-    if (nextUrl) await sleep(SCRYFALL_DELAY_MS);
-  }
-
-  if (oracleIds.size === 0) {
-    console.log("[scryfall] no tutors returned; leaving flags untouched");
-    return { count: 0 };
-  }
-
-  await db.update(cards).set({ isTutor: false });
-  await db
-    .update(cards)
-    .set({ isTutor: true })
-    .where(sql`oracle_id = ANY(${[...oracleIds]}::uuid[])`);
-
-  console.log(`[scryfall] tutors set: ${oracleIds.size}`);
-  return { count: oracleIds.size };
+  const count = await updateTutorFlags();
+  return { count };
 }
