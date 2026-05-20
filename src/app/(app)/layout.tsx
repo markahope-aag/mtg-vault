@@ -23,15 +23,15 @@ export default async function AppLayout({
       <CommandPaletteProvider>
         <div className="flex min-h-screen flex-col bg-background">
           <header className="border-b border-border-subtle bg-surface-base/85 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-2.5">
-              <div className="flex items-center gap-6">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3.5">
+              <div className="flex items-center gap-7">
                 <Link
                   href="/dashboard"
-                  className="font-mono text-[13px] font-semibold uppercase tracking-[0.18em] text-text-primary hover:text-brand"
+                  className="font-[var(--font-mono)] text-[15px] font-semibold uppercase tracking-[0.22em] text-[var(--text-primary)] hover:text-[var(--brand)]"
                 >
                   MTG · Vault
                 </Link>
-                <nav className="flex items-center gap-5 text-[13px]">
+                <nav className="flex items-center gap-6 text-[14px]">
                   <NavLink href="/dashboard">Dashboard</NavLink>
                   <NavLink href="/inventory">Inventory</NavLink>
                   <NavLink href="/decks">Decks</NavLink>
@@ -68,7 +68,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className="text-text-secondary transition-colors hover:text-text-primary"
+      className="font-medium text-text-secondary transition-colors hover:text-text-primary"
     >
       {children}
     </Link>

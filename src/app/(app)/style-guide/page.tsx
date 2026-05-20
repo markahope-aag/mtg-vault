@@ -13,6 +13,7 @@ export default function StyleGuide() {
         <div className="mt-8 space-y-12">
           <SurfaceElevation />
           <Typography />
+          <TypeScale />
           <Numerics />
           <PageTemplates />
           <Accent />
@@ -306,6 +307,79 @@ function Numerics() {
             </div>
           ))}
         </div>
+      </div>
+    </Section>
+  );
+}
+
+/* ────────────────────────── Type scale ────────────────────────── */
+
+function TypeScale() {
+  const rows: Array<{ size: string; use: string; family: string }> = [
+    { size: "44px / 600", use: "Page H1 · hero metric", family: "Display" },
+    { size: "28px / 600", use: "Sub-page H2 · overlay title", family: "Display" },
+    { size: "22px / 600", use: "Section header", family: "Display" },
+    { size: "18px / 600", use: "Card title (when content-heavy)", family: "Display" },
+    { size: "15px / 600", use: "Brand mark (nav)", family: "Mono" },
+    { size: "15px / 400", use: "Lead body / hero subtitle", family: "Body" },
+    { size: "14px / 500", use: "Nav links", family: "Body" },
+    { size: "14px / 400", use: "Page subtitle · default body", family: "Body" },
+    { size: "13px / 400", use: "Table body · dense data", family: "Body" },
+    { size: "12px / 400", use: "Secondary body · type line caps", family: "Body" },
+    { size: "11px / 400", use: "Meta · user email · chips", family: "Mono" },
+    { size: "10px / 500", use: "Eyebrow · card head · table head · kbd", family: "Mono" },
+  ];
+  return (
+    <Section
+      label="02b — Scale"
+      title="One scale, eleven steps"
+      desc="Every text element picks a row. Don't invent in-between sizes per page. Weight 500/600 carry hierarchy at sizes ≤16px; weight 600 carries hierarchy at sizes ≥18px."
+    >
+      <div className="overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-base)]">
+        <table className="w-full text-[13px]">
+          <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-inset)] font-[var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            <tr>
+              <th className="w-40 px-3 py-2 text-left">Size / weight</th>
+              <th className="w-24 px-3 py-2 text-left">Family</th>
+              <th className="px-3 py-2 text-left">Use</th>
+              <th className="px-3 py-2 text-left">Sample</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.size + r.use}
+                className="border-b border-[var(--border-subtle)] last:border-b-0"
+              >
+                <td className="px-3 py-2 font-[var(--font-mono)] text-[11px] text-[var(--text-secondary)]">
+                  {r.size}
+                </td>
+                <td className="px-3 py-2 font-[var(--font-mono)] text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                  {r.family}
+                </td>
+                <td className="px-3 py-2 text-[var(--text-secondary)]">
+                  {r.use}
+                </td>
+                <td
+                  className={`px-3 py-2 ${
+                    r.family === "Display"
+                      ? "font-[var(--font-display)]"
+                      : r.family === "Mono"
+                        ? "font-[var(--font-mono)] uppercase tracking-[0.18em]"
+                        : "font-[var(--font-body)]"
+                  }`}
+                  style={{
+                    fontSize: r.size.split(" / ")[0],
+                    fontWeight: Number(r.size.split(" / ")[1]),
+                    lineHeight: 1.1,
+                  }}
+                >
+                  Vault
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Section>
   );
