@@ -40,7 +40,6 @@ export function DeckbuilderHeader({
       .then((d: { snapshots?: Array<{ calculatedBracket: number | null }> }) => {
         if (cancelled || !d?.snapshots?.length) return;
         const latest = d.snapshots[0];
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCalculatedBracket(latest.calculatedBracket);
       })
       .catch(() => {});

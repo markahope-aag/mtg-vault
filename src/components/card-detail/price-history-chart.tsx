@@ -32,7 +32,6 @@ export function PriceHistoryChart({
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPoints(d?.points ?? []);
       })
       .catch(() => {

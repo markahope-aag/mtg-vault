@@ -109,13 +109,17 @@ export function SearchPane() {
     [doSearch],
   );
 
-  useEffect(() => {
-    if (!query.trim()) return;
-    /* eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
-    setLoading(true);
-    void doSearch(query.trim());
+  useEffect(
+    () => {
+      if (!query.trim()) return;
+      // Filter toggles re-trigger the active query.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(true);
+      void doSearch(query.trim());
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colorIdFilter, ownedOnly, activeTypes]);
+    [colorIdFilter, ownedOnly, activeTypes],
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

@@ -13,13 +13,10 @@ const SCRYFALL_HEADERS = {
   "User-Agent": "MTG-Vault/0.1 (personal use)",
   Accept: "application/json",
 };
-const SCRYFALL_DELAY_MS = 100;
 const BULK_META = "https://api.scryfall.com/bulk-data";
 const BATCH_SIZE = 500;
 const LOG_INTERVAL = 10_000;
 const SYNC_KEY = "scryfall_default_cards";
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function fetchScryfall(url: string): Promise<Response> {
   const res = await fetch(url, { headers: SCRYFALL_HEADERS });

@@ -20,7 +20,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -85,7 +84,6 @@ export function InventoryTable({
   initialNextCursor: string | null;
   initialTotals: Totals;
 }) {
-  const router = useRouter();
   const [rows, setRows] = useState<InventoryRowWithCard[]>(initialRows);
   const [totals, setTotals] = useState<Totals>(initialTotals);
   const [nextCursor, setNextCursor] = useState<string | null>(
@@ -205,20 +203,27 @@ export function InventoryTable({
     }
   }, [buildParams, nextCursor, loadingMore]);
 
-  useEffect(() => {
-    /* eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
-    void refetch();
-  }, [
-    debouncedName,
-    colorFilter,
-    typeFilter,
-    setFilter,
-    locationFilter,
-    foilsOnly,
-    includeDisposed,
-    sortField,
-    sortDir,
-  ]);
+  useEffect(
+    () => {
+      // refetch is reconstructed when any of these change; calling it here
+      // synchronously is the intended trigger. setLoading inside refetch is
+      // the UI feedback, not a runaway re-render loop.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void refetch();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      debouncedName,
+      colorFilter,
+      typeFilter,
+      setFilter,
+      locationFilter,
+      foilsOnly,
+      includeDisposed,
+      sortField,
+      sortDir,
+    ],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -414,7 +419,6 @@ export function InventoryTable({
             grouped={grouped}
             onChange={setGrouped}
           />
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/api/inventory/export"
             download

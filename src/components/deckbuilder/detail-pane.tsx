@@ -75,7 +75,6 @@ export function DetailPane() {
       return;
     }
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/cards/${oracleId}/detail`)
       .then((r) => (r.ok ? r.json() : null))
