@@ -14,6 +14,7 @@ export default function StyleGuide() {
           <SurfaceElevation />
           <Typography />
           <Numerics />
+          <PageTemplates />
           <Accent />
           <Deltas />
           <StatCards />
@@ -307,6 +308,179 @@ function Numerics() {
         </div>
       </div>
     </Section>
+  );
+}
+
+/* ────────────────────────── Page templates ────────────────────────── */
+
+function PageTemplates() {
+  return (
+    <Section
+      label="03b — Page templates"
+      title="Every page uses the same headers"
+      desc="Three header levels, used consistently. Page header opens the route. Section header divides major regions. Card header tops every Card primitive. Table header lives at column row 1. Sizes and weights are FIXED — never invent new ones on a per-page basis."
+    >
+      <div className="space-y-3">
+        {/* PAGE HEADER */}
+        <Template
+          name="Page header"
+          rule="44px display semibold · 10px mono uppercase eyebrow · 14px secondary subtitle"
+        >
+          <div className="space-y-2">
+            <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+              Dashboard
+            </p>
+            <h1 className="font-[var(--font-display)] text-[44px] font-semibold leading-[1.05] tracking-tight">
+              Collection snapshot
+            </h1>
+            <p className="max-w-prose text-[14px] text-[var(--text-secondary)]">
+              What you own, what it&rsquo;s worth, what your decks are doing
+              right now.
+            </p>
+          </div>
+        </Template>
+
+        {/* SECTION HEADER */}
+        <Template
+          name="Section header"
+          rule="22px display semibold · 10px mono uppercase eyebrow · 13px secondary subtitle (optional)"
+        >
+          <div className="space-y-1">
+            <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+              07 — Brackets
+            </p>
+            <h2 className="font-[var(--font-display)] text-[22px] font-semibold tracking-tight">
+              Power scale 1 – 5
+            </h2>
+            <p className="max-w-prose text-[13px] leading-relaxed text-[var(--text-secondary)]">
+              Each bracket carries its own color token, used consistently
+              across the app.
+            </p>
+          </div>
+        </Template>
+
+        {/* CARD HEADER */}
+        <Template
+          name="Card header"
+          rule="10px mono uppercase tracked label · optional right-aligned action"
+        >
+          <div className="rounded-md bg-[var(--surface-raised)] p-4">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+              <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                Value over time
+              </p>
+              <span className="font-[var(--font-mono)] text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                90d · 30 points
+              </span>
+            </div>
+            <p className="mt-3 text-[13px] text-[var(--text-secondary)]">
+              Card body sits below the header with consistent border-divider
+              spacing.
+            </p>
+          </div>
+        </Template>
+
+        {/* TABLE HEADER */}
+        <Template
+          name="Table header"
+          rule="10px mono uppercase 0.16em tracked · surface-inset background · 6px vertical pad"
+        >
+          <div className="overflow-hidden rounded-md bg-[var(--surface-raised)]">
+            <table className="w-full text-[13px]">
+              <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-inset)] font-[var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-3 py-1.5 text-left">Card</th>
+                  <th className="w-16 px-2 py-1.5 text-left">Set</th>
+                  <th className="w-14 px-2 py-1.5 text-left">#</th>
+                  <th className="w-20 px-2 py-1.5 text-right">USD</th>
+                  <th className="w-20 px-2 py-1.5 text-right">Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-[var(--border-subtle)] last:border-b-0">
+                  <td className="px-3 py-1.5 font-medium text-[var(--text-primary)]">
+                    Sol Ring
+                  </td>
+                  <td className="px-2 py-1.5 font-[var(--font-mono)] text-[11px] uppercase tracking-wide text-[var(--text-secondary)]">
+                    CMR
+                  </td>
+                  <td className="num px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
+                    263
+                  </td>
+                  <td className="num px-2 py-1.5 text-right text-[var(--text-primary)]">
+                    $1.43
+                  </td>
+                  <td className="num px-2 py-1.5 text-right text-[var(--text-muted)]">
+                    $0.80
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Template>
+
+        {/* SUB-SECTION HEADER */}
+        <Template
+          name="Sub-section header"
+          rule="10px mono uppercase 0.18em tracked · used inside a Card to label a sub-region (e.g. metrics chip row, ledger)"
+        >
+          <div className="rounded-md bg-[var(--surface-raised)] p-4">
+            <p className="mb-2 font-[var(--font-mono)] text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Metrics
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {["GC 0", "2-card combo 0", "MLD 0", "Tutors 0"].map((c) => (
+                <span
+                  key={c}
+                  className="inline-flex items-center rounded-sm border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-1.5 py-0.5 font-[var(--font-mono)] text-[10px] uppercase tracking-wide text-[var(--text-muted)]"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+        </Template>
+
+        {/* PAGE LAYOUT */}
+        <Template
+          name="Page layout"
+          rule="max-w-6xl · px-4 · py-6 · between-section spacing space-y-12 (Dashboard) or space-y-5 (data-dense like Inventory / Deckbuilder)"
+        >
+          <div className="rounded-md border border-dashed border-[var(--border-subtle)] bg-[var(--surface-inset)]/60 p-4">
+            <pre className="overflow-x-auto font-[var(--font-mono)] text-[11px] leading-relaxed text-[var(--text-secondary)]">{`<main className="bg-[var(--surface-base)]">
+  <div className="mx-auto w-full max-w-6xl px-4 py-6 space-y-5">
+    {/* page header */}
+    {/* sections */}
+  </div>
+</main>`}</pre>
+          </div>
+        </Template>
+      </div>
+    </Section>
+  );
+}
+
+function Template({
+  name,
+  rule,
+  children,
+}: {
+  name: string;
+  rule: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-base)]">
+      <div className="flex items-baseline gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-inset)] px-4 py-2">
+        <span className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--brand)]">
+          {name}
+        </span>
+        <span className="font-[var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+          {rule}
+        </span>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
   );
 }
 
