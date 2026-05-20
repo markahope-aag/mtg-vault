@@ -219,6 +219,21 @@ export const syncState = pgTable("sync_state", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── COLLECTION SNAPSHOTS ───────────────────────────────────────
+
+export const collectionSnapshots = pgTable("collection_snapshots", {
+  date: text("date").primaryKey(),
+  totalCards: integer("total_cards").notNull(),
+  marketValueUsd: decimal("market_value_usd", {
+    precision: 12,
+    scale: 2,
+  }).notNull(),
+  costBasisUsd: decimal("cost_basis_usd", { precision: 12, scale: 2 }),
+  foilCount: integer("foil_count"),
+  uniqueCards: integer("unique_cards"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── IMPORT BATCHES ─────────────────────────────────────────────
 
 export const importBatches = pgTable(

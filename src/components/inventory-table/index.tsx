@@ -394,6 +394,14 @@ export function InventoryTable({
             />
             Group by card
           </label>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/api/inventory/export"
+            download
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-sm font-medium hover:bg-muted"
+          >
+            <Upload className="size-4 rotate-180" /> Export
+          </a>
           <Link
             href="/import"
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-sm font-medium hover:bg-muted"

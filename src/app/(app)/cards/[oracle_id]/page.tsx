@@ -44,6 +44,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManaCost } from "@/components/mana-cost";
 import { CardImage } from "@/components/card-detail/card-image";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
+import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
 
 type Printing = typeof printings.$inferSelect;
@@ -339,6 +340,18 @@ export default async function CardDetailPage({
                   </tbody>
                 </table>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Price history (90d)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PriceHistoryChart
+                oracleId={oracle_id}
+                printingId={selectedPrinting?.id}
+              />
             </CardContent>
           </Card>
 
