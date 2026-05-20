@@ -76,13 +76,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6">
-      <header className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+      <header className="space-y-2 border-b border-[var(--border-subtle)] pb-5">
+        <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
           Dashboard
         </p>
-        <h1 className="text-[20px] font-semibold tracking-tight">
+        <h1 className="font-[var(--font-display)] text-[44px] font-semibold leading-[1.05] tracking-tight">
           Collection snapshot
         </h1>
+        <p className="text-[14px] text-[var(--text-secondary)]">
+          What you own, what it&rsquo;s worth, what your decks are doing right
+          now.
+        </p>
       </header>
 
       {/* ── Hero: collection value ── */}
