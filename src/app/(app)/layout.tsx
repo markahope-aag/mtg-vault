@@ -35,6 +35,12 @@ export default async function AppLayout({
                 >
                   Inventory
                 </Link>
+                <Link
+                  href="/decks"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Decks
+                </Link>
               </nav>
             </div>
             <div className="flex items-center gap-3 text-sm">

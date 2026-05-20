@@ -3,6 +3,42 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db/client";
 import { cards, printings } from "@/db/schema";
+
+type UsedInDeck = {
+  deckId: string;
+  deckName: string;
+  commanderName: string | null;
+  category: string;
+  quantity: number;
+};
+
+async function fetchDecksUsing(oracleId: string): Promise<UsedInDeck[]> {
+  const rows = (await db.execute(sql`
+    SELECT d.id AS deck_id, d.name AS deck_name,
+           cmd.name AS commander_name,
+           dc.category, dc.quantity
+    FROM deck_cards dc
+    JOIN printings p ON p.id = dc.printing_id
+    JOIN decks d ON d.id = dc.deck_id
+    LEFT JOIN printings cmd_p ON cmd_p.id = d.commander_printing_id
+    LEFT JOIN cards cmd ON cmd.oracle_id = cmd_p.oracle_id
+    WHERE p.oracle_id = ${oracleId}
+    ORDER BY d.name ASC
+  `)) as unknown as Array<{
+    deck_id: string;
+    deck_name: string;
+    commander_name: string | null;
+    category: string;
+    quantity: number;
+  }>;
+  return rows.map((r) => ({
+    deckId: r.deck_id,
+    deckName: r.deck_name,
+    commanderName: r.commander_name,
+    category: r.category,
+    quantity: r.quantity,
+  }));
+}
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManaCost } from "@/components/mana-cost";
@@ -116,6 +152,7 @@ export default async function CardDetailPage({
     allPrintings.find((p) => p.id === requestedPrintingId) ?? defaultPrinting;
 
   const ownedRows = await fetchOwnedRows(oracle_id);
+  const usedInDecks = await fetchDecksUsing(oracle_id);
 
   const tags: Array<{ label: string; tone: string }> = [];
   if (card.isGameChanger)
@@ -321,6 +358,47 @@ export default async function CardDetailPage({
                     </span>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {usedInDecks.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Used in decks ({usedInDecks.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ul className="divide-y">
+                  {usedInDecks.map((u) => (
+                    <li key={`${u.deckId}-${u.category}`}>
+                      <Link
+                        href={`/decks/${u.deckId}`}
+                        className="flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-muted/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{u.deckName}</p>
+                          {u.commanderName && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {u.commanderName}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 text-xs">
+                          {u.category !== "main" && (
+                            <Badge variant="outline" className="capitalize">
+                              {u.category}
+                            </Badge>
+                          )}
+                          <span className="tabular-nums text-muted-foreground">
+                            ×{u.quantity}
+                          </span>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}

@@ -187,8 +187,7 @@ export const deckCards = pgTable(
       .notNull()
       .references(() => printings.id),
     quantity: integer("quantity").notNull().default(1),
-    category: text("category").default("main"),
-    isCommander: boolean("is_commander").default(false),
+    category: text("category").default("main").notNull(),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.deckId, t.printingId, t.category] }),

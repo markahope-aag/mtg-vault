@@ -55,7 +55,14 @@ function pickScryfallImage(card: ScryfallRow): string | null {
 async function searchLocal(
   q: string,
   limit: number,
+  commanderOnly: boolean,
 ): Promise<SearchResult[]> {
+  const commanderClause = commanderOnly
+    ? sql`AND (
+        c.type_line ILIKE '%Legendary Creature%'
+        OR c.oracle_text ILIKE '%can be your commander%'
+      )`
+    : sql``;
   const rows = (await db.execute(sql`
     SELECT
       c.oracle_id,
@@ -75,7 +82,8 @@ async function searchLocal(
       ORDER BY released_at DESC NULLS LAST, set_code, collector_number
       LIMIT 1
     ) p ON TRUE
-    WHERE c.name % ${q} OR c.name ILIKE ${q + "%"}
+    WHERE (c.name % ${q} OR c.name ILIKE ${q + "%"})
+      ${commanderClause}
     ORDER BY
       (c.name ILIKE ${q + "%"}) DESC,
       similarity(c.name, ${q}) DESC,
@@ -137,11 +145,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results: [], source: "local" as const });
   }
 
-  const useScryfall = detectScryfallSyntax(q);
+  const commanderOnly = searchParams.get("commanderOnly") === "true";
+  // Force local mode when commanderOnly is requested — Scryfall's is:commander
+  // operator is not exactly equivalent and we want a deterministic filter
+  // against our own data anyway.
+  const useScryfall = !commanderOnly && detectScryfallSyntax(q);
   try {
     const results = useScryfall
       ? await searchScryfall(q, limit)
-      : await searchLocal(q, limit);
+      : await searchLocal(q, limit, commanderOnly);
     return NextResponse.json({
       results,
       source: useScryfall ? ("scryfall" as const) : ("local" as const),
