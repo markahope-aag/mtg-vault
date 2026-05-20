@@ -130,19 +130,32 @@ export const inventory = pgTable(
     printingId: uuid("printing_id")
       .notNull()
       .references(() => printings.id),
-    quantity: integer("quantity").notNull().default(1),
-    foil: boolean("foil").default(false),
-    etched: boolean("etched").default(false),
-    condition: text("condition").default("NM"),
-    language: text("language").default("en"),
+    // Each row represents ONE physical card. No quantity column.
+    foil: boolean("foil").default(false).notNull(),
+    etched: boolean("etched").default(false).notNull(),
+    condition: text("condition").default("NM").notNull(),
+    language: text("language").default("en").notNull(),
     location: text("location"),
+    physicalId: text("physical_id"),
     acquiredPrice: decimal("acquired_price", { precision: 10, scale: 2 }),
     acquiredAt: timestamp("acquired_at"),
+    purchasedFrom: text("purchased_from"),
+    gradingCompany: text("grading_company"),
+    grade: text("grade"),
     notes: text("notes"),
+    // Disposal fields — set when the card is sold/traded/lost. The row is
+    // never deleted on disposal so it remains available for historical
+    // value/cost-basis tracking.
+    disposedTo: text("disposed_to"),
+    disposedPrice: decimal("disposed_price", { precision: 10, scale: 2 }),
+    disposedAt: timestamp("disposed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
     printingIdx: index("inventory_printing_id_idx").on(t.printingId),
+    disposedIdx: index("inventory_disposed_at_idx").on(t.disposedAt),
+    locationIdx: index("inventory_location_idx").on(t.location),
   })
 );
 

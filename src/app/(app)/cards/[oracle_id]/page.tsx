@@ -4,19 +4,13 @@ import Link from "next/link";
 import { db } from "@/db/client";
 import { cards, printings } from "@/db/schema";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManaCost } from "@/components/mana-cost";
 import { CardImage } from "@/components/card-detail/card-image";
+import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
+import type { InventoryRowWithCard } from "@/lib/inventory/types";
 
 type Printing = typeof printings.$inferSelect;
-
-type Ownership = {
-  total: number;
-  nonfoil: number;
-  foil: number;
-  etched: number;
-};
 
 function pickPreferredImage(images: unknown): string | null {
   if (!images || typeof images !== "object") return null;
@@ -28,19 +22,66 @@ function isPromoLike(p: Printing): boolean {
   return Array.isArray(p.promoTypes) && p.promoTypes.length > 0;
 }
 
-async function fetchOwnership(oracleId: string): Promise<Ownership> {
+async function fetchOwnedRows(
+  oracleId: string,
+): Promise<InventoryRowWithCard[]> {
   const rows = (await db.execute(sql`
     SELECT
-      COALESCE(SUM(quantity), 0)::int AS total,
-      COALESCE(SUM(CASE WHEN foil = false AND etched = false THEN quantity ELSE 0 END), 0)::int AS nonfoil,
-      COALESCE(SUM(CASE WHEN foil = true THEN quantity ELSE 0 END), 0)::int AS foil,
-      COALESCE(SUM(CASE WHEN etched = true THEN quantity ELSE 0 END), 0)::int AS etched
-    FROM inventory
-    WHERE printing_id IN (
-      SELECT id FROM printings WHERE oracle_id = ${oracleId}
-    )
-  `)) as unknown as Array<Ownership>;
-  return rows[0] ?? { total: 0, nonfoil: 0, foil: 0, etched: 0 };
+      i.id, i.printing_id, i.foil, i.etched, i.condition, i.language,
+      i.location, i.physical_id, i.acquired_price, i.acquired_at,
+      i.purchased_from, i.grading_company, i.grade, i.notes,
+      i.disposed_to, i.disposed_price, i.disposed_at,
+      i.created_at, i.updated_at,
+      c.oracle_id, c.name, c.mana_cost, c.type_line, c.color_identity, c.cmc,
+      p.set_code, p.set_name, p.collector_number, p.rarity,
+      p.usd, p.usd_foil, p.usd_etched,
+      (p.image_uris ->> 'small') AS image_uri
+    FROM inventory i
+    JOIN printings p ON p.id = i.printing_id
+    JOIN cards c ON c.oracle_id = p.oracle_id
+    WHERE c.oracle_id = ${oracleId}
+      AND i.disposed_at IS NULL
+    ORDER BY p.released_at DESC, i.created_at DESC
+  `)) as unknown as Array<Record<string, unknown>>;
+  return rows.map((r) => ({
+    id: r.id as string,
+    printingId: r.printing_id as string,
+    foil: r.foil as boolean,
+    etched: r.etched as boolean,
+    condition: r.condition as string,
+    language: r.language as string,
+    location: (r.location as string | null) ?? null,
+    physicalId: (r.physical_id as string | null) ?? null,
+    acquiredPrice: (r.acquired_price as string | null) ?? null,
+    acquiredAt: r.acquired_at
+      ? (r.acquired_at as Date).toISOString()
+      : null,
+    purchasedFrom: (r.purchased_from as string | null) ?? null,
+    gradingCompany: (r.grading_company as string | null) ?? null,
+    grade: (r.grade as string | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+    disposedTo: (r.disposed_to as string | null) ?? null,
+    disposedPrice: (r.disposed_price as string | null) ?? null,
+    disposedAt: r.disposed_at
+      ? (r.disposed_at as Date).toISOString()
+      : null,
+    createdAt: (r.created_at as Date).toISOString(),
+    updatedAt: (r.updated_at as Date).toISOString(),
+    oracleId: r.oracle_id as string,
+    name: r.name as string,
+    manaCost: (r.mana_cost as string | null) ?? null,
+    typeLine: (r.type_line as string | null) ?? null,
+    colorIdentity: (r.color_identity as string[] | null) ?? null,
+    cmc: (r.cmc as string | null) ?? null,
+    setCode: r.set_code as string,
+    setName: r.set_name as string,
+    collectorNumber: r.collector_number as string,
+    rarity: (r.rarity as string | null) ?? null,
+    usd: (r.usd as string | null) ?? null,
+    usdFoil: (r.usd_foil as string | null) ?? null,
+    usdEtched: (r.usd_etched as string | null) ?? null,
+    imageUri: (r.image_uri as string | null) ?? null,
+  }));
 }
 
 type PageProps = {
@@ -74,7 +115,7 @@ export default async function CardDetailPage({
   const selectedPrinting =
     allPrintings.find((p) => p.id === requestedPrintingId) ?? defaultPrinting;
 
-  const ownership = await fetchOwnership(oracle_id);
+  const ownedRows = await fetchOwnedRows(oracle_id);
 
   const tags: Array<{ label: string; tone: string }> = [];
   if (card.isGameChanger)
@@ -104,10 +145,25 @@ export default async function CardDetailPage({
         ? `${card.power}/${card.toughness}`
         : null;
 
+  const dialogCard = {
+    oracleId: card.oracleId,
+    name: card.name,
+    printings: allPrintings.map((p) => ({
+      id: p.id,
+      setCode: p.setCode,
+      setName: p.setName,
+      collectorNumber: p.collectorNumber,
+      rarity: p.rarity,
+      usd: p.usd,
+      usdFoil: p.usdFoil,
+      releasedAt: p.releasedAt ? p.releasedAt.toISOString() : null,
+    })),
+  };
+
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-8">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
-        {/* LEFT: image (sticky) + static metadata */}
+        {/* LEFT: image + static metadata */}
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <CardImage
             src={pickPreferredImage(selectedPrinting?.imageUris)}
@@ -162,50 +218,9 @@ export default async function CardDetailPage({
           </div>
         </div>
 
-        {/* RIGHT: ownership, printings, tags */}
+        {/* RIGHT */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">You own</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {ownership.total === 0 ? (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Not in your inventory.
-                  </p>
-                  <Button size="sm" variant="outline" disabled>
-                    Add to inventory
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Total</span>
-                    <span>{ownership.total}</span>
-                  </div>
-                  {ownership.nonfoil > 0 && (
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Nonfoil</span>
-                      <span>{ownership.nonfoil}</span>
-                    </div>
-                  )}
-                  {ownership.foil > 0 && (
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Foil</span>
-                      <span>{ownership.foil}</span>
-                    </div>
-                  )}
-                  {ownership.etched > 0 && (
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Etched</span>
-                      <span>{ownership.etched}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <OwnershipPanel card={dialogCard} ownedRows={ownedRows} />
 
           <Card>
             <CardHeader>
