@@ -1,34 +1,49 @@
 import { cn } from "@/lib/utils";
 
-// Maps Scryfall mana-symbol strings (the contents between {…}) to the visual
-// treatment for the colored circle. Hybrid and Phyrexian symbols fall back to
-// a generic style — good enough for v0, can swap in proper icons later.
-const SYMBOL_STYLES: Record<string, string> = {
-  W: "bg-amber-50 text-amber-900 border border-amber-200",
-  U: "bg-sky-100 text-sky-900 border border-sky-200",
-  B: "bg-zinc-800 text-zinc-100 border border-zinc-700",
-  R: "bg-red-100 text-red-900 border border-red-200",
-  G: "bg-emerald-100 text-emerald-900 border border-emerald-200",
-  C: "bg-stone-200 text-stone-700 border border-stone-300",
-  X: "bg-stone-200 text-stone-700 border border-stone-300",
-  T: "bg-stone-200 text-stone-700 border border-stone-300",
-  Q: "bg-stone-200 text-stone-700 border border-stone-300",
-  S: "bg-sky-50 text-sky-900 border border-sky-200",
+// Renders an MTG mana cost string (e.g. "{2}{W}{U}") as real Mana-font icons.
+// Replaces the Phase-3 colored-circle placeholder.
+//
+// Mana font docs: https://github.com/andrewgioia/mana
+//   <i class="ms ms-w ms-cost"></i>           — white mana with circle
+//   <i class="ms ms-2 ms-cost"></i>           — 2 generic
+//   <i class="ms ms-wu ms-cost ms-split"></i> — W/U hybrid
+//   <i class="ms ms-wp ms-cost"></i>          — Phyrexian white
+//   <i class="ms ms-tap"></i>                 — tap symbol
+
+const SIZE_CLASS: Record<string, string> = {
+  xs: "text-[10px]",
+  sm: "text-[12px]",
+  md: "text-[16px]",
+  lg: "text-[20px]",
 };
 
-const DEFAULT_STYLE = "bg-stone-200 text-stone-700 border border-stone-300";
-
-function symbolClass(symbol: string): string {
-  if (/^[0-9]+$/.test(symbol)) return DEFAULT_STYLE;
-  return SYMBOL_STYLES[symbol.toUpperCase()] ?? DEFAULT_STYLE;
-}
-
-function symbolLabel(symbol: string): string {
-  // Hybrid / Phyrexian symbols like "W/U", "G/P" — show the first non-numeric
-  // letter, or the full thing for short pip costs.
-  const cleaned = symbol.replace(/\//g, "");
-  if (cleaned.length <= 2) return cleaned;
-  return cleaned[0] ?? "";
+function symbolToClass(raw: string): { cls: string; isCostShape: boolean } {
+  const s = raw.toLowerCase().replace(/\s+/g, "");
+  // Generic numeric or X/Y/Z costs
+  if (/^[0-9]+$/.test(s)) return { cls: `ms-${s}`, isCostShape: true };
+  if (s === "x" || s === "y" || s === "z")
+    return { cls: `ms-${s}`, isCostShape: true };
+  if (s === "tap" || s === "t") return { cls: "ms-tap", isCostShape: false };
+  if (s === "untap" || s === "q")
+    return { cls: "ms-untap", isCostShape: false };
+  if (s === "infinity" || s === "∞")
+    return { cls: "ms-infinity", isCostShape: true };
+  if (s === "s" || s === "snow") return { cls: "ms-s", isCostShape: true };
+  if (s === "c" || s === "colorless")
+    return { cls: "ms-c", isCostShape: true };
+  if (s === "e" || s === "energy")
+    return { cls: "ms-e", isCostShape: false };
+  // Phyrexian: "wp" / "w/p"
+  const phyrexian = s.replace(/[\/{}]/g, "");
+  if (/^[wubrgc]p$/.test(phyrexian))
+    return { cls: `ms-${phyrexian}`, isCostShape: true };
+  // Hybrid: "w/u" → "wu"
+  const hybrid = s.replace(/[\/{}]/g, "");
+  if (/^[wubrgc2][wubrgc]$/.test(hybrid))
+    return { cls: `ms-${hybrid}`, isCostShape: true };
+  // Plain colour: w / u / b / r / g
+  if (/^[wubrg]$/.test(s)) return { cls: `ms-${s}`, isCostShape: true };
+  return { cls: "ms-c", isCostShape: true };
 }
 
 export function ManaCost({
@@ -37,35 +52,64 @@ export function ManaCost({
   className,
 }: {
   cost: string | null | undefined;
-  size?: "xs" | "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }) {
   if (!cost) return null;
   const symbols = Array.from(cost.matchAll(/\{([^}]+)\}/g)).map((m) => m[1]);
   if (symbols.length === 0) return null;
 
-  const sizeClass =
-    size === "xs"
-      ? "h-3.5 w-3.5 text-[9px]"
-      : size === "md"
-        ? "h-6 w-6 text-xs"
-        : "h-4 w-4 text-[10px]";
-
   return (
-    <span className={cn("inline-flex items-center gap-0.5", className)}>
-      {symbols.map((sym, i) => (
-        <span
-          key={i}
-          className={cn(
-            "inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
-            sizeClass,
-            symbolClass(sym),
-          )}
-          title={`{${sym}}`}
-        >
-          {symbolLabel(sym)}
-        </span>
-      ))}
+    <span
+      className={cn(
+        "inline-flex items-center gap-[2px] align-middle",
+        SIZE_CLASS[size],
+        className,
+      )}
+      aria-label={`mana cost ${cost}`}
+    >
+      {symbols.map((sym, i) => {
+        const { cls, isCostShape } = symbolToClass(sym);
+        return (
+          <i
+            key={i}
+            className={cn("ms", cls, isCostShape && "ms-cost")}
+            aria-hidden="true"
+            title={`{${sym}}`}
+          />
+        );
+      })}
     </span>
+  );
+}
+
+// Color identity rendered as plain mana pips (no cost-circle outline).
+export function ColorIdentityPips({
+  identity,
+  size = "sm",
+  className,
+}: {
+  identity: string[] | null | undefined;
+  size?: "xs" | "sm" | "md" | "lg";
+  className?: string;
+}) {
+  if (!identity || identity.length === 0) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center text-[10px] uppercase tracking-wide text-text-muted",
+          className,
+        )}
+      >
+        colorless
+      </span>
+    );
+  }
+  return (
+    <ManaCost
+      cost={identity.map((c) => `{${c}}`).join("")}
+      size={size}
+      className={className}
+    />
   );
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
 import { CommandPaletteProvider } from "@/components/card-search/command-palette";
 import { QueryProvider } from "@/components/query-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 
 export default async function AppLayout({
@@ -19,45 +20,57 @@ export default async function AppLayout({
 
   return (
     <QueryProvider>
-    <CommandPaletteProvider>
-      <div className="flex min-h-screen flex-col">
-        <header className="border-b">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3">
-            <div className="flex items-center gap-5">
-              <Link
-                href="/dashboard"
-                className="text-sm font-semibold tracking-tight"
-              >
-                MTG Vault
-              </Link>
-              <nav className="flex items-center gap-4 text-sm">
+      <CommandPaletteProvider>
+        <div className="flex min-h-screen flex-col bg-background">
+          <header className="border-b border-border-subtle bg-surface-base/85 backdrop-blur">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-2.5">
+              <div className="flex items-center gap-6">
                 <Link
-                  href="/inventory"
-                  className="text-muted-foreground hover:text-foreground"
+                  href="/dashboard"
+                  className="font-mono text-[13px] font-semibold uppercase tracking-[0.18em] text-text-primary hover:text-brand"
                 >
-                  Inventory
+                  MTG · Vault
                 </Link>
-                <Link
-                  href="/decks"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Decks
-                </Link>
-              </nav>
+                <nav className="flex items-center gap-5 text-[13px]">
+                  <NavLink href="/dashboard">Dashboard</NavLink>
+                  <NavLink href="/inventory">Inventory</NavLink>
+                  <NavLink href="/decks">Decks</NavLink>
+                  <NavLink href="/import">Import</NavLink>
+                </nav>
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                <kbd className="hidden rounded-sm border border-border-subtle bg-surface-inset px-1.5 py-0.5 font-mono text-[10px] text-text-muted sm:inline-block">
+                  ⌘K
+                </kbd>
+                <span className="hidden font-mono text-[11px] text-text-muted sm:inline">
+                  {user.email}
+                </span>
+                <ThemeToggle />
+                <LogoutButton />
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline-block">
-                ⌘K
-              </kbd>
-              <span className="text-muted-foreground">{user.email}</span>
-              <LogoutButton />
-            </div>
-          </div>
-        </header>
-        <main className="flex-1">{children}</main>
-      </div>
-      <Toaster />
-    </CommandPaletteProvider>
+          </header>
+          <main className="flex-1">{children}</main>
+        </div>
+        <Toaster />
+      </CommandPaletteProvider>
     </QueryProvider>
+  );
+}
+
+function NavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="text-text-secondary transition-colors hover:text-text-primary"
+    >
+      {children}
+    </Link>
   );
 }

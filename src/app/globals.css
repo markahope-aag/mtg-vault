@@ -4,127 +4,264 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * MTG Vault — Trading Desk design system.
+ * Tokens are the only source of color; components must never reach for raw
+ * hex/oklch values. Dark is the default; light is a coherent inversion for
+ * daytime use. The brand accent is a refined amber/gold — Bloomberg-adjacent
+ * without being on-the-nose.
+ */
+
 @theme inline {
+  /* shadcn semantic colour aliases */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* MTG Vault semantic tokens */
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-inset: var(--surface-inset);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-value-positive: var(--value-positive);
+  --color-value-negative: var(--value-negative);
+  --color-value-neutral: var(--value-neutral);
+
+  --color-mtg-white: var(--mtg-white);
+  --color-mtg-blue: var(--mtg-blue);
+  --color-mtg-black: var(--mtg-black);
+  --color-mtg-red: var(--mtg-red);
+  --color-mtg-green: var(--mtg-green);
+  --color-mtg-colorless: var(--mtg-colorless);
+  --color-mtg-multicolor: var(--mtg-multicolor);
+
+  --color-bracket-1: var(--bracket-1);
+  --color-bracket-2: var(--bracket-2);
+  --color-bracket-3: var(--bracket-3);
+  --color-bracket-4: var(--bracket-4);
+  --color-bracket-5: var(--bracket-5);
+
+  --color-owned-available: var(--owned-available);
+  --color-owned-committed: var(--owned-committed);
+  --color-unowned: var(--unowned);
+
+  --color-rarity-common: var(--rarity-common);
+  --color-rarity-uncommon: var(--rarity-uncommon);
+  --color-rarity-rare: var(--rarity-rare);
+  --color-rarity-mythic: var(--rarity-mythic);
+
+  /* Fonts */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+
+  /* Radii — tight on purpose (trading-desk discipline) */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+/* ───── LIGHT (daytime trading floor) ───── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* shadcn aliases */
+  --background: oklch(0.985 0.002 90);
+  --foreground: oklch(0.205 0.015 60);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.205 0.015 60);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.205 0.015 60);
+  --primary: oklch(0.72 0.16 70);              /* amber */
+  --primary-foreground: oklch(0.15 0.02 60);
+  --secondary: oklch(0.95 0.004 80);
+  --secondary-foreground: oklch(0.25 0.015 60);
+  --muted: oklch(0.95 0.004 80);
+  --muted-foreground: oklch(0.48 0.012 60);
+  --accent: oklch(0.93 0.02 80);
+  --accent-foreground: oklch(0.25 0.015 60);
+  --destructive: oklch(0.58 0.21 25);
+  --border: oklch(0.88 0.005 80);
+  --input: oklch(0.88 0.005 80);
+  --ring: oklch(0.72 0.16 70);
+  --chart-1: oklch(0.72 0.16 70);
+  --chart-2: oklch(0.55 0.18 145);
+  --chart-3: oklch(0.62 0.19 25);
+  --chart-4: oklch(0.55 0.15 240);
+  --chart-5: oklch(0.45 0 0);
+
+  /* MTG Vault semantic */
+  --surface-base: oklch(0.985 0.002 90);
+  --surface-raised: oklch(1 0 0);
+  --surface-overlay: oklch(1 0 0);
+  --surface-inset: oklch(0.96 0.003 80);
+  --border-subtle: oklch(0.92 0.003 80);
+  --border-strong: oklch(0.78 0.005 80);
+  --text-primary: oklch(0.205 0.015 60);
+  --text-secondary: oklch(0.4 0.015 60);
+  --text-muted: oklch(0.55 0.012 60);
+  --text-disabled: oklch(0.72 0.008 60);
+  --brand: oklch(0.72 0.16 70);
+  --brand-strong: oklch(0.62 0.18 68);
+  --brand-soft: oklch(0.94 0.04 80);
+  --value-positive: oklch(0.55 0.16 145);
+  --value-negative: oklch(0.58 0.21 25);
+  --value-neutral: oklch(0.55 0.012 60);
+
+  --mtg-white: oklch(0.92 0.04 85);
+  --mtg-blue: oklch(0.7 0.13 240);
+  --mtg-black: oklch(0.25 0.01 280);
+  --mtg-red: oklch(0.62 0.2 25);
+  --mtg-green: oklch(0.6 0.16 145);
+  --mtg-colorless: oklch(0.78 0.01 60);
+  --mtg-multicolor: oklch(0.78 0.14 80);
+
+  --bracket-1: oklch(0.62 0.01 60);
+  --bracket-2: oklch(0.6 0.16 145);
+  --bracket-3: oklch(0.74 0.14 80);
+  --bracket-4: oklch(0.66 0.19 50);
+  --bracket-5: oklch(0.58 0.21 25);
+
+  --owned-available: oklch(0.55 0.16 145);
+  --owned-committed: oklch(0.7 0.14 80);
+  --unowned: oklch(0.58 0.18 25);
+
+  --rarity-common: oklch(0.35 0.005 60);
+  --rarity-uncommon: oklch(0.62 0.01 240);
+  --rarity-rare: oklch(0.7 0.14 80);
+  --rarity-mythic: oklch(0.62 0.2 35);
 }
 
+/* ───── DARK (default — long-session trading desk) ───── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* shadcn aliases */
+  --background: oklch(0.16 0.008 240);
+  --foreground: oklch(0.96 0.005 80);
+  --card: oklch(0.21 0.01 240);
+  --card-foreground: oklch(0.96 0.005 80);
+  --popover: oklch(0.235 0.012 240);
+  --popover-foreground: oklch(0.96 0.005 80);
+  --primary: oklch(0.78 0.15 75);              /* amber */
+  --primary-foreground: oklch(0.18 0.01 240);
+  --secondary: oklch(0.26 0.012 240);
+  --secondary-foreground: oklch(0.96 0.005 80);
+  --muted: oklch(0.245 0.01 240);
+  --muted-foreground: oklch(0.66 0.012 80);
+  --accent: oklch(0.28 0.02 80);
+  --accent-foreground: oklch(0.96 0.005 80);
+  --destructive: oklch(0.66 0.2 22);
+  --border: oklch(0.32 0.01 240);
+  --input: oklch(0.3 0.01 240);
+  --ring: oklch(0.78 0.15 75);
+  --chart-1: oklch(0.78 0.15 75);
+  --chart-2: oklch(0.7 0.16 145);
+  --chart-3: oklch(0.7 0.18 25);
+  --chart-4: oklch(0.7 0.14 240);
+  --chart-5: oklch(0.55 0.01 80);
+
+  /* MTG Vault semantic */
+  --surface-base: oklch(0.13 0.008 240);
+  --surface-raised: oklch(0.19 0.01 240);
+  --surface-overlay: oklch(0.22 0.012 240);
+  --surface-inset: oklch(0.16 0.008 240);
+  --border-subtle: oklch(0.27 0.01 240);
+  --border-strong: oklch(0.4 0.012 240);
+  --text-primary: oklch(0.96 0.005 80);
+  --text-secondary: oklch(0.78 0.008 80);
+  --text-muted: oklch(0.6 0.012 80);
+  --text-disabled: oklch(0.42 0.01 240);
+  --brand: oklch(0.78 0.15 75);
+  --brand-strong: oklch(0.85 0.15 78);
+  --brand-soft: oklch(0.3 0.06 75);
+  --value-positive: oklch(0.72 0.18 145);
+  --value-negative: oklch(0.7 0.2 25);
+  --value-neutral: oklch(0.6 0.012 80);
+
+  --mtg-white: oklch(0.86 0.04 85);
+  --mtg-blue: oklch(0.7 0.13 240);
+  --mtg-black: oklch(0.32 0.02 280);
+  --mtg-red: oklch(0.66 0.2 25);
+  --mtg-green: oklch(0.66 0.16 145);
+  --mtg-colorless: oklch(0.65 0.008 60);
+  --mtg-multicolor: oklch(0.78 0.14 80);
+
+  --bracket-1: oklch(0.55 0.01 240);
+  --bracket-2: oklch(0.66 0.16 145);
+  --bracket-3: oklch(0.78 0.14 80);
+  --bracket-4: oklch(0.72 0.19 50);
+  --bracket-5: oklch(0.7 0.21 25);
+
+  --owned-available: oklch(0.72 0.18 145);
+  --owned-committed: oklch(0.78 0.14 80);
+  --unowned: oklch(0.7 0.2 25);
+
+  --rarity-common: oklch(0.55 0.005 60);
+  --rarity-uncommon: oklch(0.7 0.01 240);
+  --rarity-rare: oklch(0.78 0.14 80);
+  --rarity-mythic: oklch(0.7 0.2 35);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Tabular figures everywhere we care about column alignment.
+   * Apply via the .num utility — opt-in, not opt-out. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+
+  /* Headings get tighter tracking; bold by default. */
+  h1, h2, h3 {
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Mana font slight nudge for visual alignment with surrounding text. */
+  .ms.ms-cost {
+    box-shadow: 0 0 0 1px oklch(0 0 0 / 0.18);
   }
 }
