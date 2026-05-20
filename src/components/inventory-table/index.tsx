@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
+  ArrowDownToLine,
   ArrowUp,
   ArrowUpDown,
+  ArrowUpFromLine,
   ChevronDown,
   ChevronRight,
   ImageOff,
@@ -15,14 +17,11 @@ import {
   Search,
   Trash2,
   Undo2,
-  Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,8 +36,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ManaCost } from "@/components/mana-cost";
+import { SetSymbol } from "@/components/set-symbol";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
 import { currentValueOf } from "@/lib/inventory/types";
+import { cn } from "@/lib/utils";
 import { EditRowDialog } from "./edit-row-dialog";
 import { DisposeDialog } from "./dispose-dialog";
 
@@ -65,6 +67,15 @@ const TYPE_OPTIONS = [
   "Battle",
 ];
 
+const COLOR_TOKEN: Record<string, string> = {
+  W: "var(--color-mtg-white)",
+  U: "var(--color-mtg-blue)",
+  B: "var(--color-mtg-black)",
+  R: "var(--color-mtg-red)",
+  G: "var(--color-mtg-green)",
+  C: "var(--color-mtg-colorless)",
+};
+
 export function InventoryTable({
   initialRows,
   initialNextCursor,
@@ -77,7 +88,9 @@ export function InventoryTable({
   const router = useRouter();
   const [rows, setRows] = useState<InventoryRowWithCard[]>(initialRows);
   const [totals, setTotals] = useState<Totals>(initialTotals);
-  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    initialNextCursor,
+  );
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -86,7 +99,6 @@ export function InventoryTable({
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  // Filters
   const [nameFilter, setNameFilter] = useState("");
   const [debouncedName, setDebouncedName] = useState("");
   const [colorFilter, setColorFilter] = useState<Set<string>>(new Set());
@@ -96,17 +108,17 @@ export function InventoryTable({
   const [foilsOnly, setFoilsOnly] = useState(false);
 
   const [locations, setLocations] = useState<string[]>([]);
-
-  // Selection + expansion
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Dialogs
-  const [editingRow, setEditingRow] = useState<InventoryRowWithCard | null>(null);
-  const [disposingRows, setDisposingRows] = useState<InventoryRowWithCard[]>([]);
+  const [editingRow, setEditingRow] = useState<InventoryRowWithCard | null>(
+    null,
+  );
+  const [disposingRows, setDisposingRows] = useState<InventoryRowWithCard[]>(
+    [],
+  );
   const [disposeOpen, setDisposeOpen] = useState(false);
 
-  // Debounce name filter
   const nameTimerRef = useRef<number | null>(null);
   const handleNameChange = useCallback((v: string) => {
     setNameFilter(v);
@@ -166,7 +178,7 @@ export function InventoryTable({
       setSelected(new Set());
     } catch (err) {
       toast.error(
-        `Failed to load inventory: ${err instanceof Error ? err.message : String(err)}`,
+        `Couldn't load inventory: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       setLoading(false);
@@ -186,15 +198,13 @@ export function InventoryTable({
       setNextCursor(data.nextCursor ?? null);
     } catch (err) {
       toast.error(
-        `Failed to load more: ${err instanceof Error ? err.message : String(err)}`,
+        `Couldn't load more: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       setLoadingMore(false);
     }
   }, [buildParams, nextCursor, loadingMore]);
 
-  // Refetch when filters / sort change. setLoading inside refetch is the
-  // intended UI feedback, not an accidental cascading render.
   useEffect(() => {
     /* eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
     void refetch();
@@ -210,7 +220,6 @@ export function InventoryTable({
     sortDir,
   ]);
 
-  // Locations for filter dropdown — refreshed whenever the row set changes.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/inventory/locations")
@@ -218,9 +227,7 @@ export function InventoryTable({
       .then((d) => {
         if (!cancelled) setLocations(d.locations ?? []);
       })
-      .catch(() => {
-        /* ignore */
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -285,7 +292,7 @@ export function InventoryTable({
         refetch();
       } catch (err) {
         toast.error(
-          `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
+          `Couldn't delete: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     },
@@ -303,14 +310,13 @@ export function InventoryTable({
         refetch();
       } catch (err) {
         toast.error(
-          `Failed to restore: ${err instanceof Error ? err.message : String(err)}`,
+          `Couldn't restore: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     },
     [refetch],
   );
 
-  // Group rows by (oracleId, foil)
   const groups = useMemo(() => {
     if (!grouped) return null;
     const map = new Map<
@@ -323,6 +329,8 @@ export function InventoryTable({
         imageUri: string | null;
         manaCost: string | null;
         typeLine: string | null;
+        setCode: string;
+        rarity: string | null;
         rows: InventoryRowWithCard[];
         totalValue: number;
         locationsCount: Map<string, number>;
@@ -341,6 +349,8 @@ export function InventoryTable({
           imageUri: r.imageUri,
           manaCost: r.manaCost,
           typeLine: r.typeLine,
+          setCode: r.setCode,
+          rarity: r.rarity,
           rows: [],
           totalValue: 0,
           locationsCount: new Map(),
@@ -361,13 +371,6 @@ export function InventoryTable({
     return [...map.values()];
   }, [rows, grouped]);
 
-  const totalsLabel = useMemo(() => {
-    if (grouped && groups) {
-      return `${groups.length} unique cards, ${totals.totalCount} total physical cards · $${totals.totalValueUsd.toFixed(2)}`;
-    }
-    return `${totals.totalCount} cards · $${totals.totalValueUsd.toFixed(2)}`;
-  }, [grouped, groups, totals]);
-
   const hasAnyFilter =
     !!debouncedName ||
     colorFilter.size > 0 ||
@@ -377,60 +380,77 @@ export function InventoryTable({
     foilsOnly;
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Inventory</h1>
-          <p className="text-sm text-muted-foreground">{totalsLabel}</p>
+    <div className="mx-auto w-full max-w-7xl space-y-3 px-4 py-4">
+      {/* ──── Header ──── */}
+      <header className="flex flex-wrap items-end justify-between gap-3 pb-2">
+        <div className="space-y-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+            Inventory
+          </p>
+          <div className="flex items-baseline gap-4">
+            <h1 className="num text-[28px] font-semibold leading-none">
+              {totals.totalCount.toLocaleString()}
+              <span className="ml-1 text-[12px] text-text-muted">cards</span>
+            </h1>
+            <div className="flex items-baseline gap-1.5 font-mono text-[14px]">
+              <span className="text-text-muted">$</span>
+              <span className="num font-semibold">
+                {totals.totalValueUsd.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+            {grouped && groups && (
+              <span className="font-mono text-[11px] text-text-muted">
+                · <span className="num">{groups.length}</span> unique
+              </span>
+            )}
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={grouped}
-              onChange={(e) => setGrouped(e.target.checked)}
-              className="size-4"
-            />
-            Group by card
-          </label>
+          <ViewToggle
+            grouped={grouped}
+            onChange={setGrouped}
+          />
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/api/inventory/export"
             download
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-sm font-medium hover:bg-muted"
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-raised px-2.5 font-mono text-[11px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
           >
-            <Upload className="size-4 rotate-180" /> Export
+            <ArrowDownToLine className="size-3.5" /> Export
           </a>
           <Link
             href="/import"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-sm font-medium hover:bg-muted"
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-raised px-2.5 font-mono text-[11px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
           >
-            <Upload className="size-4" /> Import CSV
+            <ArrowUpFromLine className="size-3.5" /> Import CSV
           </Link>
-          <Button disabled variant="outline" size="sm">
-            <Plus className="size-4" /> Add cards
+          <Button disabled size="sm" className="h-7 gap-1.5">
+            <Plus className="size-3.5" /> Add cards
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Filter bar */}
-      <div className="space-y-3 rounded-lg border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-            <Input
+      {/* ──── Filter bar ──── */}
+      <section className="rounded-md border border-border-subtle bg-surface-inset/60">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2">
+          <div className="relative min-w-[240px] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-text-muted" />
+            <input
               value={nameFilter}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="Search by name…"
-              className="pl-8"
+              className="h-7 w-full rounded-sm border border-border-subtle bg-surface-base pl-7 pr-2 text-[12px] text-text-primary placeholder:text-text-muted outline-none focus:border-brand"
             />
           </div>
-          <Input
+          <input
             value={setFilter}
             onChange={(e) => setSetFilter(e.target.value)}
-            placeholder="Set code"
-            className="w-28"
+            placeholder="SET"
+            className="h-7 w-20 rounded-sm border border-border-subtle bg-surface-base px-2 font-mono text-[11px] uppercase tracking-wide text-text-primary placeholder:text-text-muted outline-none focus:border-brand"
           />
           <Select
             value={typeFilter || "__all"}
@@ -438,7 +458,7 @@ export function InventoryTable({
               setTypeFilter(!v || v === "__all" ? "" : v)
             }
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="h-7! w-32 rounded-sm! border-border-subtle bg-surface-base text-[11px]!">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -456,7 +476,7 @@ export function InventoryTable({
               setLocationFilter(!v || v === "__all" ? "" : v)
             }
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="h-7! w-40 rounded-sm! border-border-subtle bg-surface-base text-[11px]!">
               <SelectValue placeholder="Location" />
             </SelectTrigger>
             <SelectContent>
@@ -468,143 +488,199 @@ export function InventoryTable({
               ))}
             </SelectContent>
           </Select>
-          {hasAnyFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-muted-foreground"
+          <div className="ml-auto flex items-center gap-3 font-mono text-[10px] uppercase tracking-wide">
+            <ToggleLabel checked={foilsOnly} onChange={setFoilsOnly}>
+              Foils only
+            </ToggleLabel>
+            <ToggleLabel
+              checked={false}
+              disabled
+              onChange={() => {}}
+              title="Wires up when decks have inventory bindings"
             >
-              <X className="size-4" /> Clear
-            </Button>
-          )}
+              Available
+            </ToggleLabel>
+            <ToggleLabel checked={includeDisposed} onChange={setIncludeDisposed}>
+              + Disposed
+            </ToggleLabel>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <span className="text-muted-foreground">Colors:</span>
+        <div className="flex items-center gap-3 px-3 py-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+            Colors
+          </span>
           {COLORS.map((c) => {
-            const active = colorFilter.has(c);
+            const isActive = colorFilter.has(c);
             return (
               <button
                 key={c}
                 type="button"
                 onClick={() => toggleColor(c)}
-                className={`inline-flex size-6 items-center justify-center rounded-full border text-[10px] font-semibold ${
-                  active
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border bg-card text-muted-foreground hover:border-foreground/40"
-                }`}
+                className={cn(
+                  "inline-flex size-5 items-center justify-center rounded-full border font-mono text-[9px] font-semibold transition-colors",
+                  isActive
+                    ? "text-background"
+                    : "border-border-subtle bg-surface-raised text-text-muted hover:border-border-strong",
+                )}
+                style={
+                  isActive
+                    ? {
+                        background: COLOR_TOKEN[c],
+                        borderColor: COLOR_TOKEN[c],
+                      }
+                    : undefined
+                }
+                aria-pressed={isActive}
+                aria-label={`Toggle ${c} color`}
               >
                 {c}
               </button>
             );
           })}
-          <span className="mx-2 h-4 w-px bg-border" />
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={foilsOnly}
-              onChange={(e) => setFoilsOnly(e.target.checked)}
-              className="size-3.5"
-            />
-            Foils only
-          </label>
-          <label className="flex items-center gap-1.5 text-muted-foreground" title="Wires up after decks are built">
-            <input type="checkbox" disabled className="size-3.5" />
-            Available (not in decks)
-          </label>
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={includeDisposed}
-              onChange={(e) => setIncludeDisposed(e.target.checked)}
-              className="size-3.5"
-            />
-            Include disposed
-          </label>
+          {hasAnyFilter && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-text-muted transition-colors hover:text-text-primary"
+            >
+              <X className="size-3" /> Clear filters
+            </button>
+          )}
         </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        {rows.length === 0 && !loading ? (
-          <div className="flex flex-col items-center justify-center gap-2 p-12 text-center text-sm text-muted-foreground">
-            <p className="text-base font-medium text-foreground">
-              No cards yet.
-            </p>
-            <p>
-              Press <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">⌘K</kbd> to search and add your first card, or import from CSV (Phase 5).
-            </p>
+        {hasAnyFilter && (
+          <div className="flex flex-wrap items-center gap-1 border-t border-border-subtle px-3 py-1.5">
+            {debouncedName && (
+              <ActiveChip
+                label={`name "${debouncedName}"`}
+                onClear={() => {
+                  setNameFilter("");
+                  setDebouncedName("");
+                }}
+              />
+            )}
+            {setFilter && (
+              <ActiveChip
+                label={`set ${setFilter.toUpperCase()}`}
+                onClear={() => setSetFilter("")}
+              />
+            )}
+            {typeFilter && (
+              <ActiveChip
+                label={`type ${typeFilter}`}
+                onClear={() => setTypeFilter("")}
+              />
+            )}
+            {locationFilter && (
+              <ActiveChip
+                label={`@ ${locationFilter}`}
+                onClear={() => setLocationFilter("")}
+              />
+            )}
+            {[...colorFilter].map((c) => (
+              <ActiveChip
+                key={c}
+                label={c}
+                tint={COLOR_TOKEN[c]}
+                onClear={() => toggleColor(c)}
+              />
+            ))}
+            {foilsOnly && (
+              <ActiveChip
+                label="foil only"
+                onClear={() => setFoilsOnly(false)}
+              />
+            )}
           </div>
+        )}
+      </section>
+
+      {/* ──── Table ──── */}
+      <section className="overflow-x-auto rounded-md border border-border-subtle bg-surface-raised">
+        {rows.length === 0 && !loading ? (
+          <EmptyState hasFilters={hasAnyFilter} />
         ) : grouped && groups ? (
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="w-10 px-3 py-2 text-left"></th>
-                <th className="w-12 px-2 py-2 text-left"></th>
+          <table className="w-full text-[13px]">
+            <thead className="border-b border-border-subtle bg-surface-inset/60">
+              <tr className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                <th className="w-8 px-2 py-1.5"></th>
+                <th className="w-12 px-2 py-1.5"></th>
                 <SortHeader
                   field="name"
                   current={sortField}
                   dir={sortDir}
                   onSort={toggleSort}
-                  className="px-2 py-2 text-left"
+                  className="px-2 py-1.5 text-left"
                 >
                   Card
                 </SortHeader>
-                <th className="px-2 py-2 text-left">Type</th>
-                <th className="px-2 py-2 text-left">Foil</th>
-                <th className="px-2 py-2 text-right">Count</th>
-                <th className="px-2 py-2 text-right">Value</th>
-                <th className="px-2 py-2 text-left">Locations</th>
-                <th className="w-10 px-2 py-2"></th>
+                <th className="px-2 py-1.5 text-left">Type</th>
+                <th className="w-12 px-2 py-1.5 text-left">Finish</th>
+                <th className="w-16 px-2 py-1.5 text-right">Qty</th>
+                <SortHeader
+                  field="usd"
+                  current={sortField}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                  className="w-24 px-2 py-1.5 text-right"
+                >
+                  Value
+                </SortHeader>
+                <SortHeader
+                  field="location"
+                  current={sortField}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                  className="px-2 py-1.5 text-left"
+                >
+                  Locations
+                </SortHeader>
+                <th className="w-8 px-2 py-1.5"></th>
               </tr>
             </thead>
             <tbody>
-              {groups.map((g) => {
-                const isOpen = expanded.has(g.key);
-                return (
-                  <GroupRowRenderer
-                    key={g.key}
-                    group={g}
-                    isOpen={isOpen}
-                    onToggleExpand={() => toggleExpanded(g.key)}
-                    selected={selected}
-                    onToggleSelected={toggleSelected}
-                    onEdit={setEditingRow}
-                    onDispose={(r) => {
-                      setDisposingRows([r]);
-                      setDisposeOpen(true);
-                    }}
-                    onDelete={onDelete}
-                    onRestore={onRestore}
-                  />
-                );
-              })}
+              {groups.map((g) => (
+                <GroupRowRenderer
+                  key={g.key}
+                  group={g}
+                  isOpen={expanded.has(g.key)}
+                  onToggleExpand={() => toggleExpanded(g.key)}
+                  selected={selected}
+                  onToggleSelected={toggleSelected}
+                  onEdit={setEditingRow}
+                  onDispose={(r) => {
+                    setDisposingRows([r]);
+                    setDisposeOpen(true);
+                  }}
+                  onDelete={onDelete}
+                  onRestore={onRestore}
+                />
+              ))}
             </tbody>
           </table>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="w-10 px-3 py-2"></th>
-                <th className="w-12 px-2 py-2"></th>
+          <table className="w-full text-[13px]">
+            <thead className="border-b border-border-subtle bg-surface-inset/60">
+              <tr className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                <th className="w-8 px-2 py-1.5"></th>
+                <th className="w-12 px-2 py-1.5"></th>
                 <SortHeader
                   field="name"
                   current={sortField}
                   dir={sortDir}
                   onSort={toggleSort}
-                  className="px-2 py-2 text-left"
+                  className="px-2 py-1.5 text-left"
                 >
-                  Name
+                  Card
                 </SortHeader>
-                <th className="px-2 py-2 text-left">Set</th>
-                <th className="px-2 py-2 text-left">#</th>
-                <th className="px-2 py-2 text-left">Foil</th>
+                <th className="w-16 px-2 py-1.5 text-left">Set</th>
+                <th className="w-14 px-2 py-1.5 text-left">#</th>
+                <th className="w-12 px-2 py-1.5 text-left">Finish</th>
                 <SortHeader
                   field="condition"
                   current={sortField}
                   dir={sortDir}
                   onSort={toggleSort}
-                  className="px-2 py-2 text-left"
+                  className="w-14 px-2 py-1.5 text-left"
                 >
                   Cond
                 </SortHeader>
@@ -613,7 +689,7 @@ export function InventoryTable({
                   current={sortField}
                   dir={sortDir}
                   onSort={toggleSort}
-                  className="px-2 py-2 text-left"
+                  className="px-2 py-1.5 text-left"
                 >
                   Location
                 </SortHeader>
@@ -622,7 +698,7 @@ export function InventoryTable({
                   current={sortField}
                   dir={sortDir}
                   onSort={toggleSort}
-                  className="px-2 py-2 text-right"
+                  className="w-20 px-2 py-1.5 text-right"
                 >
                   USD
                 </SortHeader>
@@ -631,11 +707,11 @@ export function InventoryTable({
                   current={sortField}
                   dir={sortDir}
                   onSort={toggleSort}
-                  className="px-2 py-2 text-right"
+                  className="w-20 px-2 py-1.5 text-right"
                 >
                   Paid
                 </SortHeader>
-                <th className="w-10 px-2 py-2"></th>
+                <th className="w-8 px-2 py-1.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -657,30 +733,37 @@ export function InventoryTable({
             </tbody>
           </table>
         )}
-      </div>
+      </section>
 
       {nextCursor && (
-        <div className="flex justify-center">
+        <div className="flex justify-center pb-4">
           <Button
             variant="outline"
             onClick={loadMore}
             disabled={loadingMore}
             size="sm"
+            className="font-mono text-[11px] uppercase tracking-wide"
           >
             {loadingMore ? "Loading…" : "Load more"}
           </Button>
         </div>
       )}
 
-      {/* Bulk actions bar */}
+      {/* ──── Bulk actions bar ──── */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-full border bg-card px-4 py-2 shadow-lg">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="font-medium">{selected.size} selected</span>
-            <span className="h-4 w-px bg-border" />
+        <div className="pointer-events-none fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-md border border-border-strong bg-surface-overlay px-4 py-2 shadow-lg shadow-black/30">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-muted">
+              Selected
+            </span>
+            <span className="num font-semibold text-text-primary">
+              {selected.size}
+            </span>
+            <span className="h-4 w-px bg-border-subtle" />
             <Button
               size="sm"
               variant="outline"
+              className="h-7 font-mono text-[11px] uppercase tracking-wide"
               onClick={() => {
                 const targets = rows.filter((r) => selected.has(r.id));
                 setDisposingRows(targets);
@@ -692,6 +775,7 @@ export function InventoryTable({
             <Button
               size="sm"
               variant="ghost"
+              className="h-7 font-mono text-[11px] uppercase tracking-wide text-text-muted hover:text-text-primary"
               onClick={() => setSelected(new Set())}
             >
               Clear
@@ -717,6 +801,133 @@ export function InventoryTable({
   );
 }
 
+// ─── Sub-components ───────────────────────────────────────────────
+
+function ViewToggle({
+  grouped,
+  onChange,
+}: {
+  grouped: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div
+      role="group"
+      className="inline-flex overflow-hidden rounded-md border border-border-subtle"
+    >
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={cn(
+          "h-7 px-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
+          grouped
+            ? "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]"
+            : "bg-surface-raised text-text-muted hover:text-text-primary",
+        )}
+        aria-pressed={grouped}
+      >
+        Grouped
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={cn(
+          "h-7 border-l border-border-subtle px-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
+          !grouped
+            ? "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]"
+            : "bg-surface-raised text-text-muted hover:text-text-primary",
+        )}
+        aria-pressed={!grouped}
+      >
+        Physical
+      </button>
+    </div>
+  );
+}
+
+function ToggleLabel({
+  checked,
+  disabled,
+  onChange,
+  children,
+  title,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <label
+      title={title}
+      className={cn(
+        "inline-flex cursor-pointer select-none items-center gap-1.5 text-text-secondary",
+        disabled && "cursor-not-allowed opacity-50",
+      )}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-3 cursor-pointer accent-[var(--color-brand)]"
+      />
+      {children}
+    </label>
+  );
+}
+
+function ActiveChip({
+  label,
+  onClear,
+  tint,
+}: {
+  label: string;
+  onClear: () => void;
+  tint?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      className="group/chip inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+    >
+      {tint && (
+        <span
+          className="size-1.5 rounded-full"
+          style={{ background: tint }}
+        />
+      )}
+      {label}
+      <X className="size-2.5 opacity-60 group-hover/chip:opacity-100" />
+    </button>
+  );
+}
+
+function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+        {hasFilters ? "No matches" : "Empty inventory"}
+      </p>
+      {hasFilters ? (
+        <p className="text-sm text-text-secondary">
+          No rows match the current filters.
+        </p>
+      ) : (
+        <p className="text-sm text-text-secondary">
+          Press{" "}
+          <kbd className="rounded-sm border border-border-subtle bg-surface-inset px-1 font-mono text-[10px]">
+            ⌘K
+          </kbd>{" "}
+          to search and add your first card, or import a CSV.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SortHeader({
   field,
   current,
@@ -732,17 +943,27 @@ function SortHeader({
   className?: string;
   children: React.ReactNode;
 }) {
-  const active = current === field;
-  const Icon = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+  const isActive = current === field;
+  const Icon = !isActive ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
   return (
     <th className={className}>
       <button
         type="button"
         onClick={() => onSort(field)}
-        className="inline-flex items-center gap-1 font-medium text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        className={cn(
+          "inline-flex items-center gap-1 transition-colors",
+          isActive
+            ? "text-[var(--color-brand-strong)]"
+            : "text-text-muted hover:text-text-secondary",
+        )}
       >
         {children}
-        <Icon className="size-3" />
+        <Icon
+          className={cn(
+            "size-3",
+            isActive ? "opacity-100" : "opacity-40",
+          )}
+        />
       </button>
     </th>
   );
@@ -767,6 +988,8 @@ function GroupRowRenderer({
     imageUri: string | null;
     manaCost: string | null;
     typeLine: string | null;
+    setCode: string;
+    rarity: string | null;
     rows: InventoryRowWithCard[];
     totalValue: number;
     locationsCount: Map<string, number>;
@@ -781,65 +1004,78 @@ function GroupRowRenderer({
   onDelete: (id: string) => void;
   onRestore: (id: string) => void;
 }) {
-  const locsLabel =
-    [...group.locationsCount.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([loc, n]) => `${loc} (${n})`)
-      .join(", ") || "—";
+  const locs = [...group.locationsCount.entries()].sort((a, b) => b[1] - a[1]);
 
   return (
     <>
-      <tr className="border-b hover:bg-muted/30">
-        <td className="px-3 py-2">
+      <tr
+        className={cn(
+          "border-b border-border-subtle transition-colors",
+          isOpen ? "bg-surface-inset/40" : "hover:bg-surface-inset/40",
+        )}
+      >
+        <td className="px-2 py-1.5">
           <button
             type="button"
             onClick={onToggleExpand}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-text-muted transition-colors hover:text-text-primary"
             aria-label={isOpen ? "Collapse" : "Expand"}
           >
             {isOpen ? (
-              <ChevronDown className="size-4" />
+              <ChevronDown className="size-3.5" />
             ) : (
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-3.5" />
             )}
           </button>
         </td>
         <td className="px-2 py-1.5">
           <Thumb src={group.imageUri} alt={group.name} />
         </td>
-        <td className="px-2 py-2">
-          <Link
-            href={`/cards/${group.oracleId}`}
-            target="_blank"
-            rel="noopener"
-            className="font-medium hover:underline"
-          >
-            {group.name}
-          </Link>
+        <td className="px-2 py-1.5">
+          <div className="flex items-center gap-1.5">
+            <Link
+              href={`/cards/${group.oracleId}`}
+              target="_blank"
+              rel="noopener"
+              className="font-medium text-text-primary hover:underline"
+            >
+              {group.name}
+            </Link>
+            <ManaCost cost={group.manaCost} size="xs" />
+          </div>
         </td>
-        <td className="px-2 py-2 text-xs text-muted-foreground">
-          {group.typeLine ?? "—"}
+        <td className="px-2 py-1.5 font-mono text-[10px] uppercase tracking-wide text-text-muted">
+          {group.typeLine?.split("—")[0]?.trim() ?? "—"}
         </td>
-        <td className="px-2 py-2">
+        <td className="px-2 py-1.5">
           {group.foil ? (
-            <Badge variant="secondary" className="text-[10px]">
-              FOIL
-            </Badge>
+            <span className="rounded-sm border border-[var(--color-mtg-multicolor)]/40 bg-[var(--color-mtg-multicolor)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--color-mtg-multicolor)]">
+              Foil
+            </span>
           ) : (
-            <span className="text-xs text-muted-foreground">—</span>
+            <span className="font-mono text-[10px] text-text-muted">—</span>
           )}
         </td>
-        <td className="px-2 py-2 text-right font-medium tabular-nums">
-          ×{group.rows.length}
+        <td className="px-2 py-1.5 text-right">
+          <span className="num font-semibold text-text-primary">
+            ×{group.rows.length}
+          </span>
         </td>
-        <td className="px-2 py-2 text-right tabular-nums">
-          ${group.totalValue.toFixed(2)}
+        <td className="px-2 py-1.5 text-right">
+          <span className="num text-text-primary">
+            ${group.totalValue.toFixed(2)}
+          </span>
         </td>
-        <td className="px-2 py-2 text-xs text-muted-foreground">
-          {locsLabel}
+        <td className="px-2 py-1.5 font-mono text-[11px] text-text-muted">
+          {locs.length === 0
+            ? "—"
+            : locs
+                .slice(0, 3)
+                .map(([loc, n]) => `${loc} (${n})`)
+                .join(" · ")}
+          {locs.length > 3 && ` +${locs.length - 3}`}
         </td>
-        <td className="px-2 py-2"></td>
+        <td className="px-2 py-1.5"></td>
       </tr>
       {isOpen &&
         group.rows.map((r) => (
@@ -881,75 +1117,106 @@ function PhysicalRowRenderer({
   const disposed = !!row.disposedAt;
   return (
     <tr
-      className={`border-b transition-opacity ${disposed ? "opacity-60" : ""} ${
-        inGroup ? "bg-muted/10" : "hover:bg-muted/30"
-      }`}
+      className={cn(
+        "group/row border-b border-border-subtle transition-colors",
+        disposed && "opacity-55",
+        inGroup
+          ? "bg-surface-inset/30 hover:bg-surface-inset/60"
+          : "hover:bg-surface-inset/40",
+      )}
     >
-      <td className="px-3 py-1.5">
+      <td className="px-2 py-1">
         <input
           type="checkbox"
           checked={selected}
           onChange={onToggleSelected}
-          className="size-4"
+          className="size-3.5 cursor-pointer accent-[var(--color-brand)]"
+          aria-label={`Select ${row.name}`}
         />
       </td>
-      <td className="px-2 py-1.5">
-        {!inGroup && <Thumb src={row.imageUri} alt={row.name} />}
-      </td>
-      <td className="px-2 py-1.5">
-        <Link
-          href={`/cards/${row.oracleId}`}
-          target="_blank"
-          rel="noopener"
-          className="hover:underline"
-        >
-          {row.name}
-        </Link>
-        {disposed && (
-          <Badge variant="destructive" className="ml-2 text-[10px]">
-            DISPOSED
-          </Badge>
+      <td className="px-2 py-1">
+        {!inGroup ? (
+          <Thumb src={row.imageUri} alt={row.name} />
+        ) : (
+          <span
+            className="ml-2 inline-block h-6 w-1 rounded-full bg-border-subtle"
+            aria-hidden
+          />
         )}
       </td>
-      <td className="px-2 py-1.5 text-xs">
-        <span className="font-medium uppercase">{row.setCode}</span>
+      <td className="px-2 py-1">
+        <div className="flex items-center gap-1.5">
+          <Link
+            href={`/cards/${row.oracleId}`}
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-text-primary hover:underline"
+          >
+            {row.name}
+          </Link>
+          <ManaCost cost={row.manaCost} size="xs" />
+          {disposed && (
+            <span className="rounded-sm border border-border-strong bg-surface-inset px-1 font-mono text-[9px] uppercase tracking-[0.18em] text-text-muted">
+              Disposed
+            </span>
+          )}
+        </div>
       </td>
-      <td className="px-2 py-1.5 text-xs text-muted-foreground">
+      <td className="px-2 py-1">
+        <span className="inline-flex items-center gap-1.5">
+          <SetSymbol setCode={row.setCode} rarity={row.rarity} size="sm" />
+          <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary">
+            {row.setCode}
+          </span>
+        </span>
+      </td>
+      <td className="px-2 py-1 font-mono text-[11px] tabular-nums text-text-muted">
         {row.collectorNumber}
       </td>
-      <td className="px-2 py-1.5">
+      <td className="px-2 py-1">
         {row.foil ? (
-          <Badge variant="secondary" className="text-[10px]">
-            FOIL
-          </Badge>
+          <span className="rounded-sm border border-[var(--color-mtg-multicolor)]/40 bg-[var(--color-mtg-multicolor)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--color-mtg-multicolor)]">
+            Foil
+          </span>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="font-mono text-[10px] text-text-muted">—</span>
         )}
       </td>
-      <td className="px-2 py-1.5 text-xs">{row.condition}</td>
-      <td className="px-2 py-1.5 text-xs">{row.location ?? "—"}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">
-        ${currentValueOf(row).toFixed(2)}
+      <td className="px-2 py-1 font-mono text-[11px] text-text-secondary">
+        {row.condition}
       </td>
-      <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
-        {row.acquiredPrice ? `$${row.acquiredPrice}` : "—"}
+      <td className="px-2 py-1 font-mono text-[11px] text-text-secondary">
+        {row.location ?? <span className="text-text-muted">—</span>}
       </td>
-      <td className="px-2 py-1.5">
+      <td className="px-2 py-1 text-right">
+        <span className="num text-text-primary">
+          ${currentValueOf(row).toFixed(2)}
+        </span>
+      </td>
+      <td className="px-2 py-1 text-right">
+        <span className="num text-text-muted">
+          {row.acquiredPrice ? `$${Number(row.acquiredPrice).toFixed(2)}` : "—"}
+        </span>
+      </td>
+      <td className="px-2 py-1">
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
-            <MoreHorizontal className="size-4" />
+          <DropdownMenuTrigger
+            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted opacity-0 transition-opacity hover:bg-surface-inset hover:text-text-primary group-hover/row:opacity-100 data-[state=open]:opacity-100"
+            aria-label="Row actions"
+          >
+            <MoreHorizontal className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={onEdit}>
-              <Pencil className="size-4" /> Edit
+              <Pencil className="size-3.5" /> Edit
             </DropdownMenuItem>
             {disposed ? (
               <DropdownMenuItem onSelect={onRestore}>
-                <Undo2 className="size-4" /> Restore
+                <Undo2 className="size-3.5" /> Restore
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem onSelect={onDispose}>
-                <Trash2 className="size-4" /> Mark disposed
+                <Trash2 className="size-3.5" /> Mark disposed
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
@@ -957,7 +1224,7 @@ function PhysicalRowRenderer({
               onSelect={onDelete}
               className="text-destructive focus:text-destructive"
             >
-              <Trash2 className="size-4" /> Delete row
+              <Trash2 className="size-3.5" /> Delete row
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -969,8 +1236,8 @@ function PhysicalRowRenderer({
 function Thumb({ src, alt }: { src: string | null; alt: string }) {
   if (!src) {
     return (
-      <div className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground">
-        <ImageOff className="size-4" />
+      <div className="flex size-9 items-center justify-center rounded-sm bg-surface-inset text-text-muted ring-1 ring-border-subtle">
+        <ImageOff className="size-3.5" />
       </div>
     );
   }
@@ -979,7 +1246,7 @@ function Thumb({ src, alt }: { src: string | null; alt: string }) {
     <img
       src={src}
       alt={alt}
-      className="size-10 rounded object-cover"
+      className="size-9 rounded-sm object-cover ring-1 ring-border-subtle"
       loading="lazy"
     />
   );
