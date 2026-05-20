@@ -16,18 +16,23 @@ export default async function ImportHistoryPage() {
     .limit(100);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Import history</h1>
-          <p className="text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+            Import · History
+          </p>
+          <h1 className="font-[var(--font-display)] text-[44px] font-semibold leading-[1.05] tracking-tight">
+            Import history
+          </h1>
+          <p className="max-w-prose text-[14px] text-[var(--text-secondary)]">
             Most recent imports first. Undo wipes the rows it created and
             restores any rows it disposed.
           </p>
         </div>
         <Link
           href="/import"
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-raised px-2.5 font-mono text-[11px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
         >
           ← Back to import
         </Link>

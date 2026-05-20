@@ -276,18 +276,28 @@ export default function ImportPage() {
   }, [preview, resolutions, defaultLocation, purchasedFromDefault, mode]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Import CSV</h1>
-          <p className="text-sm text-muted-foreground">
-            Step {step} of 5 ·{" "}
+    <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+        <div className="space-y-2">
+          <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+            Import
+          </p>
+          <h1 className="font-[var(--font-display)] text-[44px] font-semibold leading-[1.05] tracking-tight">
+            Import a CSV
+          </h1>
+          <p className="text-[14px] text-[var(--text-secondary)]">
+            <span className="font-[var(--font-mono)] text-[12px] uppercase tracking-wide text-[var(--text-muted)]">
+              Step{" "}
+              <span className="num text-[var(--text-primary)]">{step}</span> of{" "}
+              <span className="num">5</span>
+            </span>{" "}
+            <span className="text-[var(--text-muted)]">·</span>{" "}
             {STEP_LABEL[step]}
           </p>
         </div>
         <Link
           href="/import/history"
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-raised px-2.5 font-mono text-[11px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
         >
           Import history →
         </Link>
