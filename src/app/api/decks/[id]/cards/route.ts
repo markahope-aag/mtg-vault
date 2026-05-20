@@ -1,10 +1,115 @@
 import { and, eq, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { db } from "@/db/client";
 import { deckCards, decks } from "@/db/schema";
 import { upsertDeckCardSchema } from "@/lib/decks/schemas";
 
 export const dynamic = "force-dynamic";
+
+const moveSchema = z.object({
+  printingId: z.string().uuid(),
+  fromCategory: z.string().trim().min(1).max(30),
+  toCategory: z.string().trim().min(1).max(30),
+});
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const parsed = moveSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid payload", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { printingId, fromCategory, toCategory } = parsed.data;
+  if (fromCategory === toCategory) {
+    return NextResponse.json({ ok: true, unchanged: true });
+  }
+  try {
+    const existing = await db
+      .select()
+      .from(deckCards)
+      .where(
+        and(
+          eq(deckCards.deckId, id),
+          eq(deckCards.printingId, printingId),
+          eq(deckCards.category, fromCategory),
+        ),
+      )
+      .limit(1);
+    if (existing.length === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const source = existing[0];
+
+    // If a row already exists at toCategory, merge quantities.
+    const target = await db
+      .select()
+      .from(deckCards)
+      .where(
+        and(
+          eq(deckCards.deckId, id),
+          eq(deckCards.printingId, printingId),
+          eq(deckCards.category, toCategory),
+        ),
+      )
+      .limit(1);
+
+    if (target.length > 0) {
+      await db
+        .update(deckCards)
+        .set({ quantity: target[0].quantity + source.quantity })
+        .where(
+          and(
+            eq(deckCards.deckId, id),
+            eq(deckCards.printingId, printingId),
+            eq(deckCards.category, toCategory),
+          ),
+        );
+      await db
+        .delete(deckCards)
+        .where(
+          and(
+            eq(deckCards.deckId, id),
+            eq(deckCards.printingId, printingId),
+            eq(deckCards.category, fromCategory),
+          ),
+        );
+    } else {
+      await db
+        .update(deckCards)
+        .set({ category: toCategory })
+        .where(
+          and(
+            eq(deckCards.deckId, id),
+            eq(deckCards.printingId, printingId),
+            eq(deckCards.category, fromCategory),
+          ),
+        );
+    }
+    await db
+      .update(decks)
+      .set({ updatedAt: sql`now()` })
+      .where(eq(decks.id, id));
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[api/decks cards PATCH]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(
   req: NextRequest,

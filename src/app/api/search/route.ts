@@ -56,6 +56,9 @@ async function searchLocal(
   q: string,
   limit: number,
   commanderOnly: boolean,
+  ownedOnly: boolean,
+  colorIdentity: string[] | null,
+  types: string[] | null,
 ): Promise<SearchResult[]> {
   const commanderClause = commanderOnly
     ? sql`AND (
@@ -63,6 +66,23 @@ async function searchLocal(
         OR c.oracle_text ILIKE '%can be your commander%'
       )`
     : sql``;
+  const ownedClause = ownedOnly
+    ? sql`AND EXISTS (
+        SELECT 1 FROM oracle_ownership o
+        WHERE o.oracle_id = c.oracle_id AND o.owned_count > 0
+      )`
+    : sql``;
+  const colorClause =
+    colorIdentity && colorIdentity.length > 0
+      ? sql`AND c.color_identity <@ ${colorIdentity}::text[]`
+      : sql``;
+  const typeClause =
+    types && types.length > 0
+      ? sql`AND EXISTS (
+          SELECT 1 FROM UNNEST(${types}::text[]) AS t
+          WHERE c.type_line ILIKE '%' || t || '%'
+        )`
+      : sql``;
   const rows = (await db.execute(sql`
     SELECT
       c.oracle_id,
@@ -84,6 +104,9 @@ async function searchLocal(
     ) p ON TRUE
     WHERE (c.name % ${q} OR c.name ILIKE ${q + "%"})
       ${commanderClause}
+      ${ownedClause}
+      ${colorClause}
+      ${typeClause}
     ORDER BY
       (c.name ILIKE ${q + "%"}) DESC,
       similarity(c.name, ${q}) DESC,
@@ -146,14 +169,26 @@ export async function GET(req: NextRequest) {
   }
 
   const commanderOnly = searchParams.get("commanderOnly") === "true";
-  // Force local mode when commanderOnly is requested — Scryfall's is:commander
-  // operator is not exactly equivalent and we want a deterministic filter
-  // against our own data anyway.
-  const useScryfall = !commanderOnly && detectScryfallSyntax(q);
+  const ownedOnly = searchParams.get("filter[ownedOnly]") === "true";
+  const colorRaw = searchParams.get("filter[colorIdentity]");
+  const colorIdentity = colorRaw ? colorRaw.split(",").filter(Boolean) : null;
+  const typeRaw = searchParams.get("filter[types]");
+  const types = typeRaw ? typeRaw.split(",").filter(Boolean) : null;
+  // Force local mode when any local-only filter is requested.
+  const useLocalFilters =
+    commanderOnly || ownedOnly || colorIdentity != null || types != null;
+  const useScryfall = !useLocalFilters && detectScryfallSyntax(q);
   try {
     const results = useScryfall
       ? await searchScryfall(q, limit)
-      : await searchLocal(q, limit, commanderOnly);
+      : await searchLocal(
+          q,
+          limit,
+          commanderOnly,
+          ownedOnly,
+          colorIdentity,
+          types,
+        );
     return NextResponse.json({
       results,
       source: useScryfall ? ("scryfall" as const) : ("local" as const),

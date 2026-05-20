@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
 import { CommandPaletteProvider } from "@/components/card-search/command-palette";
+import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 export default async function AppLayout({
@@ -17,6 +18,7 @@ export default async function AppLayout({
   if (!user) redirect("/login");
 
   return (
+    <QueryProvider>
     <CommandPaletteProvider>
       <div className="flex min-h-screen flex-col">
         <header className="border-b">
@@ -56,5 +58,6 @@ export default async function AppLayout({
       </div>
       <Toaster />
     </CommandPaletteProvider>
+    </QueryProvider>
   );
 }
