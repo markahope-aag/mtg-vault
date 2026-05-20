@@ -13,15 +13,13 @@ export default async function InventoryPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-8">
-      <InventoryTable
-        initialRows={initial.rows}
-        initialNextCursor={initial.nextCursor}
-        initialTotals={{
-          totalCount: initial.totalCount,
-          totalValueUsd: initial.totalValueUsd,
-        }}
-      />
-    </div>
+    <InventoryTable
+      initialRows={initial.rows}
+      initialNextCursor={initial.nextCursor}
+      initialTotals={{
+        totalCount: initial.totalCount,
+        totalValueUsd: initial.totalValueUsd,
+      }}
+    />
   );
 }

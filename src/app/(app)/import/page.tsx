@@ -276,7 +276,7 @@ export default function ImportPage() {
   }, [preview, resolutions, defaultLocation, purchasedFromDefault, mode]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
         <div className="space-y-2">
           <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
@@ -303,69 +303,73 @@ export default function ImportPage() {
         </Link>
       </header>
 
-      {step === 1 && (
-        <StepUpload
-          file={file}
-          setFile={setFile}
-          uploading={uploading}
-          onUpload={onUpload}
-        />
-      )}
+      {/* Header registers full-width with other pages; step body stays
+       * narrow so the wizard form doesn't sprawl on wide displays. */}
+      <div className="mx-auto w-full max-w-3xl">
+        {step === 1 && (
+          <StepUpload
+            file={file}
+            setFile={setFile}
+            uploading={uploading}
+            onUpload={onUpload}
+          />
+        )}
 
-      {step === 2 && preview && (
-        <StepConfigure
-          preview={preview}
-          defaultLocation={defaultLocation}
-          setDefaultLocation={setDefaultLocation}
-          purchasedFromDefault={purchasedFromDefault}
-          setPurchasedFromDefault={setPurchasedFromDefault}
-          mode={mode}
-          setMode={setMode}
-          locations={locations}
-          onBack={() => setStep(1)}
-          onNext={() => setStep(3)}
-        />
-      )}
+        {step === 2 && preview && (
+          <StepConfigure
+            preview={preview}
+            defaultLocation={defaultLocation}
+            setDefaultLocation={setDefaultLocation}
+            purchasedFromDefault={purchasedFromDefault}
+            setPurchasedFromDefault={setPurchasedFromDefault}
+            mode={mode}
+            setMode={setMode}
+            locations={locations}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(3)}
+          />
+        )}
 
-      {step === 3 && preview && (
-        <StepResolve
-          preview={preview}
-          resolutions={resolutions}
-          setResolution={setResolution}
-          onBack={() => setStep(2)}
-          onNext={() => setStep(4)}
-        />
-      )}
+        {step === 3 && preview && (
+          <StepResolve
+            preview={preview}
+            resolutions={resolutions}
+            setResolution={setResolution}
+            onBack={() => setStep(2)}
+            onNext={() => setStep(4)}
+          />
+        )}
 
-      {step === 4 && preview && (
-        <StepConfirm
-          preview={preview}
-          resolutions={resolutions}
-          defaultLocation={defaultLocation}
-          mode={mode}
-          submitting={submitting}
-          onBack={() => setStep(3)}
-          onSubmit={onSubmit}
-        />
-      )}
+        {step === 4 && preview && (
+          <StepConfirm
+            preview={preview}
+            resolutions={resolutions}
+            defaultLocation={defaultLocation}
+            mode={mode}
+            submitting={submitting}
+            onBack={() => setStep(3)}
+            onSubmit={onSubmit}
+          />
+        )}
 
-      {step === 5 && submitResult && (
-        <StepDone
-          result={submitResult}
-          defaultLocation={defaultLocation}
-          onAnother={() => {
-            setStep(1);
-            setFile(null);
-            setPreview(null);
-            setResolutions(new Map());
-            setSubmitResult(null);
-            setDefaultLocation("");
-            setPurchasedFromDefault("");
-            setMode("append");
-          }}
-          onView={() => router.push("/inventory")}
-        />
-      )}
+        {step === 5 && submitResult && (
+          <StepDone
+            result={submitResult}
+            defaultLocation={defaultLocation}
+            onAnother={() => {
+              setStep(1);
+              setFile(null);
+              setPreview(null);
+              setResolutions(new Map());
+              setSubmitResult(null);
+              setDefaultLocation("");
+              setPurchasedFromDefault("");
+              setMode("append");
+            }}
+            onView={() => router.push("/inventory")}
+          />
+        )}
+      </div>
     </div>
   );
 }

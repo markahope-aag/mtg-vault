@@ -16,7 +16,7 @@ export default async function ImportHistoryPage() {
     .limit(100);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
         <div className="space-y-2">
           <p className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">

@@ -14,7 +14,7 @@ export default async function DecksPage() {
   const totalValue = decks.reduce((s, d) => s + d.totalValueUsd, 0);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6">
       <DecksHeader count={decks.length} totalValueUsd={totalValue} />
 
       {decks.length === 0 ? (
