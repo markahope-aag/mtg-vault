@@ -1,69 +1,76 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1779233181106,
-      "tag": "0000_unique_alex_power",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1779234011269,
-      "tag": "0001_sloppy_logan",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779239576001,
-      "tag": "0002_enable_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1779239735523,
-      "tag": "0003_pg_trgm_search",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1779240450282,
-      "tag": "0004_rebuild_inventory",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1779241451175,
-      "tag": "0005_import_batches",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1779241964669,
-      "tag": "0006_drop_is_commander",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1779242435088,
-      "tag": "0007_views_for_availability",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1779314555760,
-      "tag": "0008_collection_snapshots",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1779233181106,
+			"tag": "0000_unique_alex_power",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1779234011269,
+			"tag": "0001_sloppy_logan",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1779239576001,
+			"tag": "0002_enable_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1779239735523,
+			"tag": "0003_pg_trgm_search",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1779240450282,
+			"tag": "0004_rebuild_inventory",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1779241451175,
+			"tag": "0005_import_batches",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1779241964669,
+			"tag": "0006_drop_is_commander",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1779242435088,
+			"tag": "0007_views_for_availability",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1779314555760,
+			"tag": "0008_collection_snapshots",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1779321514238,
+			"tag": "0009_deck_analysis",
+			"breakpoints": true
+		}
+	]
 }

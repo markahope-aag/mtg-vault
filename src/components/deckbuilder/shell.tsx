@@ -9,9 +9,12 @@ import { DeckbuilderHeader } from "./header";
 import { SearchPane } from "./search-pane";
 import { Decklist } from "./decklist";
 import { DetailPane } from "./detail-pane";
+import { StrategyPane } from "./strategy-pane";
 import { ShortcutFooter } from "./shortcut-footer";
 import { ExportDialog } from "./export-dialog";
 import { BracketPanel } from "./bracket-panel";
+import { cn } from "@/lib/utils";
+import { Sparkles, Eye } from "lucide-react";
 
 export type ActiveCard = {
   oracleId: string;
@@ -340,10 +343,10 @@ export function DeckbuilderShell({
           onOpenBracket={() => setBracketOpen(true)}
         />
 
-        <div className="hidden flex-1 grid-cols-[340px_minmax(0,1fr)_380px] gap-3 p-3 lg:grid">
+        <div className="hidden flex-1 grid-cols-[340px_minmax(0,1fr)_400px] gap-3 p-3 lg:grid">
           <SearchPane />
           <Decklist />
-          <DetailPane />
+          <RightPane />
         </div>
 
         {/* Below 1024px the three panes don't fit. Render the decklist alone
@@ -396,4 +399,54 @@ function useKeyDown(handler: (e: KeyboardEvent) => void) {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [handler]);
+}
+
+type RightTab = "detail" | "strategy";
+
+function RightPane() {
+  const [tab, setTab] = useState<RightTab>("detail");
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="flex shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-surface-inset/60 p-1">
+        <TabButton active={tab === "detail"} onClick={() => setTab("detail")}>
+          <Eye className="size-3.5" /> Detail
+        </TabButton>
+        <TabButton
+          active={tab === "strategy"}
+          onClick={() => setTab("strategy")}
+        >
+          <Sparkles className="size-3.5" /> Strategy
+        </TabButton>
+      </div>
+      <div className="min-h-0 flex-1">
+        {tab === "detail" ? <DetailPane /> : <StrategyPane />}
+      </div>
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-6 flex-1 items-center justify-center gap-1.5 rounded-sm font-mono text-[10px] uppercase tracking-[0.18em] transition-colors",
+        active
+          ? "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]"
+          : "text-text-muted hover:text-text-primary",
+      )}
+      aria-pressed={active}
+    >
+      {children}
+    </button>
+  );
 }

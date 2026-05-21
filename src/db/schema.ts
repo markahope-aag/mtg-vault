@@ -173,6 +173,13 @@ export const decks = pgTable("decks", {
   archetype: text("archetype"),
   notes: text("notes"),
   isPrimary: boolean("is_primary").default(false),
+  // LLM strategy analysis — JSON shape defined by src/lib/ai/strategy.ts.
+  // analysisSignature is a hash of the sorted printing IDs so we can detect
+  // when the deck has drifted since the cached analysis was generated.
+  analysis: jsonb("analysis"),
+  analysisModel: text("analysis_model"),
+  analysisSignature: text("analysis_signature"),
+  analyzedAt: timestamp("analyzed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
