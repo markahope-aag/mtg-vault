@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db/client";
 import { cards, printings } from "@/db/schema";
+import { toIso } from "@/lib/utils";
 
 type UsedInDeck = {
   deckId: string;
@@ -90,20 +91,16 @@ async function fetchOwnedRows(
     location: (r.location as string | null) ?? null,
     physicalId: (r.physical_id as string | null) ?? null,
     acquiredPrice: (r.acquired_price as string | null) ?? null,
-    acquiredAt: r.acquired_at
-      ? (r.acquired_at as Date).toISOString()
-      : null,
+    acquiredAt: toIso(r.acquired_at),
     purchasedFrom: (r.purchased_from as string | null) ?? null,
     gradingCompany: (r.grading_company as string | null) ?? null,
     grade: (r.grade as string | null) ?? null,
     notes: (r.notes as string | null) ?? null,
     disposedTo: (r.disposed_to as string | null) ?? null,
     disposedPrice: (r.disposed_price as string | null) ?? null,
-    disposedAt: r.disposed_at
-      ? (r.disposed_at as Date).toISOString()
-      : null,
-    createdAt: (r.created_at as Date).toISOString(),
-    updatedAt: (r.updated_at as Date).toISOString(),
+    disposedAt: toIso(r.disposed_at),
+    createdAt: toIso(r.created_at) ?? "",
+    updatedAt: toIso(r.updated_at) ?? "",
     oracleId: r.oracle_id as string,
     name: r.name as string,
     manaCost: (r.mana_cost as string | null) ?? null,
