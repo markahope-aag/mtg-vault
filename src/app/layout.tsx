@@ -50,6 +50,13 @@ export default async function RootLayout({
     <html
       lang="en"
       data-theme={theme}
+      // Inline color-scheme + background so the browser paints dark BEFORE
+      // any CSS loads — eliminates the white flash when navigating to a new
+      // tab (target="_blank" links). The CSS overrides this once it lands.
+      style={{
+        colorScheme: theme === "light" ? "light" : "dark",
+        backgroundColor: theme === "light" ? "#f5f4f0" : "#1c1d22",
+      }}
       className={`${display.variable} ${body.variable} ${mono.variable} ${theme === "light" ? "light" : ""} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
