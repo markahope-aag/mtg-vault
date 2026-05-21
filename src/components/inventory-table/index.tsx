@@ -819,6 +819,7 @@ export function InventoryTable({
       />
       <AddCardsPicker
         open={addOpen}
+        onAdded={() => void refetch()}
         onOpenChange={(v) => {
           setAddOpen(v);
           if (!v) refetch();

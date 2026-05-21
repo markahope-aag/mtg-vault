@@ -87,10 +87,12 @@ export function AddCardsDialog({
   card,
   open,
   onOpenChange,
+  onAdded,
 }: {
   card: AddDialogCard | null;
   open: boolean;
   onOpenChange: (next: boolean) => void;
+  onAdded?: () => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => defaultForm(card));
@@ -157,6 +159,10 @@ export function AddCardsDialog({
         }`,
       );
       onOpenChange(false);
+      // Let the parent (e.g. InventoryTable) refetch its client-held rows.
+      // router.refresh() alone won't update a client component that owns its
+      // own state.
+      onAdded?.();
       router.refresh();
     } catch (err) {
       toast.error(

@@ -29,9 +29,11 @@ const DEBOUNCE_MS = 150;
 export function AddCardsPicker({
   open,
   onOpenChange,
+  onAdded,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
+  onAdded?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -224,6 +226,7 @@ export function AddCardsPicker({
         onOpenChange={(next) => {
           if (!next) setResolved(null);
         }}
+        onAdded={onAdded}
       />
     </>
   );
