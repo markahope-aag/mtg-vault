@@ -108,9 +108,9 @@ export function DeckFormFields({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>Target bracket</Label>
+      <div className="grid grid-cols-2 items-end gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label className="whitespace-nowrap">Target bracket</Label>
           <Select
             value={form.targetBracket?.toString() ?? "__none"}
             onValueChange={(v) =>
@@ -120,7 +120,7 @@ export function DeckFormFields({
               )
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Not set" />
             </SelectTrigger>
             <SelectContent>
@@ -133,8 +133,10 @@ export function DeckFormFields({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="deck-archetype">Archetype</Label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="deck-archetype" className="whitespace-nowrap">
+            Archetype
+          </Label>
           <ArchetypeInput
             value={form.archetype}
             onChange={(v) => patch("archetype", v)}

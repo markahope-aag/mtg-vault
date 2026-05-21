@@ -168,7 +168,13 @@ export function AddCardsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    // disablePointerDismissal: form contains in-progress user input — don't
+    // dismiss on a stray click outside. Esc and the Cancel button still close it.
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      disablePointerDismissal
+    >
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add to inventory</DialogTitle>

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { toIso } from "@/lib/utils";
 import type { NormalizedRow } from "./types";
 
 export type ResolverPrinting = {
@@ -49,7 +50,7 @@ function toPrinting(r: RawPrintingRow): ResolverPrinting {
     usd: r.usd,
     usdFoil: r.usd_foil,
     imageUri: r.image_uri,
-    releasedAt: r.released_at ? r.released_at.toISOString() : null,
+    releasedAt: toIso(r.released_at),
     name: r.name,
   };
 }

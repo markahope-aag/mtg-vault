@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
+import { toIso } from "@/lib/utils";
 import type {
   InventoryListResponse,
   InventoryRowWithCard,
@@ -156,16 +157,16 @@ export async function listInventory(
     location: r.location,
     physicalId: r.physical_id,
     acquiredPrice: r.acquired_price,
-    acquiredAt: r.acquired_at ? r.acquired_at.toISOString() : null,
+    acquiredAt: toIso(r.acquired_at),
     purchasedFrom: r.purchased_from,
     gradingCompany: r.grading_company,
     grade: r.grade,
     notes: r.notes,
     disposedTo: r.disposed_to,
     disposedPrice: r.disposed_price,
-    disposedAt: r.disposed_at ? r.disposed_at.toISOString() : null,
-    createdAt: r.created_at.toISOString(),
-    updatedAt: r.updated_at.toISOString(),
+    disposedAt: toIso(r.disposed_at),
+    createdAt: toIso(r.created_at) ?? "",
+    updatedAt: toIso(r.updated_at) ?? "",
     oracleId: r.oracle_id,
     name: r.name,
     manaCost: r.mana_cost,

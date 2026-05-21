@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { toIso } from "@/lib/utils";
 
 export type DeckListRow = {
   id: string;
@@ -110,8 +111,8 @@ export async function listDecks(opts: {
     archetype: r.archetype,
     notes: r.notes,
     isPrimary: r.is_primary,
-    createdAt: r.created_at.toISOString(),
-    updatedAt: r.updated_at.toISOString(),
+    createdAt: toIso(r.created_at) ?? "",
+    updatedAt: toIso(r.updated_at) ?? "",
     commanderName: r.commander_name,
     commanderImageUri: r.commander_image_uri,
     partnerName: r.partner_name,
@@ -311,8 +312,8 @@ export async function fetchDeckDetail(deckId: string) {
       archetype: d.archetype as string | null,
       notes: d.notes as string | null,
       isPrimary: d.is_primary as boolean,
-      createdAt: (d.created_at as Date).toISOString(),
-      updatedAt: (d.updated_at as Date).toISOString(),
+      createdAt: toIso(d.created_at) ?? "",
+      updatedAt: toIso(d.updated_at) ?? "",
     },
     commander,
     partner,
