@@ -47,7 +47,16 @@ export function NewDeckDialog({
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.error ?? `HTTP ${res.status}`);
+        const fields = detail?.details?.fieldErrors as
+          | Record<string, string[]>
+          | undefined;
+        const firstField = fields
+          ? Object.entries(fields).find(([, msgs]) => msgs?.length)
+          : null;
+        const fieldHint = firstField
+          ? ` (${firstField[0]}: ${firstField[1].join(", ")})`
+          : "";
+        throw new Error(`${detail.error ?? `HTTP ${res.status}`}${fieldHint}`);
       }
       const data = await res.json();
       toast.success(`Created ${data.deck.name}`);

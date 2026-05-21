@@ -1,20 +1,24 @@
 import { z } from "zod";
 
+// Accepts string, "", null, or undefined. Normalizes to a non-empty
+// string or null. Previously rejected null, which broke the new-deck
+// dialog when archetype/notes were left blank (the form sends null
+// for unset optionals).
 const trimmed = z
   .string()
   .trim()
   .max(500)
+  .nullable()
   .optional()
-  .or(z.literal(""))
-  .transform((v) => (v ? v : null));
+  .transform((v) => (v && v.length > 0 ? v : null));
 
 const archetype = z
   .string()
   .trim()
   .max(80)
+  .nullable()
   .optional()
-  .or(z.literal(""))
-  .transform((v) => (v ? v : null));
+  .transform((v) => (v && v.length > 0 ? v : null));
 
 export const createDeckSchema = z.object({
   name: z.string().trim().min(1).max(100),
