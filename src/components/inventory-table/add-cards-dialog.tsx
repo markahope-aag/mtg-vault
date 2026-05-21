@@ -235,7 +235,7 @@ export function AddCardsDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 items-end gap-4">
               <Field label="Count">
                 <Input
                   type="number"
@@ -254,7 +254,7 @@ export function AddCardsDialog({
                     update("condition", v as (typeof CONDITIONS)[number])
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -268,7 +268,7 @@ export function AddCardsDialog({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 items-center gap-4 rounded-md border border-border bg-muted/30 px-3 py-2">
               <CheckboxField
                 checked={form.foil}
                 onChange={(v) => update("foil", v)}
@@ -281,7 +281,7 @@ export function AddCardsDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 items-end gap-4">
               <Field label="Language">
                 <Input
                   value={form.language}
@@ -298,7 +298,7 @@ export function AddCardsDialog({
             </div>
 
             {form.count === 1 && (
-              <Field label="Physical ID (optional)">
+              <Field label="Physical ID">
                 <Input
                   value={form.physicalId}
                   onChange={(e) => update("physicalId", e.target.value)}
@@ -307,8 +307,8 @@ export function AddCardsDialog({
               </Field>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Acquired price (per card)">
+            <div className="grid grid-cols-2 items-end gap-4">
+              <Field label="Acquired price">
                 <Input
                   type="number"
                   step="0.01"
@@ -334,15 +334,15 @@ export function AddCardsDialog({
               />
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Grading company (optional)">
+            <div className="grid grid-cols-2 items-end gap-4">
+              <Field label="Grading">
                 <Input
                   value={form.gradingCompany}
                   onChange={(e) => update("gradingCompany", e.target.value)}
                   placeholder="PSA, BGS, CGC…"
                 />
               </Field>
-              <Field label="Grade (optional)">
+              <Field label="Grade">
                 <Input
                   value={form.grade}
                   onChange={(e) => update("grade", e.target.value)}
@@ -387,8 +387,8 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="flex flex-col gap-1.5">
+      <Label className="truncate whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </Label>
       {children}
