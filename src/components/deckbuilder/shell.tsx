@@ -10,11 +10,12 @@ import { SearchPane } from "./search-pane";
 import { Decklist } from "./decklist";
 import { DetailPane } from "./detail-pane";
 import { StrategyPane } from "./strategy-pane";
+import { CoachPane } from "./coach-pane";
 import { ShortcutFooter } from "./shortcut-footer";
 import { ExportDialog } from "./export-dialog";
 import { BracketPanel } from "./bracket-panel";
 import { cn } from "@/lib/utils";
-import { Sparkles, Eye } from "lucide-react";
+import { Compass, Eye, Sparkles } from "lucide-react";
 
 export type ActiveCard = {
   oracleId: string;
@@ -401,7 +402,7 @@ function useKeyDown(handler: (e: KeyboardEvent) => void) {
   }, [handler]);
 }
 
-type RightTab = "detail" | "strategy";
+type RightTab = "detail" | "coach" | "strategy";
 
 function RightPane() {
   const [tab, setTab] = useState<RightTab>("detail");
@@ -411,6 +412,9 @@ function RightPane() {
         <TabButton active={tab === "detail"} onClick={() => setTab("detail")}>
           <Eye className="size-3.5" /> Detail
         </TabButton>
+        <TabButton active={tab === "coach"} onClick={() => setTab("coach")}>
+          <Compass className="size-3.5" /> Coach
+        </TabButton>
         <TabButton
           active={tab === "strategy"}
           onClick={() => setTab("strategy")}
@@ -419,7 +423,13 @@ function RightPane() {
         </TabButton>
       </div>
       <div className="min-h-0 flex-1">
-        {tab === "detail" ? <DetailPane /> : <StrategyPane />}
+        {tab === "detail" ? (
+          <DetailPane />
+        ) : tab === "coach" ? (
+          <CoachPane />
+        ) : (
+          <StrategyPane />
+        )}
       </div>
     </div>
   );
