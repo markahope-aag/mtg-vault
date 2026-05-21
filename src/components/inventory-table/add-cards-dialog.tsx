@@ -138,7 +138,18 @@ export function AddCardsDialog({
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.error ?? `HTTP ${res.status}`);
+        // Surface zod field-level errors when available so "Invalid payload"
+        // doesn't hide the actual cause.
+        const fields = detail?.details?.fieldErrors as
+          | Record<string, string[]>
+          | undefined;
+        const firstField = fields
+          ? Object.entries(fields).find(([, msgs]) => msgs?.length)
+          : null;
+        const fieldHint = firstField
+          ? ` (${firstField[0]}: ${firstField[1].join(", ")})`
+          : "";
+        throw new Error(`${detail.error ?? `HTTP ${res.status}`}${fieldHint}`);
       }
       toast.success(
         `Added ${form.count}× ${card.name} (${printing.setCode.toUpperCase()})${

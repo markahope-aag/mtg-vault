@@ -19,13 +19,16 @@ export const SORT_FIELDS = [
   "createdAt",
 ] as const;
 
+// Accepts a string, "", null, or undefined. Trims and normalizes to either
+// a non-empty string (max 200 chars) or null. Previously rejected null,
+// which broke any client that sent {location: null} for an empty optional.
 const trimmed = z
   .string()
   .trim()
   .max(200)
+  .nullable()
   .optional()
-  .or(z.literal(""))
-  .transform((v) => (v ? v : null));
+  .transform((v) => (v && v.length > 0 ? v : null));
 
 const optionalDecimal = z
   .union([z.number(), z.string()])
