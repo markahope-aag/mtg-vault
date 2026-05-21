@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -135,19 +135,10 @@ export function DeckFormFields({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="deck-archetype">Archetype</Label>
-          <Input
-            id="deck-archetype"
-            list="archetype-suggestions"
+          <ArchetypeInput
             value={form.archetype}
-            onChange={(e) => patch("archetype", e.target.value)}
-            placeholder="Voltron, Aristocrats, …"
-            maxLength={80}
+            onChange={(v) => patch("archetype", v)}
           />
-          <datalist id="archetype-suggestions">
-            {DECK_ARCHETYPE_SUGGESTIONS.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
         </div>
       </div>
 
@@ -170,6 +161,92 @@ export function DeckFormFields({
         />
         Primary (sleeved up / built physically)
       </label>
+    </div>
+  );
+}
+
+/**
+ * Free-text archetype input with a themed autocomplete dropdown. Replaces
+ * the native <datalist>, which is rendered by the browser/OS and can't be
+ * styled (looks like a glaring white menu in dark mode).
+ */
+function ArchetypeInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        wrapRef.current &&
+        !wrapRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const q = value.trim().toLowerCase();
+  const filtered = q
+    ? DECK_ARCHETYPE_SUGGESTIONS.filter((s) =>
+        s.toLowerCase().includes(q),
+      )
+    : DECK_ARCHETYPE_SUGGESTIONS;
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <Input
+        id="deck-archetype"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setOpen(false);
+        }}
+        placeholder="Voltron, Aristocrats, …"
+        maxLength={80}
+        autoComplete="off"
+      />
+      {open && filtered.length > 0 && (
+        <ul
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border border-[var(--border-default)] bg-[var(--surface-overlay)] py-1 shadow-lg shadow-black/30"
+        >
+          {filtered.map((s) => (
+            <li key={s}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  // mousedown fires before blur; lets the click register before
+                  // the input loses focus and closes the menu.
+                  e.preventDefault();
+                  onChange(s);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] text-text-secondary transition-colors hover:bg-surface-inset/60 hover:text-text-primary"
+              >
+                <span>{s}</span>
+                {value.trim().toLowerCase() === s.toLowerCase() && (
+                  <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--brand)]">
+                    selected
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
