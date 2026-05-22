@@ -35,7 +35,12 @@ type DeckbuilderContextValue = {
   availability: AvailabilityMap;
   setActive: (next: ActiveCard | null) => void;
   active: ActiveCard | null;
-  addCard: (printingId: string, oracleId: string, category?: string) => Promise<void>;
+  addCard: (
+    printingId: string,
+    oracleId: string,
+    category?: string,
+    delta?: number,
+  ) => Promise<void>;
   removeCard: (printingId: string, category: string) => Promise<void>;
   moveCard: (
     printingId: string,
@@ -126,13 +131,18 @@ export function DeckbuilderShell({
   }, [deck.deck.id]);
 
   const addCard = useCallback(
-    async (printingId: string, oracleId: string, category = "main") => {
+    async (
+      printingId: string,
+      oracleId: string,
+      category = "main",
+      delta = 1,
+    ) => {
       setPendingOracleIds((p) => new Set([...p, oracleId]));
       try {
         const res = await fetch(`/api/decks/${deck.deck.id}/cards`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ printingId, category, delta: 1 }),
+          body: JSON.stringify({ printingId, category, delta }),
         });
         if (!res.ok) {
           const detail = await res.json().catch(() => ({}));

@@ -239,9 +239,18 @@ function SuggestionRow({
   addCard,
 }: {
   sug: SlotSuggestion;
-  addCard: (printingId: string, oracleId: string, category?: string) => Promise<void>;
+  addCard: (
+    printingId: string,
+    oracleId: string,
+    category?: string,
+    delta?: number,
+  ) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  // Basic lands are the only cards you add many of — give them a count input.
+  const isBasic = /Basic Land/i.test(sug.typeLine ?? "");
+  const [qty, setQty] = useState(1);
+
   const onAdd = useCallback(async () => {
     setBusy(true);
     try {
@@ -250,8 +259,9 @@ function SuggestionRow({
       const data = await res.json();
       const printing = data.printings?.[0];
       if (!printing) throw new Error("No printings");
-      await addCard(printing.id, sug.oracleId, "main");
-      toast.success(`Added ${sug.name}`);
+      const n = isBasic ? Math.max(1, Math.min(qty, 99)) : 1;
+      await addCard(printing.id, sug.oracleId, "main", n);
+      toast.success(`Added ${n}× ${sug.name}`);
     } catch (err) {
       toast.error(
         `Could not add: ${err instanceof Error ? err.message : String(err)}`,
@@ -259,7 +269,8 @@ function SuggestionRow({
     } finally {
       setBusy(false);
     }
-  }, [sug.oracleId, sug.name, addCard]);
+  }, [sug.oracleId, sug.name, addCard, isBasic, qty]);
+
   return (
     <li className="flex items-center gap-2 py-1.5 text-[12px]">
       {sug.manaCost ? (
@@ -270,13 +281,28 @@ function SuggestionRow({
       <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
         {sug.name}
       </span>
-      <span className="hidden truncate text-[11px] text-text-muted sm:inline sm:max-w-[120px]">
-        {sug.typeLine}
-      </span>
-      {sug.edhrecRank != null && (
+      {!isBasic && (
+        <span className="hidden truncate text-[11px] text-text-muted sm:inline sm:max-w-[120px]">
+          {sug.typeLine}
+        </span>
+      )}
+      {sug.edhrecRank != null && !isBasic && (
         <span className="num shrink-0 text-[10px] text-text-muted">
           #{sug.edhrecRank}
         </span>
+      )}
+      {isBasic && (
+        <input
+          type="number"
+          min={1}
+          max={99}
+          value={qty}
+          onChange={(e) =>
+            setQty(Math.max(1, Math.min(Number(e.target.value) || 1, 99)))
+          }
+          aria-label={`Quantity of ${sug.name}`}
+          className="num h-5 w-11 shrink-0 rounded-sm border border-border-subtle bg-surface-base px-1 text-[11px] text-text-primary outline-none focus:border-brand"
+        />
       )}
       <button
         type="button"
