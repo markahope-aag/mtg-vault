@@ -43,8 +43,8 @@ async function fetchDecksUsing(oracleId: string): Promise<UsedInDeck[]> {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManaCost } from "@/components/mana-cost";
-import { SetSymbol } from "@/components/set-symbol";
 import { CardImage } from "@/components/card-detail/card-image";
+import { PrintingsTable } from "@/components/card-detail/printings-table";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
 import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
@@ -268,81 +268,20 @@ export default async function CardDetailPage({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-[600px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-card text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr className="border-b">
-                      <th className="px-4 py-2 text-left font-medium">Set</th>
-                      <th className="px-2 py-2 text-left font-medium">#</th>
-                      <th className="px-2 py-2 text-left font-medium">
-                        Rarity
-                      </th>
-                      <th className="px-2 py-2 text-right font-medium">USD</th>
-                      <th className="px-2 py-2 text-right font-medium">
-                        USD foil
-                      </th>
-                      <th className="px-4 py-2 text-right font-medium">
-                        Released
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allPrintings.map((p) => {
-                      const isSelected = p.id === selectedPrinting?.id;
-                      return (
-                        <tr
-                          key={p.id}
-                          className={
-                            isSelected
-                              ? "border-b bg-muted/60"
-                              : "border-b hover:bg-muted/40"
-                          }
-                        >
-                          <td className="px-4 py-1.5">
-                            <Link
-                              href={`/cards/${oracle_id}?printing=${p.id}`}
-                              scroll={false}
-                              replace
-                              className="flex items-center gap-2"
-                            >
-                              <SetSymbol
-                                setCode={p.setCode}
-                                rarity={p.rarity}
-                                size="md"
-                              />
-                              <span className="font-medium">{p.setName}</span>
-                              <span className="text-xs uppercase text-muted-foreground">
-                                {p.setCode}
-                              </span>
-                            </Link>
-                          </td>
-                          <td className="px-2 py-1.5 text-muted-foreground">
-                            {p.collectorNumber}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {p.rarity && (
-                              <Badge variant="outline" className="capitalize">
-                                {p.rarity}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
-                            {p.usd ? `$${p.usd}` : "—"}
-                          </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
-                            {p.usdFoil ? `$${p.usdFoil}` : "—"}
-                          </td>
-                          <td className="px-4 py-1.5 text-right text-xs text-muted-foreground">
-                            {p.releasedAt
-                              ? new Date(p.releasedAt).toLocaleDateString()
-                              : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <PrintingsTable
+                oracleId={oracle_id}
+                selectedId={selectedPrinting?.id}
+                printings={allPrintings.map((p) => ({
+                  id: p.id,
+                  setCode: p.setCode,
+                  setName: p.setName,
+                  collectorNumber: p.collectorNumber,
+                  rarity: p.rarity,
+                  usd: p.usd,
+                  usdFoil: p.usdFoil,
+                  releasedAt: toIso(p.releasedAt),
+                }))}
+              />
             </CardContent>
           </Card>
 
