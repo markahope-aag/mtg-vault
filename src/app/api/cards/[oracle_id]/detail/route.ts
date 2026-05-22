@@ -29,7 +29,7 @@ export async function GET(
       FROM printings
       WHERE oracle_id = ${oracle_id}
       ORDER BY released_at DESC NULLS LAST, set_code
-      LIMIT 30
+      LIMIT 1000
     `)) as unknown as Array<{
       id: string;
       set_code: string;

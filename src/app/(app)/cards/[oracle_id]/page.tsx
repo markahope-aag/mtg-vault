@@ -43,6 +43,7 @@ async function fetchDecksUsing(oracleId: string): Promise<UsedInDeck[]> {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManaCost } from "@/components/mana-cost";
+import { SetSymbol } from "@/components/set-symbol";
 import { CardImage } from "@/components/card-detail/card-image";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
 import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
@@ -302,9 +303,14 @@ export default async function CardDetailPage({
                               href={`/cards/${oracle_id}?printing=${p.id}`}
                               scroll={false}
                               replace
-                              className="block"
+                              className="flex items-center gap-2"
                             >
-                              <span className="font-medium">{p.setName}</span>{" "}
+                              <SetSymbol
+                                setCode={p.setCode}
+                                rarity={p.rarity}
+                                size="md"
+                              />
+                              <span className="font-medium">{p.setName}</span>
                               <span className="text-xs uppercase text-muted-foreground">
                                 {p.setCode}
                               </span>

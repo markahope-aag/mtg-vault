@@ -98,11 +98,28 @@ export function AddCardsDialog({
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => defaultForm(card));
   const [submitting, setSubmitting] = useState(false);
+  const [printingFilter, setPrintingFilter] = useState("");
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (open) setForm(defaultForm(card));
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm(defaultForm(card));
+      setPrintingFilter("");
+    }
   }, [open, card]);
+
+  // Basic lands have hundreds of printings — filter by set name/code/number.
+  const visiblePrintings = useMemo(() => {
+    if (!card) return [];
+    const q = printingFilter.trim().toLowerCase();
+    if (!q) return card.printings;
+    return card.printings.filter(
+      (p) =>
+        p.setName.toLowerCase().includes(q) ||
+        p.setCode.toLowerCase().includes(q) ||
+        p.collectorNumber.toLowerCase().includes(q),
+    );
+  }, [card, printingFilter]);
 
   const printing = useMemo(
     () => card?.printings.find((p) => p.id === form.printingId) ?? null,
@@ -199,9 +216,27 @@ export function AddCardsDialog({
           <form onSubmit={onSubmit} className="space-y-5">
             {/* Printing picker */}
             <div className="space-y-2">
-              <Label>Printing</Label>
-              <div className="max-h-44 overflow-y-auto rounded-md border">
-                {card.printings.map((p) => {
+              <div className="flex items-center justify-between gap-3">
+                <Label>Printing</Label>
+                <span className="text-xs text-muted-foreground">
+                  {visiblePrintings.length} of {card.printings.length}
+                </span>
+              </div>
+              {card.printings.length > 8 && (
+                <Input
+                  value={printingFilter}
+                  onChange={(e) => setPrintingFilter(e.target.value)}
+                  placeholder="Filter by set name, code, or collector #…"
+                  className="h-8 text-sm"
+                />
+              )}
+              <div className="max-h-56 overflow-y-auto rounded-md border">
+                {visiblePrintings.length === 0 ? (
+                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                    No printings match &ldquo;{printingFilter.trim()}&rdquo;.
+                  </p>
+                ) : (
+                  visiblePrintings.map((p) => {
                   const selected = p.id === form.printingId;
                   return (
                     <button
@@ -249,7 +284,8 @@ export function AddCardsDialog({
                       </div>
                     </button>
                   );
-                })}
+                  })
+                )}
               </div>
             </div>
 
