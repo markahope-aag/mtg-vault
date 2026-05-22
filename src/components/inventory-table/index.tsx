@@ -1257,7 +1257,7 @@ function GroupChildRow({
       <td className="px-2 py-1">
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted opacity-0 transition-opacity hover:bg-surface-inset hover:text-text-primary group-hover/row:opacity-100 data-[state=open]:opacity-100"
+            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-surface-inset hover:text-text-primary data-[state=open]:bg-surface-inset data-[state=open]:text-text-primary"
             aria-label="Row actions"
           >
             <MoreHorizontal className="size-3.5" />
@@ -1381,7 +1381,7 @@ function PhysicalRowRenderer({
       <td className="px-2 py-1">
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted opacity-0 transition-opacity hover:bg-surface-inset hover:text-text-primary group-hover/row:opacity-100 data-[state=open]:opacity-100"
+            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-surface-inset hover:text-text-primary data-[state=open]:bg-surface-inset data-[state=open]:text-text-primary"
             aria-label="Row actions"
           >
             <MoreHorizontal className="size-3.5" />
