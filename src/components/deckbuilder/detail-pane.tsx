@@ -67,7 +67,8 @@ function pickImage(imgs: Record<string, string> | null): string | null {
 }
 
 export function DetailPane() {
-  const { deck, active, addCard, moveCard, swapPrinting } = useDeckbuilder();
+  const { deck, active, addCard, moveCard, swapPrinting, setCommanderPrinting } =
+    useDeckbuilder();
   const [detail, setDetail] = useState<DetailFetch | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -247,8 +248,30 @@ export function DetailPane() {
               ) : (
                 <ul className="divide-y divide-border-subtle rounded-sm border border-border-subtle bg-surface-inset/40">
                   {detail.ownership.byPrinting.map((p) => {
-                    const swappable =
-                      inDeck && inDeck.deckCardRow.printingId !== p.printingId;
+                    // Which printing the deck currently uses for this card.
+                    const activePrintingId = isCommander
+                      ? deck.commander?.printing.id
+                      : isPartner
+                        ? deck.partner?.printing.id
+                        : inDeck?.deckCardRow.printingId;
+                    const isActive = activePrintingId === p.printingId;
+                    const canSwap = isInDeck && !isActive;
+
+                    const onSwap = () => {
+                      if (isCommander) {
+                        void setCommanderPrinting(p.printingId, "commander");
+                      } else if (isPartner) {
+                        void setCommanderPrinting(p.printingId, "partner");
+                      } else if (inDeck) {
+                        void swapPrinting(
+                          inDeck.deckCardRow.printingId,
+                          p.printingId,
+                          inDeck.card.oracleId,
+                          inDeck.deckCardRow.category,
+                        );
+                      }
+                    };
+
                     return (
                       <li
                         key={p.printingId}
@@ -268,22 +291,20 @@ export function DetailPane() {
                               ` +${p.locations.length - 1}`}
                           </span>
                         )}
-                        {swappable && (
+                        {isActive && (
+                          <span className="rounded-sm border border-[var(--brand)]/40 bg-[var(--brand-soft)]/40 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--brand-strong)]">
+                            in deck
+                          </span>
+                        )}
+                        {canSwap && (
                           <button
                             type="button"
-                            onClick={() =>
-                              void swapPrinting(
-                                inDeck.deckCardRow.printingId,
-                                p.printingId,
-                                inDeck.card.oracleId,
-                                inDeck.deckCardRow.category,
-                              )
-                            }
+                            onClick={onSwap}
                             className="inline-flex items-center gap-1 rounded-sm border border-transparent px-1 font-mono text-[10px] uppercase tracking-wide text-text-muted opacity-0 transition-opacity hover:border-border-subtle hover:text-text-primary group-hover/own:opacity-100"
                             title="Use this printing in the deck"
                           >
                             <RefreshCw className="size-3" />
-                            Swap
+                            Use
                           </button>
                         )}
                       </li>

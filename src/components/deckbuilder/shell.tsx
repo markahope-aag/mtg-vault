@@ -53,6 +53,10 @@ type DeckbuilderContextValue = {
     oracleId: string,
     category: string,
   ) => Promise<void>;
+  setCommanderPrinting: (
+    printingId: string,
+    slot: "commander" | "partner",
+  ) => Promise<void>;
   pendingOracleIds: Set<string>;
   focusSearch: () => void;
   registerSearchFocus: (fn: () => void) => void;
@@ -245,6 +249,34 @@ export function DeckbuilderShell({
     [deck.deck.id, refreshAvailability, refreshDeck],
   );
 
+  // Change which printing the commander (or partner) uses — that's a column
+  // on the deck itself, not a deck_cards row, so it's a deck PATCH.
+  const setCommanderPrinting = useCallback(
+    async (printingId: string, slot: "commander" | "partner") => {
+      try {
+        const res = await fetch(`/api/decks/${deck.deck.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(
+            slot === "commander"
+              ? { commanderPrintingId: printingId }
+              : { partnerPrintingId: printingId },
+          ),
+        });
+        if (!res.ok) {
+          const detail = await res.json().catch(() => ({}));
+          throw new Error(detail.error ?? `HTTP ${res.status}`);
+        }
+        await refreshDeck();
+      } catch (err) {
+        toast.error(
+          `Failed to change printing: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    },
+    [deck.deck.id, refreshDeck],
+  );
+
   // Cmd+S → snapshot. Cmd+B → bracket drawer. Esc → clear active. / → focus search.
   // Cmd+/ → toggled inside the search pane via ref. Backspace handled by decklist row.
   // Cmd+K is handled by the global CommandPaletteProvider already.
@@ -322,6 +354,7 @@ export function DeckbuilderShell({
       removeCard,
       moveCard,
       swapPrinting,
+      setCommanderPrinting,
       pendingOracleIds,
       focusSearch,
       registerSearchFocus,
@@ -334,6 +367,7 @@ export function DeckbuilderShell({
       removeCard,
       moveCard,
       swapPrinting,
+      setCommanderPrinting,
       pendingOracleIds,
       focusSearch,
       registerSearchFocus,
