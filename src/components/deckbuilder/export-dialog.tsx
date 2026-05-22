@@ -99,7 +99,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Export decklist</DialogTitle>
           <DialogDescription>
@@ -107,11 +107,13 @@ export function ExportDialog({
             accepts the standard text format.
           </DialogDescription>
         </DialogHeader>
+        {/* field-sizing-fixed overrides the Textarea's default
+            field-sizing-content, which would auto-grow it to fit a 100-line
+            decklist and push the dialog off-screen. */}
         <Textarea
           readOnly
-          rows={16}
           value={text}
-          className="font-mono text-xs"
+          className="field-sizing-fixed h-[55vh] resize-none font-mono text-xs"
         />
         <div className="flex justify-end">
           <Button onClick={onCopy} variant="outline">
