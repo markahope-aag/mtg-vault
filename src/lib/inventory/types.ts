@@ -38,6 +38,9 @@ export type InventoryRowWithCard = {
   imageUri: string | null;
 };
 
+// Rows fetched per inventory page (initial load + each "Load more").
+export const INVENTORY_PAGE_SIZE = 200;
+
 export type InventoryListResponse = {
   rows: InventoryRowWithCard[];
   nextCursor: string | null;

@@ -39,7 +39,7 @@ import {
 import { ManaCost } from "@/components/mana-cost";
 import { SetSymbol } from "@/components/set-symbol";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
-import { currentValueOf } from "@/lib/inventory/types";
+import { currentValueOf, INVENTORY_PAGE_SIZE } from "@/lib/inventory/types";
 import { cn } from "@/lib/utils";
 import { EditRowDialog } from "./edit-row-dialog";
 import { DisposeDialog } from "./dispose-dialog";
@@ -139,7 +139,7 @@ export function InventoryTable({
   const buildParams = useCallback(
     (cursor?: string | null): URLSearchParams => {
       const p = new URLSearchParams();
-      p.set("limit", "50");
+      p.set("limit", String(INVENTORY_PAGE_SIZE));
       if (cursor) p.set("cursor", cursor);
       p.set("sort", sortField);
       p.set("dir", sortDir);
@@ -784,17 +784,23 @@ export function InventoryTable({
         )}
       </section>
 
-      {nextCursor && (
-        <div className="flex justify-center pb-4">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={loadingMore}
-            size="sm"
-            className="font-mono text-[11px] uppercase tracking-wide"
-          >
-            {loadingMore ? "Loading…" : "Load more"}
-          </Button>
+      {rows.length > 0 && (
+        <div className="flex items-center justify-center gap-3 pb-4 font-mono text-[11px] uppercase tracking-wide text-text-muted">
+          <span>
+            Showing <span className="num text-text-secondary">{rows.length}</span>{" "}
+            of <span className="num text-text-secondary">{totals.totalCount}</span>
+          </span>
+          {nextCursor && (
+            <Button
+              variant="outline"
+              onClick={loadMore}
+              disabled={loadingMore}
+              size="sm"
+              className="font-mono text-[11px] uppercase tracking-wide"
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </Button>
+          )}
         </div>
       )}
 

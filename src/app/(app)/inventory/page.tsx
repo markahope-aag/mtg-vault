@@ -1,4 +1,5 @@
 import { listInventory } from "@/lib/inventory/queries";
+import { INVENTORY_PAGE_SIZE } from "@/lib/inventory/types";
 import { InventoryTable } from "@/components/inventory-table";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export default async function InventoryPage() {
     sort: "createdAt",
     direction: "desc",
     offset: 0,
-    limit: 50,
+    limit: INVENTORY_PAGE_SIZE,
   });
 
   return (

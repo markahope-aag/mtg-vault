@@ -10,7 +10,14 @@ import type {
 const SORT_COLUMN: Record<string, string> = {
   name: "c.name",
   cmc: "c.cmc",
-  usd: "COALESCE(p.usd::numeric, 0)",
+  // Finish-aware value — mirrors currentValueOf() so sorting by value
+  // matches the displayed Value column (a valuable foil no longer sorts
+  // by its low base price).
+  usd: `CASE
+    WHEN i.etched THEN COALESCE(NULLIF(p.usd_etched::numeric, 0), NULLIF(p.usd_foil::numeric, 0), NULLIF(p.usd::numeric, 0), 0)
+    WHEN i.foil THEN COALESCE(NULLIF(p.usd_foil::numeric, 0), NULLIF(p.usd::numeric, 0), 0)
+    ELSE COALESCE(p.usd::numeric, 0)
+  END`,
   acquiredAt: "i.acquired_at",
   condition: "i.condition",
   location: "i.location",
