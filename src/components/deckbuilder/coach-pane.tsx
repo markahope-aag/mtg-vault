@@ -7,15 +7,18 @@ import {
   Compass,
   Loader2,
   Plus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
 import {
+  classifyCard,
   SLOT_LABEL,
   type Slot,
   type SlotStatus,
 } from "@/lib/decks/slots";
+import type { DeckCard } from "@/lib/decks/types";
 import { cn } from "@/lib/utils";
 
 type SlotRow = {
@@ -52,10 +55,28 @@ const SLOT_BAR_TONE: Record<SlotStatus, string> = {
 };
 
 export function CoachPane() {
-  const { deck, addCard } = useDeckbuilder();
+  const { deck, addCard, removeCard } = useDeckbuilder();
   const [data, setData] = useState<CoachResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<Slot>>(new Set());
+
+  // Classify the deck's own cards into slots so each expanded slot can list
+  // what's currently in it (removable), not just what could be added.
+  const deckBySlot = useMemo(() => {
+    const map = new Map<Slot, DeckCard[]>();
+    for (const c of deck.cards) {
+      const slot = classifyCard({
+        name: c.card.name,
+        typeLine: c.card.typeLine,
+        oracleText: c.card.oracleText,
+        manaCost: c.card.manaCost,
+      });
+      const bucket = map.get(slot);
+      if (bucket) bucket.push(c);
+      else map.set(slot, [c]);
+    }
+    return map;
+  }, [deck.cards]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,30 +195,53 @@ export function CoachPane() {
                   <SlotBar row={row} />
                 </div>
                 {isOpen && (
-                  <div className="space-y-1 border-t border-border-subtle bg-surface-inset/30 px-3 py-2">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-                      Owned candidates ·{" "}
-                      <span className="text-text-secondary">
-                        {row.status === "under"
-                          ? `add ${row.target.ideal - row.count}–${row.target.max - row.count} to hit target`
-                          : row.status === "over"
-                            ? `trim ${row.count - row.target.max}+ to free room for thinner slots`
-                            : "in range — additions are optional"}
-                      </span>
-                    </p>
-                    {suggestions.length === 0 ? (
-                      <p className="empty-terminal py-2">no owned candidates</p>
-                    ) : (
-                      <ul className="divide-y divide-border-subtle">
-                        {suggestions.slice(0, 10).map((s) => (
-                          <SuggestionRow
-                            key={s.oracleId}
-                            sug={s}
-                            addCard={addCard}
-                          />
-                        ))}
-                      </ul>
-                    )}
+                  <div className="space-y-3 border-t border-border-subtle bg-surface-inset/30 px-3 py-2">
+                    {/* In the deck — removable */}
+                    <div className="space-y-1">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                        In this deck
+                      </p>
+                      {(deckBySlot.get(row.slot) ?? []).length === 0 ? (
+                        <p className="empty-terminal py-1">nothing in slot</p>
+                      ) : (
+                        <ul className="divide-y divide-border-subtle">
+                          {(deckBySlot.get(row.slot) ?? []).map((c) => (
+                            <DeckCardRow
+                              key={`${c.deckCardRow.printingId}-${c.deckCardRow.category}`}
+                              card={c}
+                              removeCard={removeCard}
+                            />
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Owned candidates — addable */}
+                    <div className="space-y-1">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                        Owned candidates ·{" "}
+                        <span className="text-text-secondary">
+                          {row.status === "under"
+                            ? `add ${row.target.ideal - row.count}–${row.target.max - row.count} to hit target`
+                            : row.status === "over"
+                              ? `trim ${row.count - row.target.max}+ to free room for thinner slots`
+                              : "in range — additions are optional"}
+                        </span>
+                      </p>
+                      {suggestions.length === 0 ? (
+                        <p className="empty-terminal py-2">no owned candidates</p>
+                      ) : (
+                        <ul className="divide-y divide-border-subtle">
+                          {suggestions.slice(0, 10).map((s) => (
+                            <SuggestionRow
+                              key={s.oracleId}
+                              sug={s}
+                              addCard={addCard}
+                            />
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 )}
               </li>
@@ -242,6 +286,63 @@ function SlotBar({ row }: { row: SlotRow }) {
   );
 }
 
+function DeckCardRow({
+  card,
+  removeCard,
+}: {
+  card: DeckCard;
+  removeCard: (printingId: string, category: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const qty = card.deckCardRow.quantity;
+  const onRemove = useCallback(async () => {
+    setBusy(true);
+    try {
+      await removeCard(
+        card.deckCardRow.printingId,
+        card.deckCardRow.category,
+      );
+      toast.success(`Removed ${card.card.name}`);
+    } catch (err) {
+      toast.error(
+        `Could not remove: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [card, removeCard]);
+
+  return (
+    <li className="flex items-center gap-2 py-1.5 text-[12px]">
+      {card.card.manaCost ? (
+        <ManaCost cost={card.card.manaCost} size="xs" />
+      ) : (
+        <span className="inline-block w-4" />
+      )}
+      <span className="min-w-0 flex-1 truncate text-text-secondary">
+        {card.card.name}
+      </span>
+      {qty > 1 && (
+        <span className="num shrink-0 text-[10px] text-text-muted">×{qty}</span>
+      )}
+      <button
+        type="button"
+        onClick={() => void onRemove()}
+        disabled={busy}
+        aria-label={`Remove ${card.card.name}`}
+        className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-raised px-1 font-mono text-[10px] uppercase tracking-wide text-text-muted transition-colors hover:border-[var(--value-negative)]/50 hover:text-[var(--value-negative)] disabled:opacity-50"
+      >
+        {busy ? (
+          <Loader2 className="size-2.5 animate-spin" />
+        ) : (
+          <X className="size-2.5" />
+        )}
+        Remove
+      </button>
+    </li>
+  );
+}
+
 function SuggestionRow({
   sug,
   addCard,
@@ -267,7 +368,9 @@ function SuggestionRow({
       const data = await res.json();
       const printing = data.printings?.[0];
       if (!printing) throw new Error("No printings");
-      const n = isBasic ? Math.max(1, Math.min(qty, 99)) : 1;
+      // Never add more copies than the player owns.
+      const cap = Math.max(1, sug.ownedCount);
+      const n = isBasic ? Math.max(1, Math.min(qty, cap)) : 1;
       await addCard(printing.id, sug.oracleId, "main", n);
       toast.success(`Added ${n}× ${sug.name}`);
     } catch (err) {
@@ -277,7 +380,7 @@ function SuggestionRow({
     } finally {
       setBusy(false);
     }
-  }, [sug.oracleId, sug.name, addCard, isBasic, qty]);
+  }, [sug.oracleId, sug.name, addCard, isBasic, qty, sug.ownedCount]);
 
   return (
     <li className="flex items-center gap-2 py-1.5 text-[12px]">
@@ -304,12 +407,20 @@ function SuggestionRow({
         <input
           type="number"
           min={1}
-          max={99}
+          max={Math.max(1, sug.ownedCount)}
           value={qty}
           onChange={(e) =>
-            setQty(Math.max(1, Math.min(Number(e.target.value) || 1, 99)))
+            setQty(
+              Math.max(
+                1,
+                Math.min(
+                  Number(e.target.value) || 1,
+                  Math.max(1, sug.ownedCount),
+                ),
+              ),
+            )
           }
-          aria-label={`Quantity of ${sug.name}`}
+          aria-label={`Quantity of ${sug.name} (max ${sug.ownedCount} owned)`}
           className="num h-5 w-11 shrink-0 rounded-sm border border-border-subtle bg-surface-base px-1 text-[11px] text-text-primary outline-none focus:border-brand"
         />
       )}
