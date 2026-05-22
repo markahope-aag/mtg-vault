@@ -22,8 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { SetSymbol } from "@/components/set-symbol";
+import { PrintingPicker } from "./printing-picker";
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/inventory/schemas";
 
 export type AddDialogPrinting = {
@@ -98,28 +97,11 @@ export function AddCardsDialog({
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => defaultForm(card));
   const [submitting, setSubmitting] = useState(false);
-  const [printingFilter, setPrintingFilter] = useState("");
 
   useEffect(() => {
-    if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setForm(defaultForm(card));
-      setPrintingFilter("");
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (open) setForm(defaultForm(card));
   }, [open, card]);
-
-  // Basic lands have hundreds of printings — filter by set name/code/number.
-  const visiblePrintings = useMemo(() => {
-    if (!card) return [];
-    const q = printingFilter.trim().toLowerCase();
-    if (!q) return card.printings;
-    return card.printings.filter(
-      (p) =>
-        p.setName.toLowerCase().includes(q) ||
-        p.setCode.toLowerCase().includes(q) ||
-        p.collectorNumber.toLowerCase().includes(q),
-    );
-  }, [card, printingFilter]);
 
   const printing = useMemo(
     () => card?.printings.find((p) => p.id === form.printingId) ?? null,
@@ -214,80 +196,15 @@ export function AddCardsDialog({
           </p>
         ) : (
           <form onSubmit={onSubmit} className="space-y-5">
-            {/* Printing picker */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label>Printing</Label>
-                <span className="text-xs text-muted-foreground">
-                  {visiblePrintings.length} of {card.printings.length}
-                </span>
-              </div>
-              {card.printings.length > 8 && (
-                <Input
-                  value={printingFilter}
-                  onChange={(e) => setPrintingFilter(e.target.value)}
-                  placeholder="Filter by set name, code, or collector #…"
-                  className="h-8 text-sm"
-                />
-              )}
-              <div className="max-h-56 overflow-y-auto rounded-md border">
-                {visiblePrintings.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                    No printings match &ldquo;{printingFilter.trim()}&rdquo;.
-                  </p>
-                ) : (
-                  visiblePrintings.map((p) => {
-                  const selected = p.id === form.printingId;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        update("printingId", p.id);
-                        const target = form.foil ? p.usdFoil : p.usd;
-                        if (target) update("acquiredPrice", target);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 border-b px-3 py-1.5 text-left text-sm last:border-b-0 ${
-                        selected ? "bg-muted" : "hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <input
-                          type="radio"
-                          checked={selected}
-                          readOnly
-                          tabIndex={-1}
-                        />
-                        <SetSymbol
-                          setCode={p.setCode}
-                          rarity={p.rarity}
-                          size="md"
-                        />
-                        <span className="font-medium">{p.setName}</span>
-                        <span className="text-xs uppercase text-muted-foreground">
-                          {p.setCode}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          #{p.collectorNumber}
-                        </span>
-                        {p.rarity && (
-                          <Badge variant="outline" className="text-[10px] capitalize">
-                            {p.rarity}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-3 text-xs tabular-nums">
-                        <span>{p.usd ? `$${p.usd}` : "—"}</span>
-                        <span className="text-muted-foreground">
-                          {p.usdFoil ? `${p.usdFoil} foil` : ""}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                  })
-                )}
-              </div>
-            </div>
+            <PrintingPicker
+              printings={card.printings}
+              selectedId={form.printingId}
+              onSelect={(p) => {
+                update("printingId", p.id);
+                const target = form.foil ? p.usdFoil : p.usd;
+                if (target) update("acquiredPrice", target);
+              }}
+            />
 
             <div className="grid grid-cols-2 items-end gap-4">
               <Field label="Count">

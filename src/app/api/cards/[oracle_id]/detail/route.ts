@@ -25,7 +25,7 @@ export async function GET(
     const printings = (await db.execute(sql`
       SELECT id, set_code, set_name, collector_number,
              (image_uris ->> 'small') AS image_uri,
-             usd
+             usd, usd_foil, rarity
       FROM printings
       WHERE oracle_id = ${oracle_id}
       ORDER BY released_at DESC NULLS LAST, set_code
@@ -37,6 +37,8 @@ export async function GET(
       collector_number: string;
       image_uri: string | null;
       usd: string | null;
+      usd_foil: string | null;
+      rarity: string | null;
     }>;
 
     const ownership = (await db.execute(sql`
@@ -85,6 +87,8 @@ export async function GET(
         collectorNumber: p.collector_number,
         imageUri: p.image_uri,
         usd: p.usd,
+        usdFoil: p.usd_foil,
+        rarity: p.rarity,
       })),
       ownership: {
         total,

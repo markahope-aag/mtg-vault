@@ -24,8 +24,10 @@ import {
 } from "@/components/ui/select";
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/inventory/schemas";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
+import { PrintingPicker, type PrintingOption } from "./printing-picker";
 
 type FormState = {
+  printingId: string;
   foil: boolean;
   etched: boolean;
   condition: (typeof CONDITIONS)[number];
@@ -42,6 +44,7 @@ type FormState = {
 
 function fromRow(row: InventoryRowWithCard): FormState {
   return {
+    printingId: row.printingId,
     foil: row.foil,
     etched: row.etched,
     condition: (CONDITIONS.includes(row.condition as (typeof CONDITIONS)[number])
@@ -73,10 +76,34 @@ export function EditRowDialog({
   const router = useRouter();
   const [form, setForm] = useState<FormState | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [printings, setPrintings] = useState<PrintingOption[]>([]);
+  const [loadingPrintings, setLoadingPrintings] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open && row) setForm(fromRow(row));
+  }, [open, row]);
+
+  // Load the card's printings so the user can correct a wrong set.
+  useEffect(() => {
+    if (!open || !row) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadingPrintings(true);
+    fetch(`/api/cards/${row.oracleId}/detail`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setPrintings(d?.printings ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setPrintings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPrintings(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, row]);
 
   if (!row || !form) {
@@ -100,6 +127,7 @@ export function EditRowDialog({
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          printingId: form.printingId,
           foil: form.foil,
           etched: form.etched,
           condition: form.condition,
@@ -140,6 +168,18 @@ export function EditRowDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-5">
+          {loadingPrintings && printings.length === 0 ? (
+            <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+              Loading printings…
+            </p>
+          ) : printings.length > 0 ? (
+            <PrintingPicker
+              printings={printings}
+              selectedId={form.printingId}
+              onSelect={(p) => update("printingId", p.id)}
+            />
+          ) : null}
+
           <div className="grid grid-cols-2 gap-4">
             <Field label="Condition">
               <Select
