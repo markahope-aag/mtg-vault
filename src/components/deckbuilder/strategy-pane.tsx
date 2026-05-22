@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, Loader2, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useDeckbuilder } from "./shell";
@@ -228,6 +229,48 @@ export function StrategyPane() {
                       )}
                       <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
                         {imp.rationale}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            {/* Acquisitions */}
+            <Section title="Worth acquiring">
+              {(a.acquisitions ?? []).length === 0 ? (
+                <p className="empty-terminal">no suggestions</p>
+              ) : (
+                <ul className="space-y-2">
+                  {(a.acquisitions ?? []).map((acq, i) => (
+                    <li
+                      key={i}
+                      className="rounded-sm border border-[var(--border-subtle)] bg-[var(--surface-inset)]/40 p-2"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        {acq.oracleId ? (
+                          <Link
+                            href={`/cards/${acq.oracleId}`}
+                            className="text-[13px] font-medium text-text-primary hover:underline"
+                          >
+                            {acq.cardName}
+                          </Link>
+                        ) : (
+                          <p className="text-[13px] font-medium text-text-primary">
+                            {acq.cardName}
+                          </p>
+                        )}
+                        <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-[var(--brand)]">
+                          buy
+                        </span>
+                      </div>
+                      {acq.replacesCardName && (
+                        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                          swaps with {acq.replacesCardName}
+                        </p>
+                      )}
+                      <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
+                        {acq.rationale}
                       </p>
                     </li>
                   ))}

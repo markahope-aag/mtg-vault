@@ -41,6 +41,15 @@ export type DeckAnalysis = {
     rationale: string;
     replacesCardName: string | null;
   }>;
+  // Cards to acquire — recommended regardless of ownership. oracleId is
+  // resolved against the card DB after the model returns (null if the name
+  // doesn't match a known card).
+  acquisitions: Array<{
+    cardName: string;
+    oracleId: string | null;
+    rationale: string;
+    replacesCardName: string | null;
+  }>;
 };
 
 export type DeckAnalysisRecord = {
@@ -63,6 +72,7 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
       "gameplan",
       "weaknesses",
       "improvements",
+      "acquisitions",
     ],
     properties: {
       archetype: {
@@ -136,6 +146,32 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
               type: ["string", "null"],
               description:
                 "Optional: name of a card already in the deck that this could replace, or null if it's an add.",
+            },
+          },
+        },
+        maxItems: 8,
+      },
+      acquisitions: {
+        type: "array",
+        description:
+          "A shopping list — strong cards that would improve the deck's weak slots, recommended REGARDLESS of ownership. Do NOT use the inventory candidate list for these; recommend genuine best-in-slot cards the player would need to acquire. Must not duplicate cards already in the deck or in the inventory candidate list. Order by priority. Up to 8.",
+        items: {
+          type: "object",
+          required: ["cardName", "rationale"],
+          properties: {
+            cardName: {
+              type: "string",
+              description: "Exact Magic card name.",
+            },
+            rationale: {
+              type: "string",
+              description:
+                "One sentence on why this card is worth acquiring for the deck.",
+            },
+            replacesCardName: {
+              type: ["string", "null"],
+              description:
+                "Optional: name of a card already in the deck this could replace, or null.",
             },
           },
         },
@@ -330,8 +366,37 @@ function buildPrompt(
     `============================================================`,
     candidateList,
     ``,
-    `Call the submit_deck_analysis tool with your analysis. Be concrete and specific — name cards, name interactions, name matchups. For improvements: every entry MUST cite an oracleId from the candidate list above. Do NOT invent cards or oracleIds.`,
+    `Call the submit_deck_analysis tool with your analysis. Be concrete and specific — name cards, name interactions, name matchups.`,
+    `- improvements: every entry MUST cite an oracleId from the candidate list above. Do NOT invent oracleIds.`,
+    `- acquisitions: a shopping list of strong cards the player would need to BUY — best-in-slot for the deck's weak spots, ignoring ownership. Use exact card names. Do NOT repeat anything already in the deck or in the inventory candidate list.`,
   ].join("\n");
+}
+
+/**
+ * Resolve acquisition card names (the model returns names, not ids) to oracle
+ * ids in our DB so the UI can link them. Names that don't match stay null.
+ * Drops any that turn out to already be in the deck or owned.
+ */
+async function resolveAcquisitions(
+  raw: DeckAnalysis["acquisitions"] | undefined,
+  excludeOracleIds: Set<string>,
+): Promise<DeckAnalysis["acquisitions"]> {
+  const list = raw ?? [];
+  if (list.length === 0) return [];
+  const lowerNames = list.map((a) => a.cardName.toLowerCase());
+  const found = (await db.execute(sql`
+    SELECT oracle_id, name FROM cards
+    WHERE LOWER(name) = ANY(${sqlArray(lowerNames, "text")})
+  `)) as unknown as Array<{ oracle_id: string; name: string }>;
+  const byName = new Map(found.map((f) => [f.name.toLowerCase(), f.oracle_id]));
+  return list
+    .map((a) => ({
+      cardName: a.cardName,
+      oracleId: byName.get(a.cardName.toLowerCase()) ?? null,
+      rationale: a.rationale,
+      replacesCardName: a.replacesCardName ?? null,
+    }))
+    .filter((a) => a.oracleId == null || !excludeOracleIds.has(a.oracleId));
 }
 
 export async function analyzeDeck(detail: DeckDetail): Promise<DeckAnalysis> {
@@ -371,6 +436,16 @@ export async function analyzeDeck(detail: DeckDetail): Promise<DeckAnalysis> {
     candidateOracleIds.has(imp.oracleId),
   );
 
+  // Acquisitions: resolve names → oracle ids, and exclude anything the player
+  // already owns (candidate set) or already runs (deck) so it doesn't overlap
+  // with the improvements list.
+  const deckOracleIds = new Set<string>();
+  if (detail.commander) deckOracleIds.add(detail.commander.oracleId);
+  if (detail.partner) deckOracleIds.add(detail.partner.oracleId);
+  for (const c of detail.cards) deckOracleIds.add(c.card.oracleId);
+  const exclude = new Set<string>([...candidateOracleIds, ...deckOracleIds]);
+  const acquisitions = await resolveAcquisitions(raw.acquisitions, exclude);
+
   return {
     archetype: raw.archetype,
     subArchetype: raw.subArchetype ?? null,
@@ -379,6 +454,7 @@ export async function analyzeDeck(detail: DeckDetail): Promise<DeckAnalysis> {
     gameplan: raw.gameplan,
     weaknesses: raw.weaknesses ?? [],
     improvements,
+    acquisitions,
   };
 }
 
