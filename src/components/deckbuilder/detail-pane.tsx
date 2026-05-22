@@ -61,6 +61,11 @@ const TAG_TONE: Record<
     "bg-[var(--color-mtg-blue)]/15 text-[var(--color-mtg-blue)] border-[var(--color-mtg-blue)]/30",
 };
 
+function pickImage(imgs: Record<string, string> | null): string | null {
+  if (!imgs) return null;
+  return imgs.normal ?? imgs.large ?? imgs.small ?? null;
+}
+
 export function DetailPane() {
   const { deck, active, addCard, moveCard, swapPrinting } = useDeckbuilder();
   const [detail, setDetail] = useState<DetailFetch | null>(null);
@@ -107,10 +112,25 @@ export function DetailPane() {
   const headerType = detail?.card.typeLine ?? active?.typeLine;
   const headerMana = detail?.card.manaCost ?? active?.manaCost;
   const oracleText = detail?.card.oracleText ?? active?.oracleText;
+
+  const inDeck = deck.cards.find((c) => c.card.oracleId === oracleId);
+  const isCommander = deck.commander?.oracleId === oracleId;
+  const isPartner = deck.partner?.oracleId === oracleId;
+  const isInDeck = !!inDeck || isCommander || isPartner;
+
+  // For a card that's in the deck, show the art of the printing the deck
+  // actually uses — not detail.printings[0], which is just the newest one.
+  const deckPrintingImage = isCommander
+    ? pickImage(deck.commander?.printing.imageUris ?? null)
+    : isPartner
+      ? pickImage(deck.partner?.printing.imageUris ?? null)
+      : inDeck
+        ? pickImage(inDeck.printing.imageUris)
+        : null;
   const headerImage =
-    detail?.printings[0]?.imageUri ??
+    deckPrintingImage ??
     active?.imageUri ??
-    (deck.commander?.printing.imageUris?.normal as string | undefined) ??
+    detail?.printings[0]?.imageUri ??
     null;
 
   const tags: Array<{ label: keyof typeof TAG_TONE }> = [];
@@ -118,11 +138,6 @@ export function DetailPane() {
   if (detail?.card.isMassLandDenial) tags.push({ label: "Mass Land Denial" });
   if (detail?.card.isExtraTurn) tags.push({ label: "Extra Turn" });
   if (detail?.card.isTutor) tags.push({ label: "Tutor" });
-
-  const inDeck = deck.cards.find((c) => c.card.oracleId === oracleId);
-  const isCommander = deck.commander?.oracleId === oracleId;
-  const isPartner = deck.partner?.oracleId === oracleId;
-  const isInDeck = !!inDeck || isCommander || isPartner;
 
   return (
     <aside className="flex h-full max-h-[calc(100vh-128px)] flex-col overflow-hidden rounded-md border border-border-subtle bg-surface-raised">

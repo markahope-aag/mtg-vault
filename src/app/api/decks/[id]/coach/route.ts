@@ -119,7 +119,10 @@ export async function GET(
   for (const slot of SLOT_ORDER) suggestions[slot] = [];
 
   for (const r of rows) {
-    if (inDeckOracleIds.has(r.oracle_id)) continue;
+    // In-deck cards drop out of the suggestions — except basic lands, which
+    // are never "done": you can always add more, so keep them listed.
+    const isBasic = /Basic Land/i.test(r.type_line ?? "");
+    if (inDeckOracleIds.has(r.oracle_id) && !isBasic) continue;
     const slot = classifyCard({
       name: r.name,
       typeLine: r.type_line,
