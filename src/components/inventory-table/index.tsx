@@ -634,6 +634,7 @@ export function InventoryTable({
                   Card
                 </SortHeader>
                 <th className="px-2 py-1.5 text-left">Type</th>
+                <th className="w-20 px-2 py-1.5 text-left">Sets</th>
                 <th className="w-12 px-2 py-1.5 text-left">Finish</th>
                 <th className="w-16 px-2 py-1.5 text-right">Qty</th>
                 <SortHeader
@@ -1034,6 +1035,19 @@ function GroupRowRenderer({
 }) {
   const locs = [...group.locationsCount.entries()].sort((a, b) => b[1] - a[1]);
 
+  // Distinct printings in this group — a group spans one card+finish but may
+  // hold copies from several sets. The set symbol is the only way to tell
+  // printings apart at a glance.
+  const setEntries = (() => {
+    const map = new Map<string, { setCode: string; rarity: string | null; count: number }>();
+    for (const r of group.rows) {
+      const existing = map.get(r.setCode);
+      if (existing) existing.count += 1;
+      else map.set(r.setCode, { setCode: r.setCode, rarity: r.rarity, count: 1 });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  })();
+
   return (
     <>
       <tr
@@ -1072,6 +1086,28 @@ function GroupRowRenderer({
         </td>
         <td className="px-2 py-1.5 font-mono text-[10px] uppercase tracking-wide text-text-muted">
           {group.typeLine?.split("—")[0]?.trim() ?? "—"}
+        </td>
+        <td className="px-2 py-1.5">
+          <span className="inline-flex items-center gap-1">
+            {setEntries.slice(0, 4).map((s) => (
+              <span
+                key={s.setCode}
+                className="inline-flex items-center"
+                title={
+                  setEntries.length > 1
+                    ? `${s.setCode.toUpperCase()} ×${s.count}`
+                    : s.setCode.toUpperCase()
+                }
+              >
+                <SetSymbol setCode={s.setCode} rarity={s.rarity} size="sm" />
+              </span>
+            ))}
+            {setEntries.length > 4 && (
+              <span className="font-mono text-[10px] text-text-muted">
+                +{setEntries.length - 4}
+              </span>
+            )}
+          </span>
         </td>
         <td className="px-2 py-1.5">
           {group.foil ? (
