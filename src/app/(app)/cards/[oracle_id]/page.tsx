@@ -145,13 +145,19 @@ export default async function CardDetailPage({
     .where(eq(printings.oracleId, oracle_id))
     .orderBy(desc(printings.releasedAt), printings.setCode);
 
-  const defaultPrinting =
-    allPrintings.find((p) => !isPromoLike(p)) ?? allPrintings[0];
-  const selectedPrinting =
-    allPrintings.find((p) => p.id === requestedPrintingId) ?? defaultPrinting;
-
   const ownedRows = await fetchOwnedRows(oracle_id);
   const usedInDecks = await fetchDecksUsing(oracle_id);
+
+  // Default to a printing the user actually owns (the newest, since
+  // allPrintings is release-date descending) so the art matches their
+  // copy. Fall back to the newest non-promo printing, then anything.
+  const ownedPrintingIds = new Set(ownedRows.map((r) => r.printingId));
+  const defaultPrinting =
+    allPrintings.find((p) => ownedPrintingIds.has(p.id)) ??
+    allPrintings.find((p) => !isPromoLike(p)) ??
+    allPrintings[0];
+  const selectedPrinting =
+    allPrintings.find((p) => p.id === requestedPrintingId) ?? defaultPrinting;
 
   const tags: Array<{ label: string; tone: string }> = [];
   if (card.isGameChanger)
