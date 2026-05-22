@@ -59,8 +59,10 @@ export function CoachPane() {
 
   useEffect(() => {
     let cancelled = false;
-    // Coach refreshes when the decklist changes (deck.cards.length is a
-    // proxy for "decklist mutated").
+    // Refetch whenever the decklist changes. deck.totalCards counts
+    // quantities, so adding more copies of a card already in the deck
+    // (e.g. extra basic lands) is caught — deck.cards.length alone would
+    // not change in that case.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/decks/${deck.deck.id}/coach`)
@@ -77,7 +79,13 @@ export function CoachPane() {
     return () => {
       cancelled = true;
     };
-  }, [deck.deck.id, deck.cards.length, deck.commander?.oracleId]);
+  }, [
+    deck.deck.id,
+    deck.cards.length,
+    deck.totalCards,
+    deck.commander?.oracleId,
+    deck.partner?.oracleId,
+  ]);
 
   const toggle = useCallback((slot: Slot) => {
     setExpanded((prev) => {
