@@ -19,6 +19,22 @@ async function fetchScryfall(url: string): Promise<Response> {
   return res;
 }
 
+/**
+ * Build a Postgres ARRAY[...] literal for an `= ANY(...)` clause.
+ *
+ * Drizzle interpolates a plain JS array as a parenthesised tuple
+ * `($1, $2, …)`, which Postgres parses as an anonymous record — casting
+ * a record to text[]/uuid[] fails with "cannot cast type record". An
+ * explicit ARRAY[…] constructor casts cleanly. Empty arrays yield
+ * `ARRAY[]::T[]`, which is valid.
+ */
+function sqlArray(values: string[], cast: "text" | "uuid") {
+  return sql`ARRAY[${sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  )}]::${sql.raw(cast)}[]`;
+}
+
 // ─── 1. Extra-turn flag ──────────────────────────────────────────
 
 export async function updateExtraTurnFlags(): Promise<number> {
@@ -52,11 +68,11 @@ export async function updateMldFlags(): Promise<number> {
   const names = [...MASS_LAND_DENIAL_NAMES];
   await db.execute(sql`
     UPDATE cards SET is_mass_land_denial = TRUE
-    WHERE name = ANY(${names}::text[])
+    WHERE name = ANY(${sqlArray(names, "text")})
   `);
   await db.execute(sql`
     UPDATE cards SET is_mass_land_denial = FALSE
-    WHERE NOT (name = ANY(${names}::text[]))
+    WHERE NOT (name = ANY(${sqlArray(names, "text")}))
   `);
   const rows = (await db.execute(sql`
     SELECT COUNT(*)::int AS count FROM cards WHERE is_mass_land_denial = TRUE
@@ -67,8 +83,10 @@ export async function updateMldFlags(): Promise<number> {
 // ─── 3. Tutor flag (Scryfall is:tutor list) ──────────────────────
 
 export async function updateTutorFlags(): Promise<number> {
+  // `is:tutor` is not valid Scryfall syntax (returns HTTP 400). The
+  // community oracle-tag `otag:tutor` is the correct query.
   let nextUrl: string | null =
-    "https://api.scryfall.com/cards/search?q=is%3Atutor&unique=cards";
+    "https://api.scryfall.com/cards/search?q=otag%3Atutor&unique=cards";
   const oracleIds = new Set<string>();
 
   while (nextUrl) {
@@ -89,7 +107,7 @@ export async function updateTutorFlags(): Promise<number> {
   await db.execute(sql`UPDATE cards SET is_tutor = FALSE`);
   await db.execute(sql`
     UPDATE cards SET is_tutor = TRUE
-    WHERE oracle_id = ANY(${[...oracleIds]}::uuid[])
+    WHERE oracle_id = ANY(${sqlArray([...oracleIds], "uuid")})
   `);
   return oracleIds.size;
 }
@@ -118,7 +136,7 @@ export async function updateGameChangerFlags(): Promise<number> {
   if (oracleIds.size > 0) {
     await db.execute(sql`
       UPDATE cards SET is_game_changer = TRUE
-      WHERE oracle_id = ANY(${[...oracleIds]}::uuid[])
+      WHERE oracle_id = ANY(${sqlArray([...oracleIds], "uuid")})
     `);
   }
   return oracleIds.size;
