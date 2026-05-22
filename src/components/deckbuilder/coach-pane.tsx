@@ -289,11 +289,12 @@ function SuggestionRow({
       <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
         {sug.name}
       </span>
-      {!isBasic && (
-        <span className="hidden truncate text-[11px] text-text-muted sm:inline sm:max-w-[120px]">
-          {sug.typeLine}
-        </span>
-      )}
+      <span
+        className="num shrink-0 rounded-sm bg-[var(--surface-inset)] px-1 text-[10px] text-[var(--value-positive)]"
+        title="Copies you own"
+      >
+        {sug.ownedCount} owned
+      </span>
       {sug.edhrecRank != null && !isBasic && (
         <span className="num shrink-0 text-[10px] text-text-muted">
           #{sug.edhrecRank}
