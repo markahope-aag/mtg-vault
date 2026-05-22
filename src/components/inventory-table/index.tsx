@@ -1063,8 +1063,6 @@ function GroupRowRenderer({
           <div className="flex items-center gap-1.5">
             <Link
               href={`/cards/${group.oracleId}`}
-              target="_blank"
-              rel="noopener"
               className="font-medium text-text-primary hover:underline"
             >
               {group.name}
@@ -1176,8 +1174,6 @@ function PhysicalRowRenderer({
         <div className="flex items-center gap-1.5">
           <Link
             href={`/cards/${row.oracleId}`}
-            target="_blank"
-            rel="noopener"
             className="font-medium text-text-primary hover:underline"
           >
             {row.name}

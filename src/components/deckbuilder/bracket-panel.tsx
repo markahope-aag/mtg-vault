@@ -361,8 +361,6 @@ function BracketResultView({
                                   <li key={j}>
                                     <Link
                                       href={`/cards/${c.oracleId}`}
-                                      target="_blank"
-                                      rel="noopener"
                                       className="inline-block rounded-sm border border-border-subtle bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-text-secondary hover:border-border-strong hover:text-text-primary"
                                     >
                                       {c.name}
@@ -707,8 +705,6 @@ function ToReachBracketView({
                           {r.oracleId ? (
                             <Link
                               href={`/cards/${r.oracleId}`}
-                              target="_blank"
-                              rel="noopener"
                               className="text-[13px] font-medium text-text-primary hover:underline"
                             >
                               {r.name}

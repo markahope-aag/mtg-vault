@@ -314,8 +314,6 @@ export function DetailPane() {
             )}
             <Link
               href={`/cards/${oracleId}`}
-              target="_blank"
-              rel="noopener"
               className="ml-auto font-mono text-[10px] uppercase tracking-wide text-text-muted hover:text-text-primary"
             >
               Full detail →
