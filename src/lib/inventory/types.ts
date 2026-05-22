@@ -52,12 +52,18 @@ export function currentValueOf(row: {
   usdFoil: string | null;
   usdEtched: string | null;
 }): number {
-  const pick = row.etched
-    ? row.usdEtched
+  // Prefer the finish-specific price, but fall back when it's missing — many
+  // printings have a base `usd` with no recorded foil/etched price, and
+  // showing $0.00 for a foil card that has a known base value is misleading.
+  const candidates = row.etched
+    ? [row.usdEtched, row.usdFoil, row.usd]
     : row.foil
-      ? row.usdFoil
-      : row.usd;
-  if (!pick) return 0;
-  const n = Number.parseFloat(pick);
-  return Number.isFinite(n) ? n : 0;
+      ? [row.usdFoil, row.usd]
+      : [row.usd];
+  for (const c of candidates) {
+    if (!c) continue;
+    const n = Number.parseFloat(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
 }

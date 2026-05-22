@@ -133,9 +133,21 @@ export async function listInventory(
     SELECT
       count(*)::int AS total_count,
       COALESCE(SUM(
+        -- Mirror currentValueOf(): prefer the finish-specific price but fall
+        -- back when it's missing/zero, so foil cards with no recorded foil
+        -- price still contribute their base value instead of 0.
         CASE
-          WHEN i.etched = true THEN COALESCE(p.usd_etched::numeric, 0)
-          WHEN i.foil = true THEN COALESCE(p.usd_foil::numeric, 0)
+          WHEN i.etched = true THEN COALESCE(
+            NULLIF(p.usd_etched::numeric, 0),
+            NULLIF(p.usd_foil::numeric, 0),
+            NULLIF(p.usd::numeric, 0),
+            0
+          )
+          WHEN i.foil = true THEN COALESCE(
+            NULLIF(p.usd_foil::numeric, 0),
+            NULLIF(p.usd::numeric, 0),
+            0
+          )
           ELSE COALESCE(p.usd::numeric, 0)
         END
       ), 0)::numeric(14,2) AS total_value
