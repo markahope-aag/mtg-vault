@@ -19,7 +19,10 @@ export const cards = pgTable(
     oracleId: uuid("oracle_id").primaryKey(),
     name: text("name").notNull(),
     manaCost: text("mana_cost"),
-    cmc: decimal("cmc", { precision: 4, scale: 1 }),
+    // precision 12 — un-set cards like Gleemax have CMC 1,000,000, which
+    // overflows the original numeric(4,1). scale 1 keeps half-mana (e.g.
+    // Little Girl's {1/2}) representable.
+    cmc: decimal("cmc", { precision: 12, scale: 1 }),
     typeLine: text("type_line").notNull(),
     oracleText: text("oracle_text"),
     power: text("power"),

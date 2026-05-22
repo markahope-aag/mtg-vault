@@ -71,6 +71,13 @@
 			"when": 1779321514238,
 			"tag": "0009_deck_analysis",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1779409719837,
+			"tag": "0010_widen_cmc",
+			"breakpoints": true
 		}
 	]
 }
