@@ -809,6 +809,7 @@ export function InventoryTable({
         row={editingRow}
         open={editingRow !== null}
         onOpenChange={(v) => !v && setEditingRow(null)}
+        onSaved={() => void refetch()}
       />
       <DisposeDialog
         rows={disposingRows}

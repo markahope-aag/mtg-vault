@@ -68,10 +68,12 @@ export function EditRowDialog({
   row,
   open,
   onOpenChange,
+  onSaved,
 }: {
   row: InventoryRowWithCard | null;
   open: boolean;
   onOpenChange: (next: boolean) => void;
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState | null>(null);
@@ -148,6 +150,9 @@ export function EditRowDialog({
       }
       toast.success("Updated");
       onOpenChange(false);
+      // Parent (InventoryTable) owns its row state — router.refresh() alone
+      // won't repopulate it, so trigger an explicit refetch.
+      onSaved?.();
       router.refresh();
     } catch (err) {
       toast.error(
