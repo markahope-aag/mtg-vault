@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { toIso } from "@/lib/utils";
+import { sqlArray } from "@/lib/sql";
 
 export type DeckListRow = {
   id: string;
@@ -44,7 +45,7 @@ export async function listDecks(opts: {
   }
   if (filters.colorIdentity && filters.colorIdentity.length > 0) {
     clauses.push(
-      sql`cmd.color_identity && ${filters.colorIdentity}::text[]`,
+      sql`cmd.color_identity && ${sqlArray(filters.colorIdentity, "text")}`,
     );
   }
   const where = clauses.length

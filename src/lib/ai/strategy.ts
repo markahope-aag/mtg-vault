@@ -15,6 +15,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
+import { sqlArray } from "@/lib/sql";
 import { db } from "@/db/client";
 import { cards, deckCards, decks, printings } from "@/db/schema";
 import type { DeckDetail } from "@/lib/decks/types";
@@ -223,7 +224,7 @@ export async function fetchInventoryCandidates(
     INNER JOIN oracle_ownership o ON o.oracle_id = c.oracle_id
     WHERE o.owned_count > 0
       AND c.is_commander_legal = TRUE
-      AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ${identity}::text[]
+      AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ${sqlArray(identity, "text")}
     ORDER BY c.edhrec_rank ASC NULLS LAST, c.name ASC
     LIMIT ${MAX_INVENTORY_CANDIDATES + excludeOracleIds.size + 50};
   `);

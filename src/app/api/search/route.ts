@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { detectScryfallSyntax } from "@/lib/scryfall-operators";
+import { sqlArray } from "@/lib/sql";
 
 export const dynamic = "force-dynamic";
 
@@ -74,12 +75,12 @@ async function searchLocal(
     : sql``;
   const colorClause =
     colorIdentity && colorIdentity.length > 0
-      ? sql`AND c.color_identity <@ ${colorIdentity}::text[]`
+      ? sql`AND c.color_identity <@ ${sqlArray(colorIdentity, "text")}`
       : sql``;
   const typeClause =
     types && types.length > 0
       ? sql`AND EXISTS (
-          SELECT 1 FROM UNNEST(${types}::text[]) AS t
+          SELECT 1 FROM UNNEST(${sqlArray(types, "text")}) AS t
           WHERE c.type_line ILIKE '%' || t || '%'
         )`
       : sql``;

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { sqlArray } from "@/lib/sql";
 
 export type AvailabilityEntry = {
   owned: number;
@@ -18,7 +19,7 @@ export async function getAvailability(
 
   const rows = (await db.execute(sql`
     WITH src AS (
-      SELECT UNNEST(${oracleIds}::uuid[]) AS oracle_id
+      SELECT UNNEST(${sqlArray(oracleIds, "uuid")}) AS oracle_id
     )
     SELECT
       src.oracle_id,

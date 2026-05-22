@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { sqlArray } from "@/lib/sql";
 
 const SPELLBOOK_URL =
   "https://backend.commanderspellbook.com/estimate-bracket";
@@ -113,7 +114,7 @@ async function lookupNames(oracleIds: string[]): Promise<Map<string, string>> {
   const rows = (await db.execute(sql`
     SELECT oracle_id, name
     FROM cards
-    WHERE oracle_id = ANY(${oracleIds}::uuid[])
+    WHERE oracle_id = ANY(${sqlArray(oracleIds, "uuid")})
   `)) as unknown as Array<{ oracle_id: string; name: string }>;
   const map = new Map<string, string>();
   for (const r of rows) map.set(r.oracle_id, r.name);

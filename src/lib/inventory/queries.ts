@@ -1,6 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { toIso } from "@/lib/utils";
+import { sqlArray } from "@/lib/sql";
 import type {
   InventoryListResponse,
   InventoryRowWithCard,
@@ -42,9 +43,8 @@ function buildWhere(filters: ListFilters): SQL {
     clauses.push(sql`c.name ILIKE ${"%" + filters.name.trim() + "%"}`);
   }
   if (filters.colors && filters.colors.length > 0) {
-    // Color identity must be a subset of the requested colors set
-    // OR contain any of them. Spec is ambiguous; use "contains any".
-    clauses.push(sql`c.color_identity && ${filters.colors}::text[]`);
+    // "Contains any of the requested colors" — array overlap.
+    clauses.push(sql`c.color_identity && ${sqlArray(filters.colors, "text")}`);
   }
   if (filters.type && filters.type.trim()) {
     clauses.push(sql`c.type_line ILIKE ${"%" + filters.type.trim() + "%"}`);

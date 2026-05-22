@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { fetchDeckDetail } from "@/lib/decks/queries";
+import { sqlArray } from "@/lib/sql";
 import {
   classifyCard,
   slotStatus,
@@ -101,7 +102,7 @@ export async function GET(
     INNER JOIN oracle_ownership o ON o.oracle_id = c.oracle_id
     WHERE o.owned_count > 0
       AND c.is_commander_legal = TRUE
-      AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ${identity}::text[]
+      AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ${sqlArray(identity, "text")}
     ORDER BY c.edhrec_rank ASC NULLS LAST
     LIMIT 800;
   `)) as unknown as Array<{

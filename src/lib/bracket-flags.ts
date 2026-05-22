@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { syncState } from "@/db/schema";
 import { MASS_LAND_DENIAL_NAMES } from "@/lib/curated/mld";
+import { sqlArray } from "@/lib/sql";
 
 const SCRYFALL_HEADERS = {
   "User-Agent": "MTG-Vault/0.1 (personal use)",
@@ -19,21 +20,6 @@ async function fetchScryfall(url: string): Promise<Response> {
   return res;
 }
 
-/**
- * Build a Postgres ARRAY[...] literal for an `= ANY(...)` clause.
- *
- * Drizzle interpolates a plain JS array as a parenthesised tuple
- * `($1, $2, …)`, which Postgres parses as an anonymous record — casting
- * a record to text[]/uuid[] fails with "cannot cast type record". An
- * explicit ARRAY[…] constructor casts cleanly. Empty arrays yield
- * `ARRAY[]::T[]`, which is valid.
- */
-function sqlArray(values: string[], cast: "text" | "uuid") {
-  return sql`ARRAY[${sql.join(
-    values.map((v) => sql`${v}`),
-    sql`, `,
-  )}]::${sql.raw(cast)}[]`;
-}
 
 // ─── 1. Extra-turn flag ──────────────────────────────────────────
 

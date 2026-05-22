@@ -5,6 +5,7 @@ import {
   SpellbookUnavailableError,
   type SpellbookCombo,
 } from "@/lib/spellbook";
+import { sqlArray } from "@/lib/sql";
 
 export type ReasonSeverity = "blocking" | "limiting" | "note";
 export type ReasonCategory =
@@ -87,7 +88,7 @@ async function fetchFlaggedCards(
         WHERE p.oracle_id = c.oracle_id AND p.usd IS NOT NULL
       ) AS min_usd
     FROM cards c
-    WHERE c.oracle_id = ANY(${oracleIds}::uuid[])
+    WHERE c.oracle_id = ANY(${sqlArray(oracleIds, "uuid")})
   `)) as unknown as Array<{
     oracle_id: string;
     name: string;
