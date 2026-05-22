@@ -1142,7 +1142,7 @@ function GroupRowRenderer({
       </tr>
       {isOpen &&
         group.rows.map((r) => (
-          <PhysicalRowRenderer
+          <GroupChildRow
             key={r.id}
             row={r}
             selected={selected.has(r.id)}
@@ -1151,14 +1151,19 @@ function GroupRowRenderer({
             onDispose={() => onDispose(r)}
             onDelete={() => onDelete(r.id)}
             onRestore={() => onRestore(r.id)}
-            inGroup
           />
         ))}
     </>
   );
 }
 
-function PhysicalRowRenderer({
+/**
+ * One physical copy shown under an expanded group. Its cells line up with
+ * the grouped table's 10-column header (checkbox · indicator · Card · Type ·
+ * Sets · Finish · Qty · Value · Locations · actions) — the per-copy paid
+ * price is folded into the Value cell so there's no orphaned column.
+ */
+function GroupChildRow({
   row,
   selected,
   onToggleSelected,
@@ -1166,7 +1171,6 @@ function PhysicalRowRenderer({
   onDispose,
   onDelete,
   onRestore,
-  inGroup,
 }: {
   row: InventoryRowWithCard;
   selected: boolean;
@@ -1175,17 +1179,14 @@ function PhysicalRowRenderer({
   onDispose: () => void;
   onDelete: () => void;
   onRestore: () => void;
-  inGroup?: boolean;
 }) {
   const disposed = !!row.disposedAt;
+  const paid = row.acquiredPrice ? Number(row.acquiredPrice) : null;
   return (
     <tr
       className={cn(
-        "group/row border-b border-border-subtle transition-colors",
+        "group/row border-b border-border-subtle bg-surface-inset/30 transition-colors hover:bg-surface-inset/60",
         disposed && "opacity-55",
-        inGroup
-          ? "bg-surface-inset/30 hover:bg-surface-inset/60"
-          : "hover:bg-surface-inset/40",
       )}
     >
       <td className="px-2 py-1">
@@ -1198,14 +1199,132 @@ function PhysicalRowRenderer({
         />
       </td>
       <td className="px-2 py-1">
-        {!inGroup ? (
-          <Thumb src={row.imageUri} alt={row.name} />
+        <span
+          className="ml-2 inline-block h-6 w-1 rounded-full bg-border-subtle"
+          aria-hidden
+        />
+      </td>
+      <td className="px-2 py-1">
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          <span className="text-text-secondary">{row.setName}</span>
+          <span className="font-mono text-[10px] tabular-nums text-text-muted">
+            #{row.collectorNumber}
+          </span>
+          <span className="rounded-sm border border-border-subtle bg-surface-base px-1 font-mono text-[9px] uppercase tracking-wide text-text-secondary">
+            {row.condition}
+          </span>
+          {disposed && (
+            <span className="rounded-sm border border-border-strong bg-surface-inset px-1 font-mono text-[9px] uppercase tracking-[0.18em] text-text-muted">
+              Disposed
+            </span>
+          )}
+        </span>
+      </td>
+      <td className="px-2 py-1"></td>
+      <td className="px-2 py-1">
+        <span className="inline-flex items-center gap-1.5">
+          <SetSymbol setCode={row.setCode} rarity={row.rarity} size="sm" />
+          <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary">
+            {row.setCode}
+          </span>
+        </span>
+      </td>
+      <td className="px-2 py-1">
+        {row.foil ? (
+          <span className="rounded-sm border border-[var(--color-mtg-multicolor)]/40 bg-[var(--color-mtg-multicolor)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--color-mtg-multicolor)]">
+            Foil
+          </span>
         ) : (
-          <span
-            className="ml-2 inline-block h-6 w-1 rounded-full bg-border-subtle"
-            aria-hidden
-          />
+          <span className="font-mono text-[10px] text-text-muted">—</span>
         )}
+      </td>
+      <td className="px-2 py-1 text-right">
+        <span className="num text-text-muted">×1</span>
+      </td>
+      <td className="px-2 py-1 text-right">
+        <span className="num text-text-primary">
+          ${currentValueOf(row).toFixed(2)}
+        </span>
+        {paid != null && (
+          <span className="num block text-[10px] text-text-muted">
+            paid ${paid.toFixed(2)}
+          </span>
+        )}
+      </td>
+      <td className="px-2 py-1 font-mono text-[11px] text-text-muted">
+        {row.location ?? <span className="text-text-muted">—</span>}
+      </td>
+      <td className="px-2 py-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted opacity-0 transition-opacity hover:bg-surface-inset hover:text-text-primary group-hover/row:opacity-100 data-[state=open]:opacity-100"
+            aria-label="Row actions"
+          >
+            <MoreHorizontal className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={onEdit}>
+              <Pencil className="size-3.5" /> Edit
+            </DropdownMenuItem>
+            {disposed ? (
+              <DropdownMenuItem onSelect={onRestore}>
+                <Undo2 className="size-3.5" /> Restore
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onSelect={onDispose}>
+                <Trash2 className="size-3.5" /> Mark disposed
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={onDelete}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="size-3.5" /> Delete row
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
+  );
+}
+
+function PhysicalRowRenderer({
+  row,
+  selected,
+  onToggleSelected,
+  onEdit,
+  onDispose,
+  onDelete,
+  onRestore,
+}: {
+  row: InventoryRowWithCard;
+  selected: boolean;
+  onToggleSelected: () => void;
+  onEdit: () => void;
+  onDispose: () => void;
+  onDelete: () => void;
+  onRestore: () => void;
+}) {
+  const disposed = !!row.disposedAt;
+  return (
+    <tr
+      className={cn(
+        "group/row border-b border-border-subtle transition-colors hover:bg-surface-inset/40",
+        disposed && "opacity-55",
+      )}
+    >
+      <td className="px-2 py-1">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          className="size-3.5 cursor-pointer accent-[var(--color-brand)]"
+          aria-label={`Select ${row.name}`}
+        />
+      </td>
+      <td className="px-2 py-1">
+        <Thumb src={row.imageUri} alt={row.name} />
       </td>
       <td className="px-2 py-1">
         <div className="flex items-center gap-1.5">
