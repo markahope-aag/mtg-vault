@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 //
 // We deliberately do NOT use Keyrune's rarity classes (ss-common/uncommon/
 // rare/mythic). Those force fixed fills — common is near-black, the others
-// are metallic gradients — and several render too dim to see on the dark
-// surface. Instead every symbol inherits `currentColor`, so it's always as
-// legible as the text around it, in either theme. The `rarity` prop is kept
-// only for the accessible label.
+// are metallic gradients — and several render too dim to see. Instead every
+// symbol gets an explicit bright fill (--text-primary, which flips per
+// theme), so it's always clearly visible regardless of the surrounding
+// context. Pass a `text-*` class via `className` to override. The `rarity`
+// prop is kept only for the accessible label.
 
 const SIZE_CLASS: Record<string, string> = {
   xs: "text-[12px]",
@@ -36,7 +37,7 @@ export function SetSymbol({
         "ss",
         `ss-${code}`,
         SIZE_CLASS[size],
-        "align-middle",
+        "align-middle text-[var(--text-primary)]",
         className,
       )}
       aria-label={`${setCode.toUpperCase()} set symbol${rarity ? ` (${rarity})` : ""}`}
