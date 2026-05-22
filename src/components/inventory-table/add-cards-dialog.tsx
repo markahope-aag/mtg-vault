@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { SetSymbol } from "@/components/set-symbol";
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/inventory/schemas";
 
 export type AddDialogPrinting = {
@@ -221,6 +222,11 @@ export function AddCardsDialog({
                           checked={selected}
                           readOnly
                           tabIndex={-1}
+                        />
+                        <SetSymbol
+                          setCode={p.setCode}
+                          rarity={p.rarity}
+                          size="md"
                         />
                         <span className="font-medium">{p.setName}</span>
                         <span className="text-xs uppercase text-muted-foreground">
