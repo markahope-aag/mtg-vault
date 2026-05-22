@@ -37,6 +37,7 @@ export default async function AppLayout({
                   <NavLink href="/inventory">Inventory</NavLink>
                   <NavLink href="/decks">Decks</NavLink>
                   <NavLink href="/import">Import</NavLink>
+                  <NavLink href="/system">System</NavLink>
                 </nav>
               </div>
               <div className="flex items-center gap-3 text-xs">
