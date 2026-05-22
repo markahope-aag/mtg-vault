@@ -55,7 +55,7 @@ const SLOT_BAR_TONE: Record<SlotStatus, string> = {
 };
 
 export function CoachPane() {
-  const { deck, addCard, removeCard } = useDeckbuilder();
+  const { deck, addCard } = useDeckbuilder();
   const [data, setData] = useState<CoachResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<Slot>>(new Set());
@@ -209,7 +209,7 @@ export function CoachPane() {
                             <DeckCardRow
                               key={`${c.deckCardRow.printingId}-${c.deckCardRow.category}`}
                               card={c}
-                              removeCard={removeCard}
+                              addCard={addCard}
                             />
                           ))}
                         </ul>
@@ -288,21 +288,33 @@ function SlotBar({ row }: { row: SlotRow }) {
 
 function DeckCardRow({
   card,
-  removeCard,
+  addCard,
 }: {
   card: DeckCard;
-  removeCard: (printingId: string, category: string) => Promise<void>;
+  addCard: (
+    printingId: string,
+    oracleId: string,
+    category?: string,
+    delta?: number,
+  ) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const qty = card.deckCardRow.quantity;
+  // For a stacked card (basic lands) the user picks how many to drop.
+  const [removeQty, setRemoveQty] = useState(1);
+
   const onRemove = useCallback(async () => {
     setBusy(true);
     try {
-      await removeCard(
+      const n = qty > 1 ? Math.max(1, Math.min(removeQty, qty)) : qty;
+      // A negative delta decrements; the cards endpoint deletes the row at 0.
+      await addCard(
         card.deckCardRow.printingId,
+        card.card.oracleId,
         card.deckCardRow.category,
+        -n,
       );
-      toast.success(`Removed ${card.card.name}`);
+      toast.success(`Removed ${n}× ${card.card.name}`);
     } catch (err) {
       toast.error(
         `Could not remove: ${err instanceof Error ? err.message : String(err)}`,
@@ -310,7 +322,7 @@ function DeckCardRow({
     } finally {
       setBusy(false);
     }
-  }, [card, removeCard]);
+  }, [card, addCard, removeQty, qty]);
 
   return (
     <li className="flex items-center gap-2 py-1.5 text-[12px]">
@@ -323,7 +335,24 @@ function DeckCardRow({
         {card.card.name}
       </span>
       {qty > 1 && (
-        <span className="num shrink-0 text-[10px] text-text-muted">×{qty}</span>
+        <span className="num shrink-0 text-[10px] text-text-muted">
+          ×{qty}
+        </span>
+      )}
+      {qty > 1 && (
+        <input
+          type="number"
+          min={1}
+          max={qty}
+          value={removeQty}
+          onChange={(e) =>
+            setRemoveQty(
+              Math.max(1, Math.min(Number(e.target.value) || 1, qty)),
+            )
+          }
+          aria-label={`How many ${card.card.name} to remove`}
+          className="num h-5 w-11 shrink-0 rounded-sm border border-border-subtle bg-surface-base px-1 text-[11px] text-text-primary outline-none focus:border-brand"
+        />
       )}
       <button
         type="button"
