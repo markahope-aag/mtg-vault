@@ -271,9 +271,20 @@ export function StrategyPane() {
                             {acq.cardName}
                           </p>
                         )}
-                        <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-[var(--brand)]">
-                          buy
-                        </span>
+                        {acq.oracleId ? (
+                          <AcquireButton
+                            oracleId={acq.oracleId}
+                            name={acq.cardName}
+                            addCard={addCard}
+                          />
+                        ) : (
+                          <span
+                            className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-[var(--text-muted)]"
+                            title="Card couldn't be matched to the local database"
+                          >
+                            buy
+                          </span>
+                        )}
                       </div>
                       {acq.replacesCardName && (
                         <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
@@ -326,6 +337,58 @@ function Phase({ label, body }: { label: string; body: string }) {
       </span>{" "}
       <span>{body}</span>
     </p>
+  );
+}
+
+/**
+ * Adds a card the user doesn't own to the deck's "considering" category, so it
+ * shows up in the Acquire rollup as a shopping target. Uses the default
+ * printing (newest non-promo) for the oracle id.
+ */
+function AcquireButton({
+  oracleId,
+  name,
+  addCard,
+}: {
+  oracleId: string;
+  name: string;
+  addCard: (
+    printingId: string,
+    oracleId: string,
+    category?: string,
+    delta?: number,
+  ) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const onClick = useCallback(async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/cards/${oracleId}/detail`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const printing = data.printings?.[0];
+      if (!printing) throw new Error("No printings");
+      await addCard(printing.id, oracleId, "considering", 1);
+      toast.success(`Added ${name} to Acquire (considering)`);
+    } catch (err) {
+      toast.error(
+        `Could not add: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [oracleId, name, addCard]);
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      disabled={busy}
+      title="Add to Acquire (considering)"
+      className="inline-flex h-5 shrink-0 items-center gap-1 rounded-sm border border-[var(--brand)]/40 bg-[var(--brand-soft)]/40 px-1.5 font-mono text-[9px] uppercase tracking-wide text-[var(--brand-strong)] transition-colors hover:bg-[var(--brand-soft)]/70 disabled:opacity-50"
+    >
+      {busy ? <Loader2 className="size-2.5 animate-spin" /> : <Plus className="size-2.5" />}
+      Buy
+    </button>
   );
 }
 
