@@ -164,6 +164,11 @@ export default async function CardDetailPage({
     allPrintings.find((p) => p.id === requestedPrintingId) ?? defaultPrinting;
 
   const tags: Array<{ label: string; tone: string }> = [];
+  if (card.isCommanderLegal === false)
+    tags.push({
+      label: "Banned in Commander",
+      tone: "bg-red-100 text-red-900 ring-1 ring-red-500/30",
+    });
   if (card.isGameChanger)
     tags.push({ label: "Game Changer", tone: "bg-rose-100 text-rose-900" });
   if (card.isMassLandDenial)
