@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { ImageOff, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
 import { pickCardImage } from "@/lib/card-image";
@@ -84,8 +85,11 @@ export function SearchPane() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setResults(data.results ?? []);
-      } catch {
+      } catch (err) {
         setResults([]);
+        toast.error(
+          `Search failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       } finally {
         setLoading(false);
       }

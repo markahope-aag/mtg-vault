@@ -162,7 +162,7 @@ export async function fetchDeckDetail(deckId: string) {
     SELECT
       dc.printing_id, dc.quantity, dc.category,
       c.oracle_id, c.name, c.mana_cost, c.cmc, c.type_line, c.oracle_text,
-      c.colors, c.color_identity, c.keywords,
+      c.colors, c.color_identity, c.keywords, c.is_commander_legal,
       p.set_code, p.set_name, p.collector_number, p.image_uris, p.card_faces,
       p.usd, p.usd_foil,
       (
@@ -194,6 +194,7 @@ export async function fetchDeckDetail(deckId: string) {
     colors: string[] | null;
     color_identity: string[] | null;
     keywords: string[] | null;
+    is_commander_legal: boolean | null;
     set_code: string;
     set_name: string;
     collector_number: string;
@@ -221,6 +222,7 @@ export async function fetchDeckDetail(deckId: string) {
       colors: r.colors,
       colorIdentity: r.color_identity,
       keywords: r.keywords,
+      isCommanderLegal: r.is_commander_legal,
     },
     printing: {
       id: r.printing_id,

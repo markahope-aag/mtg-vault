@@ -53,7 +53,6 @@ export async function GET(req: NextRequest) {
     colors: colorsRaw ? colorsRaw.split(",").filter(Boolean) : undefined,
     type: readFilter(params, "type"),
     set: readFilter(params, "set"),
-    ownedOnly: readBoolFilter(params, "ownedOnly"),
     foilOnly: readBoolFilter(params, "foilOnly"),
     bannedOnly: readBoolFilter(params, "bannedOnly"),
     location: readFilter(params, "location"),

@@ -14,7 +14,7 @@ export async function GET(
       SELECT oracle_id, name, mana_cost, cmc, type_line, oracle_text,
              power, toughness, loyalty, color_identity, edhrec_rank,
              is_game_changer, is_mass_land_denial, is_extra_turn, is_tutor,
-             is_reserved_list
+             is_reserved_list, is_commander_legal
       FROM cards WHERE oracle_id = ${oracle_id} LIMIT 1
     `)) as unknown as Array<Record<string, unknown>>;
     const card = cardRows[0];
@@ -79,6 +79,7 @@ export async function GET(
         isExtraTurn: card.is_extra_turn,
         isTutor: card.is_tutor,
         isReservedList: card.is_reserved_list,
+        isCommanderLegal: card.is_commander_legal,
       },
       printings: printings.map((p) => ({
         id: p.id,

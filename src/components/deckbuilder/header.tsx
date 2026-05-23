@@ -97,12 +97,20 @@ export function DeckbuilderHeader({
   };
 
   async function onDuplicate() {
-    const res = await fetch(`/api/decks/${deck.deck.id}/duplicate`, {
-      method: "POST",
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/decks/${deck.deck.id}/duplicate`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.error ?? `HTTP ${res.status}`);
+      }
       const data = await res.json();
       window.location.href = `/decks/${data.deck.id}`;
+    } catch (err) {
+      toast.error(
+        `Failed to duplicate: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 

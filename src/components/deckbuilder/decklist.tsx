@@ -378,6 +378,14 @@ function Row({
             CI
           </span>
         )}
+        {card.card.isCommanderLegal === false && (
+          <span
+            className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]"
+            title="Banned in Commander"
+          >
+            Banned
+          </span>
+        )}
       </button>
       <select
         value={card.deckCardRow.category}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ImageOff, Plus, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
 import { SetSymbol } from "@/components/set-symbol";
@@ -87,11 +88,20 @@ export function DetailPane() {
     let cancelled = false;
     setLoading(true);
     fetch(`/api/cards/${oracleId}/detail`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => {
         if (!cancelled) setDetail(d);
       })
-      .catch(() => setDetail(null))
+      .catch((err) => {
+        if (cancelled) return;
+        setDetail(null);
+        toast.error(
+          `Couldn't load card detail: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });

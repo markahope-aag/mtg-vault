@@ -238,11 +238,22 @@ export function InventoryTable({
   useEffect(() => {
     let cancelled = false;
     fetch("/api/inventory/locations")
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          throw new Error(data.error ?? `HTTP ${r.status}`);
+        }
+        return data;
+      })
       .then((d) => {
         if (!cancelled) setLocations(d.locations ?? []);
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (cancelled) return;
+        toast.error(
+          `Couldn't load locations: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     return () => {
       cancelled = true;
     };

@@ -84,6 +84,29 @@ export function ExportDialog({
         }
       }
     }
+    // Strategy "Buy" picks land in the "considering" category. They aren't
+    // part of the playable deck, but the user explicitly told the tool they
+    // plan to acquire them — silently dropping them on export loses that
+    // intent. Emit them under a clearly labelled section so importers that
+    // honor comments preserve the grouping.
+    const considering = deck.cards.filter(
+      (c) => c.deckCardRow.category === "considering",
+    );
+    if (considering.length > 0) {
+      lines.push("");
+      lines.push("// Considering (Strategy 'Buy' picks — not yet acquired)");
+      for (const c of considering) {
+        for (let i = 0; i < c.deckCardRow.quantity; i++) {
+          lines.push(
+            formatLine(
+              c.card.name,
+              c.printing.setCode,
+              c.printing.collectorNumber,
+            ),
+          );
+        }
+      }
+    }
     return lines.join("\n");
   }, [deck]);
 

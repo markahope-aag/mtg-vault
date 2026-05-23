@@ -127,6 +127,7 @@ export async function fetchDeckSummaries(): Promise<DeckSummary[]> {
       COALESCE(stats.total_value, 0)::numeric(14,2) AS total_value
     FROM decks d
     LEFT JOIN printings cmd_p ON cmd_p.id = d.commander_printing_id
+    LEFT JOIN printings partner_p ON partner_p.id = d.partner_printing_id
     LEFT JOIN cards cmd ON cmd.oracle_id = cmd_p.oracle_id
     LEFT JOIN LATERAL (
       SELECT
@@ -136,6 +137,7 @@ export async function fetchDeckSummaries(): Promise<DeckSummary[]> {
           AS total_cards,
         COALESCE(SUM(dc.quantity * COALESCE(p.usd::numeric, 0)), 0)
           + COALESCE(cmd_p.usd::numeric, 0)
+          + COALESCE(partner_p.usd::numeric, 0)
           AS total_value
       FROM deck_cards dc
       JOIN printings p ON p.id = dc.printing_id

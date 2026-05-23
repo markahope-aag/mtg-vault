@@ -29,7 +29,6 @@ export type ListFilters = {
   colors?: string[];
   type?: string;
   set?: string;
-  ownedOnly?: boolean;
   foilOnly?: boolean;
   bannedOnly?: boolean;
   location?: string;

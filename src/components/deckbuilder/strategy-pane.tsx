@@ -30,12 +30,19 @@ export function StrategyPane() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/decks/${deck.deck.id}/analyze`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: AnalysisResponse | null) => {
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return (await r.json()) as AnalysisResponse;
+      })
+      .then((d) => {
         if (!cancelled) setData(d);
       })
-      .catch(() => {
-        if (!cancelled) setData(null);
+      .catch((err) => {
+        if (cancelled) return;
+        setData(null);
+        toast.error(
+          `Strategy unavailable: ${err instanceof Error ? err.message : String(err)}`,
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

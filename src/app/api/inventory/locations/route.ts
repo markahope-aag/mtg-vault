@@ -15,6 +15,12 @@ export async function GET() {
     return NextResponse.json({ locations: rows.map((r) => r.location) });
   } catch (err) {
     console.error("[api/inventory locations]", err);
-    return NextResponse.json({ locations: [] }, { status: 500 });
+    return NextResponse.json(
+      {
+        locations: [],
+        error: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
   }
 }

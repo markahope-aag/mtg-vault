@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ImageOff, Search, X } from "lucide-react";
+import { toast } from "sonner";
 
 export type CommanderPick = {
   printingId: string;
@@ -61,8 +62,11 @@ export function CommanderSearch({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setResults(data.results ?? []);
-      } catch {
+      } catch (err) {
         setResults([]);
+        toast.error(
+          `Search failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       } finally {
         setLoading(false);
       }

@@ -14,6 +14,7 @@ export type DeckCard = {
     colors: string[] | null;
     colorIdentity: string[] | null;
     keywords: string[] | null;
+    isCommanderLegal: boolean | null;
   };
   printing: {
     id: string;
