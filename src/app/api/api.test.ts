@@ -15,6 +15,16 @@ vi.mock("@/lib/decks/queries", () => ({
   fetchDeckDetail: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("@/lib/bracket-engine", () => ({
+  calculateBracket: vi.fn(),
+}));
+
+vi.mock("@/lib/ai/strategy", () => ({
+  analyzeDeck: vi.fn(),
+  deckSignatureFromDetail: vi.fn(() => "test-signature"),
+  STRATEGY_MODEL: "claude-sonnet-4-6",
+}));
+
 vi.mock("@/lib/inventory/queries", () => ({
   listInventory: vi.fn().mockResolvedValue({
     rows: [],
@@ -48,6 +58,10 @@ vi.mock("@/lib/ai/scan-card", () => ({
 }));
 
 import { scanCard } from "@/lib/ai/scan-card";
+import { fetchDeckDetail } from "@/lib/decks/queries";
+import { calculateBracket } from "@/lib/bracket-engine";
+import { analyzeDeck } from "@/lib/ai/strategy";
+import type { DeckDetail } from "@/lib/decks/types";
 
 const ROW_ID = "11111111-1111-4111-8111-111111111111";
 const ORACLE_ID = "22222222-2222-4222-8222-222222222222";
@@ -56,6 +70,87 @@ const BATCH_ID = "44444444-4444-4444-8444-444444444444";
 const TRADE_ID = "66666666-6666-4666-8666-666666666666";
 const INVENTORY_ID = "55555555-5555-4555-8555-555555555555";
 const VALID_IMAGE_BASE64 = "A".repeat(64);
+const LOCATION_ID = "77777777-7777-4777-8777-777777777777";
+const SNAPSHOT_ID = "88888888-8888-4888-8888-888888888888";
+const BRACKET_DECK_ID = "99999999-9999-4999-8999-999999999999";
+const RATE_LIMIT_DECK_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+function minimalDeckDetail(overrides?: {
+  commander?: DeckDetail["commander"] | null;
+  cards?: DeckDetail["cards"];
+}): DeckDetail {
+  const defaultCommander: DeckDetail["commander"] = {
+    oracleId: ORACLE_ID,
+    name: "Atraxa, Praetors' Voice",
+    manaCost: "{2}{G}{W}{U}{B}",
+    cmc: "5",
+    typeLine: "Legendary Creature — Phyrexian Angel",
+    oracleText: "Flying",
+    colors: ["G", "W", "U", "B"],
+    colorIdentity: ["G", "W", "U", "B"],
+    keywords: [],
+    printing: {
+      id: PRINTING_ID,
+      setCode: "c21",
+      setName: "Commander 2021",
+      collectorNumber: "1",
+      imageUris: null,
+      cardFaces: null,
+      usd: "10.00",
+      usdFoil: null,
+    },
+  };
+  const commander =
+    overrides && "commander" in overrides ? overrides.commander : defaultCommander;
+  const cards = overrides?.cards ?? [
+    {
+      deckCardRow: { printingId: PRINTING_ID, quantity: 1, category: "main" },
+      card: {
+        oracleId: ORACLE_ID,
+        name: "Sol Ring",
+        manaCost: "{1}",
+        cmc: "1",
+        typeLine: "Artifact",
+        oracleText: "{T}: Add {C}{C}.",
+        colors: [],
+        colorIdentity: [],
+        keywords: [],
+        isCommanderLegal: true,
+      },
+      printing: {
+        id: PRINTING_ID,
+        setCode: "c21",
+        setName: "Commander 2021",
+        collectorNumber: "250",
+        imageUris: null,
+        cardFaces: null,
+        usd: "1.00",
+        usdFoil: null,
+      },
+      ownership: { ownedCount: 1, ownedAnyPrinting: 1, availableCount: 1 },
+    },
+  ];
+  return {
+    deck: {
+      id: ROW_ID,
+      name: "Test Deck",
+      commanderPrintingId: PRINTING_ID,
+      partnerPrintingId: null,
+      targetBracket: 3,
+      archetype: null,
+      notes: null,
+      isPrimary: false,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    },
+    commander,
+    partner: null,
+    cards,
+    totalCards: cards.length + 1,
+    totalValueUsd: 11,
+    colorIdentity: commander?.colorIdentity ?? [],
+  };
+}
 
 describe("API routes", () => {
   const prevSecret = process.env.CRON_SECRET;
@@ -690,6 +785,392 @@ describe("API routes", () => {
       expect(body.in).toHaveLength(1);
       expect(body.out[0].name).toBe("Sol Ring");
       expect(body.in[0].name).toBe("Lightning Bolt");
+    });
+  });
+
+  describe("card detail route", () => {
+    it("GET returns 404 when card is missing", async () => {
+      dbMock.mocks.execute.mockResolvedValueOnce([]);
+      const { GET } = await import("@/app/api/cards/[oracle_id]/detail/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/cards/${ORACLE_ID}/detail`),
+        { params: Promise.resolve({ oracle_id: ORACLE_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("GET returns card, printings, and ownership", async () => {
+      dbMock.mocks.execute
+        .mockResolvedValueOnce([
+          {
+            oracle_id: ORACLE_ID,
+            name: "Sol Ring",
+            mana_cost: "{1}",
+            cmc: "1",
+            type_line: "Artifact",
+            oracle_text: "{T}: Add {C}{C}.",
+            power: null,
+            toughness: null,
+            loyalty: null,
+            color_identity: [],
+            edhrec_rank: 1,
+            is_game_changer: false,
+            is_mass_land_denial: false,
+            is_extra_turn: false,
+            is_tutor: false,
+            is_reserved_list: false,
+            is_commander_legal: true,
+            legalities: { commander: "legal" },
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: PRINTING_ID,
+            set_code: "c21",
+            set_name: "Commander 2021",
+            collector_number: "250",
+            image_uri: null,
+            usd: "1.00",
+            usd_foil: null,
+            rarity: "uncommon",
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            printing_id: PRINTING_ID,
+            set_code: "c21",
+            set_name: "Commander 2021",
+            count: 2,
+            locations: ["Binder A"],
+          },
+        ]);
+      const { GET } = await import("@/app/api/cards/[oracle_id]/detail/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/cards/${ORACLE_ID}/detail`),
+        { params: Promise.resolve({ oracle_id: ORACLE_ID }) },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.card.name).toBe("Sol Ring");
+      expect(body.printings).toHaveLength(1);
+      expect(body.ownership.total).toBe(2);
+    });
+  });
+
+  describe("deck bracket route", () => {
+    const bracketUrl = (id: string, writeSnapshot = "false") =>
+      `http://localhost/api/decks/${id}/bracket?writeSnapshot=${writeSnapshot}`;
+
+    it("POST returns 404 when deck is missing", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(null);
+      const { POST } = await import("@/app/api/decks/[id]/bracket/route");
+      const res = await POST(
+        new NextRequest(bracketUrl(ROW_ID)),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("POST returns bracket result without writing snapshot", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(minimalDeckDetail());
+      vi.mocked(calculateBracket).mockResolvedValueOnce({
+        bracket: 3,
+        reasons: [],
+        metrics: {},
+        confidence: "high",
+        spellbookAvailable: true,
+        spellbookBracket: 3,
+      });
+      const { POST } = await import("@/app/api/decks/[id]/bracket/route");
+      const res = await POST(
+        new NextRequest(bracketUrl(BRACKET_DECK_ID)),
+        { params: Promise.resolve({ id: BRACKET_DECK_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toMatchObject({ bracket: 3 });
+    });
+
+    it("POST rate limits rapid recalculation", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValue(minimalDeckDetail());
+      vi.mocked(calculateBracket).mockResolvedValue({
+        bracket: 3,
+        reasons: [],
+        metrics: {},
+        confidence: "high",
+        spellbookAvailable: true,
+        spellbookBracket: 3,
+      });
+      const { POST } = await import("@/app/api/decks/[id]/bracket/route");
+      const params = { params: Promise.resolve({ id: RATE_LIMIT_DECK_ID }) };
+      const req = new NextRequest(bracketUrl(RATE_LIMIT_DECK_ID));
+      const first = await POST(req, params);
+      expect(first.status).toBe(200);
+      const second = await POST(req, params);
+      expect(second.status).toBe(429);
+    });
+  });
+
+  describe("deck analyze route", () => {
+    const analyzeUrl = `http://localhost/api/decks/${ROW_ID}/analyze`;
+
+    it("GET returns 404 when deck is missing", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(null);
+      const { GET } = await import("@/app/api/decks/[id]/analyze/route");
+      const res = await GET(
+        new NextRequest(analyzeUrl),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("GET returns cached analysis metadata", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(minimalDeckDetail());
+      dbMock.mocks.limit.mockResolvedValueOnce([
+        {
+          analysis: { archetype: "Counters" },
+          analysisModel: "claude-sonnet-4-6",
+          analysisSignature: "test-signature",
+          analyzedAt: new Date("2024-06-01T12:00:00.000Z"),
+        },
+      ]);
+      const { GET } = await import("@/app/api/decks/[id]/analyze/route");
+      const res = await GET(
+        new NextRequest(analyzeUrl),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.analysis).toMatchObject({ archetype: "Counters" });
+      expect(body.isStale).toBe(false);
+    });
+
+    it("POST returns 503 when API key is missing", async () => {
+      const prev = process.env.ANTHROPIC_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      const { POST } = await import("@/app/api/decks/[id]/analyze/route");
+      const res = await POST(
+        new NextRequest(analyzeUrl, { method: "POST" }),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      process.env.ANTHROPIC_API_KEY = prev;
+      expect(res.status).toBe(503);
+    });
+
+    it("POST returns 422 when deck has no commander", async () => {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(
+        minimalDeckDetail({ commander: null }),
+      );
+      const { POST } = await import("@/app/api/decks/[id]/analyze/route");
+      const res = await POST(
+        new NextRequest(analyzeUrl, { method: "POST" }),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(422);
+    });
+
+    it("POST stores analysis when commander is set", async () => {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(minimalDeckDetail());
+      vi.mocked(analyzeDeck).mockResolvedValueOnce({
+        archetype: "Counters",
+        subArchetype: null,
+        summary: "Grow counters.",
+        winConditions: [],
+        gameplan: { earlyGame: "", midGame: "", lateGame: "" },
+        weaknesses: [],
+        improvements: [],
+        acquisitions: [],
+      });
+      const { POST } = await import("@/app/api/decks/[id]/analyze/route");
+      const res = await POST(
+        new NextRequest(analyzeUrl, { method: "POST" }),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.analysis.archetype).toBe("Counters");
+      expect(body.isStale).toBe(false);
+    });
+  });
+
+  describe("deck coach route", () => {
+    it("GET returns 404 when deck is missing", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(null);
+      const { GET } = await import("@/app/api/decks/[id]/coach/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/decks/${ROW_ID}/coach`),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("GET returns slot breakdown and suggestions", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(minimalDeckDetail());
+      dbMock.mocks.execute.mockResolvedValueOnce([]);
+      const { GET } = await import("@/app/api/decks/[id]/coach/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/decks/${ROW_ID}/coach`),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.slots.length).toBeGreaterThan(0);
+      expect(body.suggestions).toBeDefined();
+    });
+  });
+
+  describe("deck snapshot routes", () => {
+    const snapshotUrl = `http://localhost/api/decks/${ROW_ID}/snapshot`;
+    const snapshotsUrl = `http://localhost/api/decks/${ROW_ID}/snapshots`;
+
+    it("POST returns 404 when deck is missing", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(null);
+      const { POST } = await import("@/app/api/decks/[id]/snapshot/route");
+      const res = await POST(
+        new NextRequest(snapshotUrl, { method: "POST" }),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("POST creates a value snapshot", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(minimalDeckDetail());
+      dbMock.mocks.returning.mockResolvedValueOnce([
+        {
+          id: SNAPSHOT_ID,
+          deckId: ROW_ID,
+          snapshotAt: new Date("2024-06-01T12:00:00.000Z"),
+          totalValueUsd: "11.00",
+          calculatedBracket: null,
+          bracketReasons: null,
+        },
+      ]);
+      const { POST } = await import("@/app/api/decks/[id]/snapshot/route");
+      const res = await POST(
+        new NextRequest(snapshotUrl, { method: "POST" }),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toMatchObject({
+        snapshot: { id: SNAPSHOT_ID },
+      });
+    });
+
+    it("GET lists deck snapshots", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([
+        {
+          id: SNAPSHOT_ID,
+          snapshotAt: new Date("2024-06-01T12:00:00.000Z"),
+          totalValueUsd: "11.00",
+          calculatedBracket: 3,
+          bracketReasons: { reasons: [] },
+        },
+      ]);
+      const { GET } = await import("@/app/api/decks/[id]/snapshots/route");
+      const res = await GET(
+        new NextRequest(snapshotsUrl),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.snapshots).toHaveLength(1);
+      expect(body.snapshots[0].calculatedBracket).toBe(3);
+    });
+  });
+
+  describe("deck from-selection route", () => {
+    it("POST rejects empty card list", async () => {
+      const { POST } = await import("@/app/api/decks/from-selection/route");
+      const res = await POST(
+        jsonRequest("http://localhost/api/decks/from-selection", "POST", {
+          name: "New Deck",
+          cards: [],
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("POST creates deck from selected printings", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([
+        { id: ROW_ID, name: "Selection Deck" },
+      ]);
+      const { POST } = await import("@/app/api/decks/from-selection/route");
+      const res = await POST(
+        jsonRequest("http://localhost/api/decks/from-selection", "POST", {
+          name: "Selection Deck",
+          cards: [{ printingId: PRINTING_ID, quantity: 2 }],
+        }),
+      );
+      expect(res.status).toBe(201);
+      await expect(res.json()).resolves.toMatchObject({
+        deck: { name: "Selection Deck" },
+        added: 1,
+      });
+    });
+  });
+
+  describe("inventory export route", () => {
+    it("GET returns CSV attachment", async () => {
+      dbMock.mocks.execute.mockResolvedValueOnce([
+        {
+          name: "Sol Ring",
+          set_code: "c21",
+          collector_number: "250",
+          condition: "NM",
+          language: "en",
+          foil: false,
+          etched: false,
+          acquired_price: "1.00",
+          acquired_at: "2024-01-01",
+          purchased_from: null,
+          location: null,
+          physical_id: null,
+          grading_company: null,
+          grade: null,
+          notes: null,
+        },
+      ]);
+      const { GET } = await import("@/app/api/inventory/export/route");
+      const res = await GET();
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toContain("text/csv");
+      expect(res.headers.get("Content-Disposition")).toContain("attachment");
+      const text = await res.text();
+      expect(text).toContain("Sol Ring");
+      expect(text).toContain("Name");
+      expect(text).toContain("Count");
+    });
+  });
+
+  describe("location delete route", () => {
+    it("DELETE returns 404 when location is missing", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([]);
+      const { DELETE } = await import("@/app/api/locations/[id]/route");
+      const res = await DELETE(
+        new NextRequest(`http://localhost/api/locations/${LOCATION_ID}`, {
+          method: "DELETE",
+        }),
+        { params: Promise.resolve({ id: LOCATION_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("DELETE clears inventory and removes location", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([{ name: "Binder A" }]);
+      dbMock.mocks.returning.mockResolvedValueOnce([
+        { id: INVENTORY_ID },
+        { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+      ]);
+      const { DELETE } = await import("@/app/api/locations/[id]/route");
+      const res = await DELETE(
+        new NextRequest(`http://localhost/api/locations/${LOCATION_ID}`, {
+          method: "DELETE",
+        }),
+        { params: Promise.resolve({ id: LOCATION_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ ok: true, cleared: 2 });
     });
   });
 

@@ -10,7 +10,8 @@ export function createDbMock() {
   const update = vi.fn().mockReturnValue({ set });
   const del = vi.fn().mockReturnValue({ where });
   const limit = vi.fn().mockResolvedValue([]);
-  const selectWhere = vi.fn().mockReturnValue({ limit });
+  const orderBy = vi.fn().mockReturnValue({ limit });
+  const selectWhere = vi.fn().mockReturnValue({ limit, orderBy });
   const innerJoin = vi.fn().mockReturnValue({ where: selectWhere });
   const from = vi.fn().mockReturnValue({ where: selectWhere, innerJoin });
   const select = vi.fn().mockReturnValue({ from });
@@ -24,7 +25,7 @@ export function createDbMock() {
 
   return {
     db: { execute, insert, update, select, delete: del, transaction },
-    mocks: { execute, insert, values, returning, select, from, limit, where, selectWhere },
+    mocks: { execute, insert, values, returning, select, from, limit, orderBy, where, selectWhere },
   };
 }
 
