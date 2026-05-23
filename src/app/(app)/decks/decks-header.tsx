@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewDeckDialog } from "@/components/decks/new-deck-dialog";
 
@@ -42,9 +43,17 @@ export function DecksHeader({
           </span>
         </p>
       </div>
-      <Button size="sm" className="h-7 gap-1.5" onClick={() => setOpen(true)}>
-        <Plus className="size-3.5" /> New deck
-      </Button>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/decks/new/generate"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-raised px-2.5 font-mono text-[11px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+        >
+          <Sparkles className="size-3.5" /> Generate
+        </Link>
+        <Button size="sm" className="h-7 gap-1.5" onClick={() => setOpen(true)}>
+          <Plus className="size-3.5" /> New deck
+        </Button>
+      </div>
       <NewDeckDialog open={open} onOpenChange={setOpen} />
     </header>
   );
