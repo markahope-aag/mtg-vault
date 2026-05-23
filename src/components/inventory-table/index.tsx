@@ -41,22 +41,22 @@ import {
 import { ManaCost } from "@/components/mana-cost";
 import { SetSymbol } from "@/components/set-symbol";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
-import { currentValueOf, INVENTORY_PAGE_SIZE } from "@/lib/inventory/types";
+import { currentValueOf } from "@/lib/inventory/types";
 import { cn } from "@/lib/utils";
 import { EditRowDialog } from "./edit-row-dialog";
 import { DisposeDialog } from "./dispose-dialog";
 import { AddCardsPicker } from "./add-cards-picker";
 import { ScanCardDialog } from "./scan-card-dialog";
 import { CreateDeckFromSelectionDialog } from "./create-deck-dialog";
-
-type SortField =
-  | "name"
-  | "cmc"
-  | "usd"
-  | "acquiredAt"
-  | "condition"
-  | "location"
-  | "createdAt";
+import {
+  buildInventoryParams,
+  groupRowsByOracleAndFoil,
+  hasAnyFilter as hasAnyFilterFn,
+  selectionToDeckCards,
+  toggleInSet,
+  toggleSort as toggleSortFn,
+  type SortField,
+} from "./logic";
 
 type Totals = { totalCount: number; totalValueUsd: number };
 
@@ -142,23 +142,21 @@ export function InventoryTable({
   }, []);
 
   const buildParams = useCallback(
-    (cursor?: string | null): URLSearchParams => {
-      const p = new URLSearchParams();
-      p.set("limit", String(INVENTORY_PAGE_SIZE));
-      if (cursor) p.set("cursor", cursor);
-      p.set("sort", sortField);
-      p.set("dir", sortDir);
-      if (debouncedName.trim()) p.set("filter[name]", debouncedName.trim());
-      if (colorFilter.size > 0)
-        p.set("filter[colors]", [...colorFilter].join(","));
-      if (typeFilter) p.set("filter[type]", typeFilter);
-      if (setFilter.trim()) p.set("filter[set]", setFilter.trim());
-      if (locationFilter) p.set("filter[location]", locationFilter);
-      if (foilsOnly) p.set("filter[foilOnly]", "true");
-      if (bannedOnly) p.set("filter[bannedOnly]", "true");
-      if (includeDisposed) p.set("filter[includeDisposed]", "true");
-      return p;
-    },
+    (cursor?: string | null): URLSearchParams =>
+      buildInventoryParams(
+        {
+          name: debouncedName,
+          colors: colorFilter,
+          type: typeFilter,
+          set: setFilter,
+          location: locationFilter,
+          foilsOnly,
+          bannedOnly,
+          includeDisposed,
+        },
+        { field: sortField, dir: sortDir },
+        { cursor },
+      ),
     [
       debouncedName,
       colorFilter,
@@ -263,12 +261,7 @@ export function InventoryTable({
   }, [rows.length]);
 
   const toggleColor = useCallback((color: string) => {
-    setColorFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(color)) next.delete(color);
-      else next.add(color);
-      return next;
-    });
+    setColorFilter((prev) => toggleInSet(prev, color));
   }, []);
 
   const clearFilters = useCallback(() => {
@@ -284,32 +277,19 @@ export function InventoryTable({
 
   const toggleSort = useCallback(
     (field: SortField) => {
-      if (sortField === field) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-      } else {
-        setSortField(field);
-        setSortDir(field === "name" ? "asc" : "desc");
-      }
+      const next = toggleSortFn({ field: sortField, dir: sortDir }, field);
+      setSortField(next.field);
+      setSortDir(next.dir);
     },
-    [sortField],
+    [sortField, sortDir],
   );
 
   const toggleSelected = useCallback((id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelected((prev) => toggleInSet(prev, id));
   }, []);
 
   const toggleExpanded = useCallback((key: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setExpanded((prev) => toggleInSet(prev, key));
   }, []);
 
   const onDelete = useCallback(
@@ -351,95 +331,26 @@ export function InventoryTable({
     [refetch],
   );
 
-  const groups = useMemo(() => {
-    if (!grouped) return null;
-    const map = new Map<
-      string,
-      {
-        key: string;
-        oracleId: string;
-        foil: boolean;
-        name: string;
-        imageUri: string | null;
-        manaCost: string | null;
-        typeLine: string | null;
-        setCode: string;
-        rarity: string | null;
-        isCommanderLegal: boolean | null;
-        rows: InventoryRowWithCard[];
-        totalValue: number;
-        locationsCount: Map<string, number>;
-        anyDisposed: boolean;
-      }
-    >();
-    for (const r of rows) {
-      const key = `${r.oracleId}|${r.foil ? "f" : "n"}`;
-      let entry = map.get(key);
-      if (!entry) {
-        entry = {
-          key,
-          oracleId: r.oracleId,
-          foil: r.foil,
-          name: r.name,
-          imageUri: r.imageUri,
-          manaCost: r.manaCost,
-          typeLine: r.typeLine,
-          setCode: r.setCode,
-          rarity: r.rarity,
-          isCommanderLegal: r.isCommanderLegal,
-          rows: [],
-          totalValue: 0,
-          locationsCount: new Map(),
-          anyDisposed: false,
-        };
-        map.set(key, entry);
-      }
-      entry.rows.push(r);
-      entry.totalValue += currentValueOf(r);
-      if (r.disposedAt) entry.anyDisposed = true;
-      if (r.location) {
-        entry.locationsCount.set(
-          r.location,
-          (entry.locationsCount.get(r.location) ?? 0) + 1,
-        );
-      }
-    }
-    return [...map.values()];
-  }, [rows, grouped]);
+  const groups = useMemo(
+    () => (grouped ? groupRowsByOracleAndFoil(rows) : null),
+    [rows, grouped],
+  );
 
-  const hasAnyFilter =
-    !!debouncedName ||
-    colorFilter.size > 0 ||
-    !!typeFilter ||
-    !!setFilter ||
-    !!locationFilter ||
-    foilsOnly ||
-    bannedOnly;
+  const hasAnyFilter = hasAnyFilterFn({
+    name: debouncedName,
+    colors: colorFilter,
+    type: typeFilter,
+    set: setFilter,
+    location: locationFilter,
+    foilsOnly,
+    bannedOnly,
+    includeDisposed,
+  });
 
-  // Selected inventory rows → deck cards. Dedupe by printing; Commander is
-  // singleton so non-basics cap at quantity 1, basic lands keep the count.
-  const selectionCards = useMemo(() => {
-    const byPrinting = new Map<
-      string,
-      { printingId: string; quantity: number; isBasic: boolean }
-    >();
-    for (const r of rows) {
-      if (!selected.has(r.id)) continue;
-      const isBasic = /Basic Land/i.test(r.typeLine ?? "");
-      const entry = byPrinting.get(r.printingId);
-      if (entry) entry.quantity += 1;
-      else
-        byPrinting.set(r.printingId, {
-          printingId: r.printingId,
-          quantity: 1,
-          isBasic,
-        });
-    }
-    return [...byPrinting.values()].map((e) => ({
-      printingId: e.printingId,
-      quantity: e.isBasic ? Math.min(e.quantity, 99) : 1,
-    }));
-  }, [rows, selected]);
+  const selectionCards = useMemo(
+    () => selectionToDeckCards(rows, selected),
+    [rows, selected],
+  );
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6">
