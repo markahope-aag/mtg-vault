@@ -3,6 +3,12 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { db } from "@/db/client";
 import { toIso } from "@/lib/utils";
 import { LocationsManager } from "@/components/system/locations-manager";
+import {
+  SystemCharts,
+  type AcquisitionPoint,
+  type BracketPoint,
+  type RarityPoint,
+} from "@/components/system/system-charts";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +64,9 @@ export default async function SystemPage() {
     deckRows,
     importRows,
     snapRows,
+    rarityRows,
+    acquisitionsRows,
+    bracketRows,
   ] = await Promise.all([
     db.execute(sql`
       SELECT
@@ -107,6 +116,35 @@ export default async function SystemPage() {
       SELECT count(*)::int AS n, max(date) AS latest_date
       FROM collection_snapshots
     `),
+    // Inventory by rarity — for the donut chart.
+    db.execute(sql`
+      SELECT p.rarity, COUNT(*)::int AS n
+      FROM inventory i
+      JOIN printings p ON p.id = i.printing_id
+      WHERE i.disposed_at IS NULL
+      GROUP BY p.rarity
+    `),
+    // Acquisitions per month (last 12) — falls back to created_at when
+    // acquired_at wasn't recorded.
+    db.execute(sql`
+      WITH monthly AS (
+        SELECT to_char(date_trunc('month', COALESCE(acquired_at, created_at)), 'YYYY-MM') AS month,
+               COUNT(*)::int AS n
+        FROM inventory
+        WHERE disposed_at IS NULL
+        GROUP BY 1
+      )
+      SELECT month, n FROM monthly
+      ORDER BY month DESC
+      LIMIT 12
+    `),
+    // Decks by target bracket (null = unset).
+    db.execute(sql`
+      SELECT target_bracket AS bracket, COUNT(*)::int AS n
+      FROM decks
+      GROUP BY target_bracket
+      ORDER BY target_bracket NULLS LAST
+    `),
   ]);
 
   const counts = (countsRows as unknown as Counts[])[0];
@@ -117,6 +155,13 @@ export default async function SystemPage() {
   const decks = (deckRows as unknown as DeckRow[])[0];
   const imports = (importRows as unknown as ImportRow[])[0];
   const snaps = (snapRows as unknown as SnapRow[])[0];
+
+  // Chart data — sorted ascending so X-axis reads left-to-right in time.
+  const rarity = rarityRows as unknown as RarityPoint[];
+  const acquisitions = (acquisitionsRows as unknown as AcquisitionPoint[])
+    .slice()
+    .reverse();
+  const brackets = bracketRows as unknown as BracketPoint[];
 
   const cardSync = sync.find((s) => s.key === "scryfall_default_cards");
   const cardSyncAt = toIso(
@@ -264,8 +309,17 @@ export default async function SystemPage() {
         </div>
       </Section>
 
+      {/* Trends */}
+      <Section label="04" title="Trends">
+        <SystemCharts
+          rarity={rarity}
+          acquisitions={acquisitions}
+          brackets={brackets}
+        />
+      </Section>
+
       {/* Locations */}
-      <Section label="04" title="Locations">
+      <Section label="05" title="Locations">
         <p className="text-[13px] text-[var(--text-secondary)]">
           Storage locations available when adding or editing inventory cards.
           Deleting a location also clears it from any inventory cards still

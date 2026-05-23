@@ -92,7 +92,6 @@ export default function ImportPage() {
   const [defaultLocation, setDefaultLocation] = useState("");
   const [purchasedFromDefault, setPurchasedFromDefault] = useState("");
   const [mode, setMode] = useState<"append" | "replace_location">("append");
-  const [locations, setLocations] = useState<string[]>([]);
 
   const [resolutions, setResolutions] = useState<Map<number, Resolution>>(
     new Map(),
@@ -106,19 +105,6 @@ export default function ImportPage() {
     skippedRows: number;
   } | null>(null);
 
-  // Load locations for autocomplete on mount.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/inventory/locations")
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setLocations(d.locations ?? []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Initialize default resolutions when preview arrives: top candidate for
   // ambiguous, pending for unmatched.
