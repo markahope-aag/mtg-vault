@@ -127,6 +127,20 @@
 			"when": 1780400000000,
 			"tag": "0017_transactions",
 			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1780500000000,
+			"tag": "0018_drop_trades_legacy",
+			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "7",
+			"when": 1780600000000,
+			"tag": "0019_market",
+			"breakpoints": true
 		}
 	]
 }
