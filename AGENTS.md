@@ -24,7 +24,20 @@ When changing user-facing copy, update **both** `USER-GUIDE.md` and `src/lib/hel
 - Next.js **16** App Router, React 19, TypeScript strict
 - Auth: Supabase magic link + `src/proxy.ts` email allowlist (`ALLOWED_EMAIL`, comma-separated)
 - Data: Drizzle ORM over `DATABASE_URL` (not Supabase client for queries)
-- UI: Tailwind v4, shadcn/ui, custom table + raw `fetch`/`useState` per pane (TanStack libs are installed but not used; safe to remove)
+- UI: Tailwind v4, shadcn/ui, custom table + raw `fetch`/`useState` per pane
+
+## Query layer convention
+
+Two homes for SQL-touching code; the split is by **ownership**, not technology:
+
+| Location | When to use | Examples |
+|---|---|---|
+| `src/db/queries/*.ts` | **Cross-cutting primitives** consumed by 2+ features and/or cron jobs. No single feature owns the result shape. | `availability.ts` (used by deckbuilder + coach), `collection-value.ts` (used by daily snapshot cron + dashboard) |
+| `src/lib/<feature>/queries.ts` | **Feature-scoped queries** whose return shape is tailored to one feature page or API. Co-located with that feature's `types.ts` / `schemas.ts`. | `lib/inventory/queries.ts` (inventory list + filters), `lib/decks/queries.ts` (deck list + detail), `lib/dashboard/queries.ts` (top cards, insights, snapshots) |
+
+Rule of thumb: if the same query starts getting imported by a second feature, **move it to `src/db/queries/`** rather than re-exporting from one feature into another. Keep `db/queries/` small and stable — most new code belongs in a feature folder.
+
+Both layers use Drizzle (`db.execute(sql\`…\`)` or the typed builder) over the `DATABASE_URL` connection and bypass RLS as table owner. Neither uses the Supabase JS client.
 
 ## Conventions
 
@@ -34,6 +47,7 @@ When changing user-facing copy, update **both** `USER-GUIDE.md` and `src/lib/hel
 - **Cron routes:** `/api/cron/*` skip proxy auth; require `CRON_SECRET` bearer token
 - **Scryfall bulk sync:** `pnpm db:seed` / GitHub Action — not a Vercel cron (timeout)
 - **Bracket combos:** live Commander Spellbook API — the `combos` / `combo_pieces` tables were dropped in migration `0013`
+- **API errors:** use `serverError(tag, err, message)` from `src/lib/api-errors.ts`. Log full err server-side, return a generic message to the client. Never `err.message` in 500 responses.
 
 ## Before committing
 

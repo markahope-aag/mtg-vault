@@ -126,8 +126,9 @@ magic-app/
 │   ├── db/
 │   │   ├── schema.ts                   # Source of truth
 │   │   ├── client.ts
-│   │   └── queries/
+│   │   └── queries/                    # Cross-cutting query primitives (see below)
 │   ├── lib/
+│   │   ├── <feature>/queries.ts        # Feature-scoped queries (see below)
 │   │   ├── scryfall.ts
 │   │   ├── spellbook.ts                # Live Commander Spellbook API
 │   │   ├── bracket-engine.ts
@@ -143,6 +144,15 @@ magic-app/
 ├── vercel.json
 └── .env.local
 ```
+
+### Query layer split
+
+Two homes for SQL-touching code; the split is by **ownership**, not technology:
+
+- **`src/db/queries/*.ts`** — cross-cutting primitives consumed by 2+ features and/or cron jobs. No single feature owns the result shape. Today: `availability.ts` (deckbuilder + coach), `collection-value.ts` (daily snapshot cron + dashboard).
+- **`src/lib/<feature>/queries.ts`** — feature-scoped queries whose return shape is tailored to one feature page or API. Co-located with that feature's `types.ts` and `schemas.ts`. Today: `lib/inventory/queries.ts`, `lib/decks/queries.ts`, `lib/dashboard/queries.ts`.
+
+Rule of thumb: if the same query starts getting imported by a second feature, move it to `src/db/queries/` rather than re-exporting between feature folders. Both layers use Drizzle over `DATABASE_URL` and bypass RLS as table owner.
 
 ---
 
