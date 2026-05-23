@@ -9,21 +9,25 @@ A personal Magic: The Gathering collection tracker and Commander deckbuilder.
 - [Getting around](#getting-around)
 - [Dashboard](#dashboard)
 - [Your collection (Inventory)](#your-collection-inventory)
+- [Scanning a card](#scanning-a-card)
 - [Card pages](#card-pages)
 - [Decks](#decks)
 - [The deckbuilder](#the-deckbuilder)
+- [Trades](#trades)
 - [Importing a CSV](#importing-a-csv)
 - [System status](#system-status)
 - [Locations](#locations)
+- [Install as an app (PWA)](#install-as-an-app-pwa)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 
 ---
 
 ## Getting around
 
-The top navigation has six sections: **Dashboard**, **Inventory**, **Decks**,
-**Import**, **System**, and **Help**. The app is dark by default; the
-sun/moon button in the top-right toggles light mode.
+The top navigation has seven sections: **Dashboard**, **Inventory**,
+**Decks**, **Trades**, **Import**, **System**, and **Help**. On phones
+those links collapse into a hamburger menu in the top-right. The app is
+dark by default; the sun/moon button toggles light mode.
 
 Press **⌘K** (Ctrl+K) anywhere to open the card search palette. Card detail
 pages and the deckbuilder show a back link in the top-left so you don't have
@@ -66,7 +70,11 @@ with quantity 4.
 Click **Add cards**, search for a card, pick it, then choose the printing
 (filterable by set name/code/collector number) and fill in condition,
 location, and acquired price. **Location** is a dropdown sourced from the
-canonical list you manage on the **System** page.
+canonical list you manage on the **System** page. The **Purchased from**
+field autocompletes from vendors and partners you've used before.
+
+For a faster path when you have a physical card in hand, click **Scan**
+instead — see [Scanning a card](#scanning-a-card).
 
 ### Editing a card
 
@@ -98,6 +106,30 @@ Tick the checkboxes to select rows. A bar appears at the bottom with:
 
 **Export** downloads your inventory as CSV. **Import CSV** opens the import
 wizard (see below).
+
+---
+
+## Scanning a card
+
+The **Scan** button (next to Add cards on the Inventory page) opens the
+camera and identifies a physical card from a photo.
+
+1. Tap **Scan**. The browser asks for camera permission — grant it. On
+   phones the rear camera is used by default.
+2. Fill the dashed frame with the card so the **name is clearly readable**,
+   then tap **Capture**.
+3. Review the still and tap **Identify** (or **Retake** if it's blurry).
+4. The card is identified by Claude vision: name, set code (if visible),
+   and confidence level. The matching printing is pre-selected.
+5. Tap **Add to inventory** — the regular Add dialog opens with everything
+   prefilled, and you fill in condition, location, and price as usual.
+
+If the name comes back blurry or doesn't match an exact card, you'll see
+**Did you mean?** suggestions from a fuzzy match. Pick one to hand off to
+the Add flow, or retake the photo.
+
+Best results: even, indirect light; one card in the frame; name not
+covered by a sleeve or thumb.
 
 ---
 
@@ -199,6 +231,44 @@ The shortcut bar at the bottom of the deckbuilder lists the same keys.
 
 ---
 
+## Trades
+
+The **Trades** page logs card-for-card trades with another player and keeps
+a running tally per partner.
+
+### Logging a trade
+
+Click **Log trade**. The form has three parts:
+
+1. **Header** — partner name, date, optional notes.
+2. **Cards going out** — search **your inventory** and pick the cards
+   you're giving away. Each row gets an editable value (defaults to the
+   card's current market price).
+3. **Cards coming in** — search **any card** and pick the printings you're
+   receiving. Each row has condition, foil toggle, location, and value.
+
+A live net total sits at the bottom (in − out). Submitting in a single
+transaction:
+
+- marks each outgoing inventory row **disposed** with `disposed_to = "Trade:
+  {partner}"`,
+- creates a new inventory row per incoming card with `purchased_from =
+  "Trade: {partner}"`,
+- ties both sides to the same `trade_id` so the trade can be reconstructed
+  later.
+
+### Trade history
+
+The Trades page lists every past trade with **↓ out**, **↑ in**, and **net**
+per row. A **Lifetime** card sums all-time totals; a **Partners** card
+sorts everyone you've traded with by frequency and shows whether you're
+net up or down with each.
+
+Click a row to see the full ledger — each card on both sides as clickable
+tiles, with the date and any notes you logged.
+
+---
+
 ## Importing a CSV
 
 **Import** runs a five-step wizard:
@@ -250,6 +320,24 @@ any locations already in use.
 - The Add/Edit Location dropdown still includes a row's current value as an
   option in case a card carries a value that's no longer in the canonical
   list (e.g. a card edited just before the location was deleted).
+
+---
+
+## Install as an app (PWA)
+
+MTG Vault is a Progressive Web App, so you can install it to your phone
+or desktop and run it without a browser chrome.
+
+- **iOS Safari:** Share → **Add to Home Screen**.
+- **Android Chrome:** the address bar offers an **Install** prompt the
+  first time you visit; otherwise the menu has **Add to Home screen**.
+- **Desktop Chrome/Edge:** the address bar shows an install icon on the
+  right; clicking it adds the app to your launcher.
+
+Once installed, the app caches its shell + Scryfall card images, so the
+inventory pages you've already loaded remain readable even with no
+connection. Mutations (adding cards, logging trades, etc.) still require
+the network.
 
 ---
 

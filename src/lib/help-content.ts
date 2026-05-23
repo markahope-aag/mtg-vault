@@ -53,7 +53,35 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "To add cards, click Add cards, search for a card, pick it, then choose the printing (filterable by set name, code, or collector number) and fill in condition, location, and acquired price. The card appears in the list immediately. Location is a dropdown sourced from the canonical list you manage on the System page.",
+        text: "To add cards, click Add cards, search for a card, pick it, then choose the printing (filterable by set name, code, or collector number) and fill in condition, location, and acquired price. The card appears in the list immediately. Location is a dropdown sourced from the canonical list you manage on the System page. Purchased from autocompletes from vendors you've used before.",
+      },
+      {
+        type: "p",
+        text: "For a faster path when you have a physical card in hand, click Scan instead — see the next section.",
+      },
+    ],
+  },
+  {
+    id: "scanning",
+    title: "Scanning a card with the camera",
+    blocks: [
+      {
+        type: "p",
+        text: "The Scan button (next to Add cards on the Inventory page) opens the camera and identifies a physical card from a photo. Best results: even, indirect light; one card in frame; name not covered by a sleeve or thumb.",
+      },
+      {
+        type: "list",
+        items: [
+          "Tap Scan. The browser asks for camera permission — grant it. On phones the rear camera is used by default.",
+          "Fill the dashed frame with the card so the name is clearly readable, then tap Capture.",
+          "Review the still and tap Identify (or Retake if it's blurry).",
+          "The card is identified by Claude vision: name, set code if visible, and a confidence level. The matching printing is pre-selected.",
+          "Tap Add to inventory — the regular Add dialog opens with everything prefilled.",
+        ],
+      },
+      {
+        type: "p",
+        text: "If the name comes back blurry or doesn't match an exact card, you'll see Did you mean? suggestions from a fuzzy match. Pick one to hand off to the Add flow, or retake the photo.",
       },
     ],
   },
@@ -189,6 +217,24 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: "trades",
+    title: "Trades",
+    blocks: [
+      {
+        type: "p",
+        text: "The Trades page logs card-for-card trades with another player and keeps a running tally per partner. Click Log trade to open the form: header (partner name, date, optional notes), then Cards going out (searches your inventory) and Cards coming in (searches every card). Each row carries a value; a live net total sits at the bottom.",
+      },
+      {
+        type: "p",
+        text: "Submitting in a single transaction marks each outgoing inventory row disposed with disposed_to = 'Trade: {partner}', creates a new inventory row per incoming card with purchased_from = 'Trade: {partner}', and ties both sides to the same trade so the event can be reconstructed later.",
+      },
+      {
+        type: "p",
+        text: "The history list shows ↓ out / ↑ in / net per row. A Lifetime card sums all-time totals; a Partners card sorts everyone you've traded with by frequency and shows whether you're net up or down with each. Click a row to see the full ledger.",
+      },
+    ],
+  },
+  {
     id: "importing",
     title: "Importing a CSV",
     blocks: [
@@ -227,6 +273,20 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         type: "p",
         text: "Add a new location with the input and Add button. Delete a location with the Delete action — that removes it from the dropdown AND clears the location from any inventory cards still using it (they revert to no location). The confirm dialog tells you exactly how many cards will be affected before you commit.",
+      },
+    ],
+  },
+  {
+    id: "install",
+    title: "Install as an app (PWA)",
+    blocks: [
+      {
+        type: "p",
+        text: "MTG Vault is a Progressive Web App, so you can install it to your phone or desktop and run it without browser chrome. iOS Safari: Share → Add to Home Screen. Android Chrome: the address bar offers an Install prompt the first time you visit; otherwise the menu has Add to Home screen. Desktop Chrome/Edge: an install icon appears at the right of the address bar.",
+      },
+      {
+        type: "p",
+        text: "Once installed, the app caches its shell and Scryfall card images, so previously-loaded pages remain readable with no connection. Mutations (adding cards, logging trades, etc.) still require the network.",
       },
     ],
   },
