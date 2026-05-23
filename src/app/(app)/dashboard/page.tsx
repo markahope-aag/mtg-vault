@@ -339,7 +339,12 @@ export default async function DashboardPage() {
             getIcon={(label) => COLOR_MANA[label] ?? null}
           />
           <InsightCard title="By type" entries={insights.typeDistribution} />
-          <InsightCard title="Top sets" entries={insights.topSets} mono />
+          <InsightCard
+            title="Top sets"
+            entries={insights.topSets}
+            mono
+            defaultTint="var(--color-mtg-multicolor)"
+          />
         </div>
       </div>
 
@@ -440,6 +445,7 @@ function InsightCard({
   relabel,
   getIcon,
   mono,
+  defaultTint,
 }: {
   title: string;
   entries: Array<{ label: string; count: number }>;
@@ -447,6 +453,7 @@ function InsightCard({
   relabel?: (label: string) => string;
   getIcon?: (label: string) => string | null;
   mono?: boolean;
+  defaultTint?: string;
 }) {
   const max = Math.max(1, ...entries.map((e) => e.count));
   return (
@@ -462,7 +469,11 @@ function InsightCard({
         ) : (
           <ul className="space-y-1.5">
             {entries.slice(0, 7).map((e) => {
-              const tint = getTint?.(e.label) ?? "var(--color-text-secondary)";
+              // Fall back to defaultTint, then the MTG-white token, so
+              // untinted charts read as crisp colored bars instead of muted
+              // gray. Per-row tints (getTint) still win when provided.
+              const tint =
+                getTint?.(e.label) ?? defaultTint ?? "var(--color-mtg-white)";
               const width = Math.max(2, Math.round((e.count / max) * 100));
               const mana = getIcon?.(e.label) ?? null;
               return (
@@ -497,7 +508,7 @@ function InsightCard({
                       style={{
                         width: `${width}%`,
                         background: tint,
-                        opacity: getTint ? 0.85 : 0.45,
+                        opacity: 0.85,
                       }}
                     />
                   </div>
