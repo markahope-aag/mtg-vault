@@ -127,6 +127,10 @@ export const inventory = pgTable(
     grade: text("grade"),
     notes: text("notes"),
     importBatchId: uuid("import_batch_id"),
+    // Trade tag — set on inventory rows that came in via a trade (purchase
+    // direction) and on rows disposed via a trade (out direction). Lets the
+    // /trades page reconstruct the full event from both sides.
+    tradeId: uuid("trade_id"),
     // Disposal fields — set when the card is sold/traded/lost. The row is
     // never deleted on disposal so it remains available for historical
     // value/cost-basis tracking.
@@ -251,5 +255,22 @@ export const importBatches = pgTable(
   },
   (t) => ({
     hashIdx: index("import_batches_hash_idx").on(t.fileHash),
+  }),
+);
+
+// ─── TRADES ─────────────────────────────────────────────────────
+
+export const trades = pgTable(
+  "trades",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    partner: text("partner").notNull(),
+    tradedAt: timestamp("traded_at").defaultNow().notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    partnerIdx: index("trades_partner_idx").on(t.partner),
+    tradedAtIdx: index("trades_traded_at_idx").on(t.tradedAt),
   }),
 );

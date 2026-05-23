@@ -39,6 +39,7 @@ export default async function AppLayout({
                   <NavLink href="/dashboard">Dashboard</NavLink>
                   <NavLink href="/inventory">Inventory</NavLink>
                   <NavLink href="/decks">Decks</NavLink>
+                  <NavLink href="/trades">Trades</NavLink>
                   <NavLink href="/import">Import</NavLink>
                   <NavLink href="/system">System</NavLink>
                   <NavLink href="/help">Help</NavLink>
