@@ -50,12 +50,85 @@ import { BackLink } from "@/components/back-link";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
 import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
 import { LegalityBadges } from "@/components/card-detail/legality-badges";
+import { SynergyGrid } from "@/components/card-detail/synergy-grid";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
 
 type Printing = typeof printings.$inferSelect;
 
 function isPromoLike(p: Printing): boolean {
   return Array.isArray(p.promoTypes) && p.promoTypes.length > 0;
+}
+
+type SynergyRow = {
+  oracleId: string;
+  name: string;
+  manaCost: string | null;
+  typeLine: string | null;
+  imageUri: string | null;
+  coDecks: number;
+  edhrecRank: number | null;
+  ownedCount: number;
+};
+
+// Find cards that co-occur with this card across the user's own decks.
+// "Synergy" here is operationalized as deck co-occurrence: if you've put
+// card X in the same deck as this card N times, X is N-synergy. Personal
+// data is the strongest synergy signal we have without scraping EDHrec.
+async function fetchSynergies(oracleId: string): Promise<SynergyRow[]> {
+  const rows = (await db.execute(sql`
+    WITH host_decks AS (
+      SELECT DISTINCT dc.deck_id
+      FROM deck_cards dc
+      JOIN printings p ON p.id = dc.printing_id
+      WHERE p.oracle_id = ${oracleId}
+    )
+    SELECT
+      c.oracle_id, c.name, c.mana_cost, c.type_line, c.edhrec_rank,
+      COUNT(DISTINCT dc.deck_id)::int AS co_decks,
+      (
+        SELECT COUNT(*)::int FROM inventory i
+        JOIN printings ip ON ip.id = i.printing_id
+        WHERE ip.oracle_id = c.oracle_id AND i.disposed_at IS NULL
+      ) AS owned_count,
+      (
+        SELECT COALESCE(
+          p2.image_uris ->> 'small',
+          p2.card_faces -> 0 -> 'image_uris' ->> 'small',
+          c.card_faces -> 0 -> 'image_uris' ->> 'small'
+        )
+        FROM printings p2
+        WHERE p2.oracle_id = c.oracle_id
+        ORDER BY p2.released_at DESC NULLS LAST, p2.set_code
+        LIMIT 1
+      ) AS image_uri
+    FROM deck_cards dc
+    JOIN host_decks h ON h.deck_id = dc.deck_id
+    JOIN printings p ON p.id = dc.printing_id
+    JOIN cards c ON c.oracle_id = p.oracle_id
+    WHERE c.oracle_id <> ${oracleId}
+    GROUP BY c.oracle_id, c.name, c.mana_cost, c.type_line, c.edhrec_rank, c.card_faces
+    ORDER BY co_decks DESC, c.edhrec_rank ASC NULLS LAST, c.name ASC
+    LIMIT 24
+  `)) as unknown as Array<{
+    oracle_id: string;
+    name: string;
+    mana_cost: string | null;
+    type_line: string | null;
+    edhrec_rank: number | null;
+    co_decks: number;
+    owned_count: number;
+    image_uri: string | null;
+  }>;
+  return rows.map((r) => ({
+    oracleId: r.oracle_id,
+    name: r.name,
+    manaCost: r.mana_cost,
+    typeLine: r.type_line,
+    imageUri: r.image_uri,
+    coDecks: r.co_decks,
+    edhrecRank: r.edhrec_rank,
+    ownedCount: r.owned_count,
+  }));
 }
 
 async function fetchOwnedRows(
@@ -146,6 +219,7 @@ export default async function CardDetailPage({
 
   const ownedRows = await fetchOwnedRows(oracle_id);
   const usedInDecks = await fetchDecksUsing(oracle_id);
+  const synergies = await fetchSynergies(oracle_id);
 
   // Default to a printing the user actually owns (the newest, since
   // allPrintings is release-date descending) so the art matches their
@@ -349,6 +423,22 @@ export default async function CardDetailPage({
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Synergies
+                {synergies.length > 0 && (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    ({synergies.length})
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SynergyGrid entries={synergies} />
+            </CardContent>
+          </Card>
 
           {usedInDecks.length > 0 && (
             <Card>
