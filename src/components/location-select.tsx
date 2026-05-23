@@ -52,7 +52,7 @@ export function LocationSelect({
   return (
     <Select
       value={value || NONE}
-      onValueChange={(v) => onChange(v === NONE ? "" : v)}
+      onValueChange={(v) => onChange(!v || v === NONE ? "" : v)}
     >
       <SelectTrigger className="w-full">
         <SelectValue placeholder={placeholder} />
