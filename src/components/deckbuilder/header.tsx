@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { ImageOff, MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
 import { pickCardImage } from "@/lib/card-image";
+import { confirmToast } from "@/lib/confirm-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,10 +106,23 @@ export function DeckbuilderHeader({
     }
   }
 
-  async function onDelete() {
-    if (!window.confirm(`Delete "${deck.deck.name}"? Cannot be undone.`)) return;
-    const res = await fetch(`/api/decks/${deck.deck.id}`, { method: "DELETE" });
-    if (res.ok) window.location.href = "/decks";
+  function onDelete() {
+    confirmToast(`Delete "${deck.deck.name}"?`, {
+      description: "Cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/decks/${deck.deck.id}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          window.location.href = "/decks";
+        } catch (err) {
+          toast.error(
+            `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    });
   }
 
   const overTarget =

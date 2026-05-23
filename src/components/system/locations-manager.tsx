@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -63,35 +64,37 @@ export function LocationsManager() {
   );
 
   const onDelete = useCallback(
-    async (row: LocationRow) => {
+    (row: LocationRow) => {
       const tail =
         row.usedBy > 0
-          ? ` This will clear the location from ${row.usedBy} inventory card${row.usedBy === 1 ? "" : "s"}.`
-          : "";
-      if (!window.confirm(`Delete "${row.name}"?${tail}`)) {
-        return;
-      }
-      setDeleting(row.id);
-      try {
-        const res = await fetch(`/api/locations/${row.id}`, {
-          method: "DELETE",
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        const cleared = data?.cleared ?? 0;
-        toast.success(
-          cleared > 0
-            ? `Deleted "${row.name}" · cleared ${cleared} card${cleared === 1 ? "" : "s"}`
-            : `Deleted "${row.name}"`,
-        );
-        await refetch();
-      } catch (err) {
-        toast.error(
-          `Couldn't delete: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      } finally {
-        setDeleting(null);
-      }
+          ? `This will clear the location from ${row.usedBy} inventory card${row.usedBy === 1 ? "" : "s"}.`
+          : "This location isn't in use.";
+      confirmToast(`Delete "${row.name}"?`, {
+        description: tail,
+        onConfirm: async () => {
+          setDeleting(row.id);
+          try {
+            const res = await fetch(`/api/locations/${row.id}`, {
+              method: "DELETE",
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+            const cleared = data?.cleared ?? 0;
+            toast.success(
+              cleared > 0
+                ? `Deleted "${row.name}" · cleared ${cleared} card${cleared === 1 ? "" : "s"}`
+                : `Deleted "${row.name}"`,
+            );
+            await refetch();
+          } catch (err) {
+            toast.error(
+              `Couldn't delete: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          } finally {
+            setDeleting(null);
+          }
+        },
+      });
     },
     [refetch],
   );

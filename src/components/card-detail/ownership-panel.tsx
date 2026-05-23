@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,18 +93,22 @@ export function OwnershipPanel({
     });
   }
 
-  async function onDelete(id: string) {
-    if (!window.confirm("Delete this row? This cannot be undone.")) return;
-    try {
-      const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success("Deleted");
-      router.refresh();
-    } catch (err) {
-      toast.error(
-        `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+  function onDelete(id: string) {
+    confirmToast("Delete this row?", {
+      description: "This cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          toast.success("Deleted");
+          router.refresh();
+        } catch (err) {
+          toast.error(
+            `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    });
   }
 
   const total = ownedRows.length;

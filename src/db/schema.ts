@@ -96,36 +96,8 @@ export const priceHistory = pgTable(
   })
 );
 
-export const combos = pgTable(
-  "combos",
-  {
-    id: text("id").primaryKey(),
-    name: text("name"),
-    resultText: text("result_text"),
-    pieceCount: integer("piece_count").notNull(),
-    colorIdentity: text("color_identity").array(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    pieceCountIdx: index("combos_piece_count_idx").on(t.pieceCount),
-  })
-);
-
-export const comboPieces = pgTable(
-  "combo_pieces",
-  {
-    comboId: text("combo_id")
-      .notNull()
-      .references(() => combos.id, { onDelete: "cascade" }),
-    oracleId: uuid("oracle_id")
-      .notNull()
-      .references(() => cards.oracleId, { onDelete: "cascade" }),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.comboId, t.oracleId] }),
-    oracleIdx: index("combo_pieces_oracle_id_idx").on(t.oracleId),
-  })
-);
+// combos / combo_pieces were dropped in migration 0013. No sync was ever
+// written — Spellbook is consumed live from the API in src/lib/spellbook.ts.
 
 // ─── USER LAYER ─────────────────────────────────────────────────
 

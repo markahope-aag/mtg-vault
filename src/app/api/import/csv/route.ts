@@ -219,68 +219,77 @@ async function handleCommit(req: NextRequest) {
   // Compute total physical cards being added (sum of quantities).
   const importedPhysicalRows = resolved.reduce((s, r) => s + r.quantity, 0);
 
-  // 1) Create the batch row first so we have an id for inventory linkage.
-  const [batch] = await db
-    .insert(importBatches)
-    .values({
-      filename,
-      fileHash,
-      format,
-      totalRows,
-      importedRows: importedPhysicalRows,
-      unmatchedRows: unmatchedCount,
-      skippedRows: skippedCount,
-      defaultLocation,
-      mode,
-    })
-    .returning();
-
-  // 2) In replace_location mode, dispose existing non-disposed rows at the
-  //    target location, tagged with the batch id so undo can restore them.
-  if (mode === "replace_location") {
-    await db
-      .update(inventory)
-      .set({
-        disposedAt: sql`now()`,
-        disposedTo: `replaced by import batch ${batch.id}`,
-        updatedAt: sql`now()`,
+  // Wrap the whole commit in a transaction. Without this, a mid-flight
+  // failure on chunk N could leave the import_batches row + replace_location
+  // disposes committed but only some inventory rows inserted — an
+  // inconsistent state that's painful to clean up by hand.
+  const batchId = await db.transaction(async (tx) => {
+    // 1) Create the batch row first so we have an id for inventory linkage.
+    const [batch] = await tx
+      .insert(importBatches)
+      .values({
+        filename,
+        fileHash,
+        format,
+        totalRows,
+        importedRows: importedPhysicalRows,
+        unmatchedRows: unmatchedCount,
+        skippedRows: skippedCount,
+        defaultLocation,
+        mode,
       })
-      .where(
-        and(
-          eq(inventory.location, defaultLocation),
-          isNull(inventory.disposedAt),
-        ),
-      );
-  }
+      .returning();
 
-  // 3) Expand each resolved row into N inventory rows (one per physical card).
-  const toInsert: (typeof inventory.$inferInsert)[] = [];
-  for (const r of resolved) {
-    for (let i = 0; i < r.quantity; i++) {
-      toInsert.push({
-        printingId: r.printingId,
-        foil: r.foil,
-        etched: r.etched,
-        condition: r.condition,
-        language: r.language,
-        location: defaultLocation,
-        acquiredPrice:
-          r.acquiredPrice != null ? r.acquiredPrice.toFixed(2) : null,
-        acquiredAt: r.acquiredAt ? new Date(r.acquiredAt) : null,
-        purchasedFrom: r.purchasedFrom ?? purchasedFromDefault ?? null,
-        importBatchId: batch.id,
-      });
+    // 2) In replace_location mode, dispose existing non-disposed rows at the
+    //    target location, tagged with the batch id so undo can restore them.
+    if (mode === "replace_location") {
+      await tx
+        .update(inventory)
+        .set({
+          disposedAt: sql`now()`,
+          disposedTo: `replaced by import batch ${batch.id}`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(inventory.location, defaultLocation),
+            isNull(inventory.disposedAt),
+          ),
+        );
     }
-  }
 
-  // 4) Bulk insert in chunks (500/round-trip).
-  for (let i = 0; i < toInsert.length; i += 500) {
-    const slice = toInsert.slice(i, i + 500);
-    if (slice.length > 0) await db.insert(inventory).values(slice);
-  }
+    // 3) Expand each resolved row into N inventory rows (one per physical
+    //    card).
+    const toInsert: (typeof inventory.$inferInsert)[] = [];
+    for (const r of resolved) {
+      for (let i = 0; i < r.quantity; i++) {
+        toInsert.push({
+          printingId: r.printingId,
+          foil: r.foil,
+          etched: r.etched,
+          condition: r.condition,
+          language: r.language,
+          location: defaultLocation,
+          acquiredPrice:
+            r.acquiredPrice != null ? r.acquiredPrice.toFixed(2) : null,
+          acquiredAt: r.acquiredAt ? new Date(r.acquiredAt) : null,
+          purchasedFrom: r.purchasedFrom ?? purchasedFromDefault ?? null,
+          importBatchId: batch.id,
+        });
+      }
+    }
+
+    // 4) Bulk insert in chunks (500/round-trip).
+    for (let i = 0; i < toInsert.length; i += 500) {
+      const slice = toInsert.slice(i, i + 500);
+      if (slice.length > 0) await tx.insert(inventory).values(slice);
+    }
+
+    return batch.id;
+  });
 
   return NextResponse.json({
-    batchId: batch.id,
+    batchId,
     importedRows: importedPhysicalRows,
     unmatchedRows: unmatchedCount,
     skippedRows: skippedCount,

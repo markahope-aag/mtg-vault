@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { Button } from "@/components/ui/button";
 import {
   EditDeckDialog,
@@ -38,30 +39,30 @@ export function DeckDetailActions({ deck }: { deck: EditableDeck }) {
     }
   }
 
-  async function onDelete() {
-    if (
-      !window.confirm(
-        `Delete "${deck.name}"? This permanently removes the deck and its card slots. Cards in your inventory are NOT affected — only the deck list is removed. This cannot be undone.`,
-      )
-    )
-      return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/decks/${deck.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.error ?? `HTTP ${res.status}`);
-      }
-      toast.success("Deleted");
-      router.push("/decks");
-      router.refresh();
-    } catch (err) {
-      toast.error(
-        `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setBusy(false);
-    }
+  function onDelete() {
+    confirmToast(`Delete "${deck.name}"?`, {
+      description:
+        "The deck and its card slots will be removed permanently. Cards in your inventory are not affected.",
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          const res = await fetch(`/api/decks/${deck.id}`, { method: "DELETE" });
+          if (!res.ok) {
+            const detail = await res.json().catch(() => ({}));
+            throw new Error(detail.error ?? `HTTP ${res.status}`);
+          }
+          toast.success("Deleted");
+          router.push("/decks");
+          router.refresh();
+        } catch (err) {
+          toast.error(
+            `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   }
 
   return (

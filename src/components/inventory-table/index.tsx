@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -298,18 +299,22 @@ export function InventoryTable({
   }, []);
 
   const onDelete = useCallback(
-    async (id: string) => {
-      if (!window.confirm("Delete this row? This cannot be undone.")) return;
-      try {
-        const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        toast.success("Deleted");
-        refetch();
-      } catch (err) {
-        toast.error(
-          `Couldn't delete: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+    (id: string) => {
+      confirmToast("Delete this row?", {
+        description: "This cannot be undone.",
+        onConfirm: async () => {
+          try {
+            const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            toast.success("Deleted");
+            refetch();
+          } catch (err) {
+            toast.error(
+              `Couldn't delete: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        },
+      });
     },
     [refetch],
   );
