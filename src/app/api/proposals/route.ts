@@ -16,6 +16,9 @@ const bodySchema = z.object({
   commanderOracleId: z.string().uuid().optional(),
   archetypeBrief: z.string().trim().max(2000).optional(),
   targetBracket: z.number().int().min(1).max(5).nullable().optional(),
+  inventoryScope: z
+    .enum(["unassigned", "all_owned", "ignore"])
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -53,6 +56,7 @@ export async function POST(req: NextRequest) {
       commanderOracleId: input.commanderOracleId,
       archetypeBrief: input.archetypeBrief,
       targetBracket: input.targetBracket ?? null,
+      inventoryScope: input.inventoryScope,
     });
 
     await db

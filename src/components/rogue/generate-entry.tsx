@@ -34,6 +34,9 @@ export function GenerateEntry() {
   const [archetype, setArchetype] = useState("");
   const [bracket, setBracket] = useState<string>("3");
   const [kind, setKind] = useState<"standard" | "rogue">("standard");
+  const [inventoryScope, setInventoryScope] = useState<
+    "unassigned" | "all_owned" | "ignore"
+  >("unassigned");
   const [submitting, setSubmitting] = useState(false);
   const debounceRef = useRef<number | null>(null);
 
@@ -94,6 +97,7 @@ export function GenerateEntry() {
           commanderOracleId: commander?.oracleId,
           archetypeBrief: archetype.trim() || undefined,
           targetBracket: bracket ? Number.parseInt(bracket, 10) : null,
+          inventoryScope,
         }),
       });
       // The endpoint may take 30-60s. Defensive parse — Vercel timeouts
@@ -119,7 +123,7 @@ export function GenerateEntry() {
     } finally {
       setSubmitting(false);
     }
-  }, [archetype, bracket, commander, kind, router]);
+  }, [archetype, bracket, commander, kind, inventoryScope, router]);
 
   const canSubmit =
     !submitting && (commander != null || archetype.trim().length > 0);
@@ -289,6 +293,50 @@ export function GenerateEntry() {
                 expect some &ldquo;questionable&rdquo; verdicts.
               </p>
             </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+            Inventory scope
+          </Label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {(
+              [
+                {
+                  key: "unassigned",
+                  label: "Only unassigned",
+                  description:
+                    "Owned cards not in any other deck. The default — bias toward what you can literally slot in right now.",
+                },
+                {
+                  key: "all_owned",
+                  label: "All owned",
+                  description:
+                    "Include cards currently in other decks. Use this if you're willing to cannibalize existing builds.",
+                },
+                {
+                  key: "ignore",
+                  label: "Ignore inventory",
+                  description:
+                    "Build from the entire card pool as if you owned nothing. Best for pure exploration.",
+                },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setInventoryScope(opt.key)}
+                className={`rounded-md border p-3 text-left text-xs transition-colors ${
+                  inventoryScope === opt.key
+                    ? "border-[var(--brand)] bg-[var(--color-brand-soft)]/30"
+                    : "border-border-subtle hover:border-border-strong"
+                }`}
+              >
+                <p className="text-sm font-medium">{opt.label}</p>
+                <p className="mt-1 text-text-muted">{opt.description}</p>
+              </button>
+            ))}
           </div>
         </div>
 

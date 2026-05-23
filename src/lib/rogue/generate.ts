@@ -45,11 +45,21 @@ const TARGET_NONLAND_COUNT = 62;
 
 // ─── Public types ──────────────────────────────────────────────
 
+// inventoryScope governs how the user's collection influences generation:
+//   - 'unassigned': bias toward owned cards that aren't currently committed
+//     to any deck. Reflects what's actually available to slot in.
+//   - 'all_owned': bias toward every owned card, even ones committed to
+//     other decks (cannibalize-friendly mode).
+//   - 'ignore': don't fetch or surface inventory. Build from the universe
+//     of cards as if the collection didn't exist.
+export type InventoryScope = "unassigned" | "all_owned" | "ignore";
+
 export type GenerateInput = {
   kind: "standard" | "rogue";
   commanderOracleId?: string;
   archetypeBrief?: string;
   targetBracket: number | null;
+  inventoryScope?: InventoryScope;
 };
 
 export type GeneratedCard = {
@@ -622,6 +632,7 @@ async function fetchCommander(oracleId: string): Promise<CommanderContext> {
 async function pass1Generate(
   commander: CommanderContext,
   input: GenerateInput,
+  ownedBias: InventoryBiasCard[],
 ): Promise<{
   cards: Array<{ name: string; role: string; rationale: string }>;
   colorPipTarget: ColorPipTarget;
@@ -630,6 +641,20 @@ async function pass1Generate(
   const ci = commander.colorIdentity.length > 0
     ? commander.colorIdentity.join("")
     : "C (colorless)";
+  // Standard mode treats the owned-cards list as a SOFT hint: prefer them
+  // when functionally equivalent, but never sacrifice synergy to use them.
+  // This is intentionally less aggressive than rogue's bias.
+  const ownedHint =
+    ownedBias.length > 0
+      ? `\n\nThe user owns these cards already (color-compatible, ${
+          input.inventoryScope === "all_owned"
+            ? "across all decks"
+            : "not currently in any deck"
+        }). Prefer them when a functionally equivalent option exists, but do NOT sacrifice synergy to fit them in. They're a tiebreaker, not a requirement:\n${ownedBias
+          .slice(0, 50)
+          .map((c) => `- ${c.name}`)
+          .join("\n")}`
+      : "";
   const prompt = `Commander: ${commander.name}
 Mana cost: ${commander.manaCost ?? "(no cost listed)"}
 Type line: ${commander.typeLine}
@@ -640,7 +665,7 @@ ${commander.oracleText ?? "(no oracle text)"}
 Target bracket: ${input.targetBracket ?? "unspecified"} — ${bracketDescription(input.targetBracket)}
 
 Playstyle brief from the user:
-${input.archetypeBrief?.trim() || "(none — build whatever this commander does best)"}
+${input.archetypeBrief?.trim() || "(none — build whatever this commander does best)"}${ownedHint}
 
 Generate ${TARGET_NONLAND_COUNT} nonland cards for this Commander deck. Key constraints:
 
@@ -862,36 +887,49 @@ type InventoryBiasCard = {
 };
 
 /**
- * Owned cards the format considers obscure: in inventory, color-identity
- * compatible with the commander, NOT currently in any deck, Commander-legal.
- * Sorted by edhrec_rank DESC so the highest-rank (= most obscure) cards
- * surface first. Capped so the model gets a curated list rather than
- * thousands of bulk commons.
+ * Owned cards relevant to a generation, scoped by InventoryScope.
  *
- * This is the personal-relevance differentiator: novelty + a card you
- * already paid for. The model's prompt is told to PREFER configurations
- * that exploit these.
+ * - 'unassigned' (rogue default): owned cards NOT currently in any deck.
+ *   Reflects what's literally available to slot into a new build. Sorted
+ *   by edhrec_rank DESC so the most-obscure surface first — the "obscure
+ *   but already paid for" personal-relevance edge.
+ * - 'all_owned': every owned card in the commander's color identity,
+ *   regardless of deck commitments. Cannibalize-friendly: gives the model
+ *   permission to suggest cards currently in another deck.
+ * - 'ignore': returns []. Caller skips the bias entirely.
+ *
+ * Always excludes basic lands (the manabase is computed mechanically) and
+ * non-Commander-legal cards.
  */
-async function fetchOwnedRarelyPlayed(
+async function fetchInventoryBias(
+  scope: InventoryScope,
   colorIdentity: string[],
   limit = 60,
 ): Promise<InventoryBiasCard[]> {
+  if (scope === "ignore") return [];
   const ciExpr = colorIdentity.length > 0
     ? sql`AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ARRAY[${sql.join(
         colorIdentity.map((x) => sql`${x}`),
         sql`, `,
       )}]::text[]`
     : sql`AND (c.color_identity IS NULL OR array_length(c.color_identity, 1) IS NULL)`;
+  // 'unassigned' joins to deck_commitments and excludes anything with a
+  // commit; 'all_owned' skips that join.
+  const commitmentFilter =
+    scope === "unassigned"
+      ? sql`AND NOT EXISTS (
+          SELECT 1 FROM deck_commitments dc WHERE dc.oracle_id = c.oracle_id
+        )`
+      : sql``;
   const rows = (await db.execute(sql`
     SELECT
       c.oracle_id, c.name, c.type_line, c.mana_cost, c.edhrec_rank
     FROM cards c
     INNER JOIN oracle_ownership o ON o.oracle_id = c.oracle_id
-    LEFT JOIN deck_commitments dc ON dc.oracle_id = c.oracle_id
     WHERE o.owned_count > 0
-      AND dc.oracle_id IS NULL
       AND c.is_commander_legal = TRUE
       ${ciExpr}
+      ${commitmentFilter}
       AND NOT (c.type_line ILIKE '%Basic Land%')
     ORDER BY c.edhrec_rank DESC NULLS LAST
     LIMIT ${limit}
@@ -1266,7 +1304,10 @@ export async function generateDeck(
       durationMs: Date.now() - tIdeate,
       output: ideation,
     });
-    const ownedBias = await fetchOwnedRarelyPlayed(commander.colorIdentity);
+    // Rogue defaults to 'unassigned' if the caller doesn't specify — that's
+    // the historical behavior and the most useful for a personal tool.
+    const scope: InventoryScope = input.inventoryScope ?? "unassigned";
+    const ownedBias = await fetchInventoryBias(scope, commander.colorIdentity);
     const tGen = Date.now();
     gen = await pass1RogueGenerate(
       commander,
@@ -1284,8 +1325,12 @@ export async function generateDeck(
       output: gen,
     });
   } else {
+    // Standard mode: still fetch inventory bias if the scope allows.
+    // Default for standard is 'unassigned' (helpful but unobtrusive).
+    const scope: InventoryScope = input.inventoryScope ?? "unassigned";
+    const ownedBias = await fetchInventoryBias(scope, commander.colorIdentity);
     const t1 = Date.now();
-    gen = await pass1Generate(commander, input);
+    gen = await pass1Generate(commander, input, ownedBias);
     passes.push({
       name: "pass1_generate",
       durationMs: Date.now() - t1,
