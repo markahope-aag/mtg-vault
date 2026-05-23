@@ -4,6 +4,7 @@ import { inventory } from "@/db/schema";
 import { createInventoryBodySchema } from "@/lib/inventory/schemas";
 import { listInventory, type ListFilters } from "@/lib/inventory/queries";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 const SORT_KEYS = new Set([
@@ -70,11 +71,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(result);
   } catch (err) {
-    console.error("[api/inventory GET]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/inventory", err, "Couldn't load inventory.");
   }
 }
 
@@ -117,10 +114,6 @@ export async function POST(req: NextRequest) {
       .returning();
     return NextResponse.json({ rows: inserted }, { status: 201 });
   } catch (err) {
-    console.error("[api/inventory POST]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/inventory", err, "Couldn't load inventory.");
   }
 }

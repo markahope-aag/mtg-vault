@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { scanCard } from "@/lib/ai/scan-card";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 // Card scanning is well-bounded but the Anthropic call can take a few
 // seconds on slow connections. 30s ceiling so we never get truncated by
@@ -135,12 +136,6 @@ export async function POST(req: NextRequest) {
       candidates: [],
     });
   } catch (err) {
-    console.error("[api/scan-card]", err);
-    return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
-    );
+    return serverError("api/scan-card", err, "Couldn't identify that card.");
   }
 }

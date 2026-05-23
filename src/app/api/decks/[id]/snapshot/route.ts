@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { deckSnapshots, decks } from "@/db/schema";
 import { fetchDeckDetail } from "@/lib/decks/queries";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(
@@ -31,10 +32,6 @@ export async function POST(
       .where(eq(decks.id, id));
     return NextResponse.json({ snapshot });
   } catch (err) {
-    console.error("[api/decks snapshot]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/snapshot", err, "Couldn't save snapshot.");
   }
 }

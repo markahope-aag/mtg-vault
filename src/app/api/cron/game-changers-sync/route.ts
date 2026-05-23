@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("[game-changers-sync] failed:", err);
     return Response.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: "Sync failed; see server logs." },
       { status: 500 },
     );
   }

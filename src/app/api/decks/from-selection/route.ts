@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { decks, deckCards } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 // Creates a new deck from a set of inventory-selected printings. Cards land
@@ -60,10 +61,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ deck, added: rows.length }, { status: 201 });
   } catch (err) {
-    console.error("[api/decks/from-selection]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/from-selection", err, "Couldn't create deck from selection.");
   }
 }

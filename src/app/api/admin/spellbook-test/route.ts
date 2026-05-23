@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
         { status: 503 },
       );
     }
+    console.error("[admin/spellbook-test]", err);
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: "Spellbook test failed; see server logs." },
       { status: 500 },
     );
   }

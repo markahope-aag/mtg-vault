@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAvailability } from "@/db/queries/availability";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(
@@ -32,10 +33,6 @@ export async function POST(
     const availability = await getAvailability(oracleIds, id);
     return NextResponse.json({ availability });
   } catch (err) {
-    console.error("[api/decks availability]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/availability", err, "Couldn't compute availability.");
   }
 }

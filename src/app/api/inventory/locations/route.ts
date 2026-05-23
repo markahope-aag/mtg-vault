@@ -16,10 +16,7 @@ export async function GET() {
   } catch (err) {
     console.error("[api/inventory locations]", err);
     return NextResponse.json(
-      {
-        locations: [],
-        error: err instanceof Error ? err.message : String(err),
-      },
+      { locations: [], error: "Couldn't load locations." },
       { status: 500 },
     );
   }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { MASS_LAND_DENIAL_NAMES } from "@/lib/curated/mld";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 type CardSummary = {
@@ -70,11 +71,7 @@ export async function GET() {
       tutorMissing,
     });
   } catch (err) {
-    console.error("[api/admin/bracket-flag-audit]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/admin/bracket-flag-audit", err, "Audit query failed.");
   }
 }
 

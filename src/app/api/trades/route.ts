@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { inventory, trades } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 // Trade body. "out" rows reference existing inventory ids the user is giving
@@ -116,11 +117,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ trade: result }, { status: 201 });
   } catch (err) {
-    console.error("[api/trades POST]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/trades", err, "Couldn't process trade.");
   }
 }
 
@@ -173,10 +170,7 @@ export async function GET() {
   } catch (err) {
     console.error("[api/trades GET]", err);
     return NextResponse.json(
-      {
-        trades: [],
-        error: err instanceof Error ? err.message : String(err),
-      },
+      { trades: [], error: "Couldn't load trades." },
       { status: 500 },
     );
   }

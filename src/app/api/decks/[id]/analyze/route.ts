@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { decks } from "@/db/schema";
 import { fetchDeckDetail } from "@/lib/decks/queries";
+import { serverError } from "@/lib/api-errors";
 import {
   analyzeDeck,
   deckSignatureFromDetail,
@@ -107,10 +108,6 @@ export async function POST(
     };
     return NextResponse.json(response);
   } catch (err) {
-    console.error("[api/decks analyze]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/analyze", err, "Strategy analysis failed.");
   }
 }

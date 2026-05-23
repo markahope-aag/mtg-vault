@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 // CSV export in Moxfield-compatible format so the file can be re-imported
@@ -112,10 +113,6 @@ export async function GET() {
       },
     });
   } catch (err) {
-    console.error("[api/inventory/export]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/inventory/export", err, "Export failed.");
   }
 }

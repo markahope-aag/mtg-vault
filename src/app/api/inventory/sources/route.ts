@@ -16,10 +16,7 @@ export async function GET() {
   } catch (err) {
     console.error("[api/inventory sources]", err);
     return NextResponse.json(
-      {
-        sources: [],
-        error: err instanceof Error ? err.message : String(err),
-      },
+      { sources: [], error: "Couldn't load purchase sources." },
       { status: 500 },
     );
   }

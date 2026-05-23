@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { upsertTodaysCollectionSnapshot } from "@/db/queries/collection-value";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
@@ -8,11 +9,7 @@ export async function POST() {
     const result = await upsertTodaysCollectionSnapshot();
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    console.error("[api/collection/snapshot]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/collection/snapshot", err, "Snapshot failed.");
   }
 }
 

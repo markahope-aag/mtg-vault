@@ -5,6 +5,7 @@ import { deckSnapshots, decks } from "@/db/schema";
 import { fetchDeckDetail } from "@/lib/decks/queries";
 import { calculateBracket } from "@/lib/bracket-engine";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
@@ -84,10 +85,6 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (err) {
-    console.error("[api/decks bracket]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/bracket", err, "Couldn't compute bracket.");
   }
 }

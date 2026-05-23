@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("[daily-snapshot] failed:", err);
     return Response.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: "Snapshot failed; see server logs." },
       { status: 500 },
     );
   }

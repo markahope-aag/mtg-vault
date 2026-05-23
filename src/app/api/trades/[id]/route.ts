@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { trades } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 // Full trade detail: header + the inventory rows on both sides of the
@@ -103,10 +104,6 @@ export async function GET(
         })),
     });
   } catch (err) {
-    console.error("[api/trades/[id] GET]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/trades/id", err, "Couldn't load that trade.");
   }
 }

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[cron/refresh-bracket-flags]", err);
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: "Refresh failed; see server logs." },
       { status: 500 },
     );
   }

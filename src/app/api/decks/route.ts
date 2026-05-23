@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { decks } from "@/db/schema";
 import { createDeckSchema } from "@/lib/decks/schemas";
 import { listDecks } from "@/lib/decks/queries";
+import { serverError } from "@/lib/api-errors";
 import {
   validateCommanderPrinting,
   validatePartnerPrinting,
@@ -37,11 +38,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json({ decks: rows });
   } catch (err) {
-    console.error("[api/decks GET]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks", err, "Couldn't process deck.");
   }
 }
 
@@ -95,10 +92,6 @@ export async function POST(req: NextRequest) {
       .returning();
     return NextResponse.json({ deck: created }, { status: 201 });
   } catch (err) {
-    console.error("[api/decks POST]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks", err, "Couldn't process deck.");
   }
 }

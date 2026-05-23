@@ -200,7 +200,7 @@ export async function GET(req: NextRequest) {
       {
         results: [],
         source: "local" as const,
-        error: err instanceof Error ? err.message : String(err),
+        error: "Search failed.",
       },
       { status: 500 },
     );

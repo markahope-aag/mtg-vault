@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -104,10 +105,6 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error("[api/cards detail]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/cards/oracle_id/detail", err, "Couldn't load that card.");
   }
 }

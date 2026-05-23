@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { cards, deckCards, decks, printings } from "@/db/schema";
 import { upsertDeckCardSchema } from "@/lib/decks/schemas";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 const moveSchema = z.object({
@@ -103,11 +104,7 @@ export async function PATCH(
       .where(eq(decks.id, id));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[api/decks cards PATCH]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/cards", err, "Couldn't update deck cards.");
   }
 }
 
@@ -237,10 +234,6 @@ export async function POST(
       { status: 201 },
     );
   } catch (err) {
-    console.error("[api/decks cards POST]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/cards", err, "Couldn't update deck cards.");
   }
 }

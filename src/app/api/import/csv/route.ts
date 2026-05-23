@@ -9,6 +9,7 @@ import { parseManabox } from "@/lib/importers/manabox";
 import { parseMoxfield } from "@/lib/importers/moxfield";
 import { parseArchidekt } from "@/lib/importers/archidekt";
 import { parseTcgplayer } from "@/lib/importers/tcgplayer";
+import { serverError } from "@/lib/api-errors";
 import {
   resolvePrinting,
   type ResolverPrinting,
@@ -311,10 +312,6 @@ export async function POST(req: NextRequest) {
     if (commit) return await handleCommit(req);
     return await handlePreview(req);
   } catch (err) {
-    console.error("[api/import/csv]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/import/csv", err, "Import failed. Please try again.");
   }
 }

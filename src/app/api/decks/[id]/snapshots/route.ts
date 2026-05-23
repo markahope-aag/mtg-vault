@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { deckSnapshots } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -27,10 +28,6 @@ export async function GET(
       })),
     });
   } catch (err) {
-    console.error("[api/decks snapshots GET]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/snapshots", err, "Couldn't load snapshots.");
   }
 }

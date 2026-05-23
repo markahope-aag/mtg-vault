@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { inventory, locations } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
@@ -37,10 +38,6 @@ export async function DELETE(
     }
     return NextResponse.json({ ok: true, cleared: result.cleared });
   } catch (err) {
-    console.error("[api/locations DELETE]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/locations/id", err, "Couldn't update that location.");
   }
 }

@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { decks } from "@/db/schema";
 import { updateDeckSchema } from "@/lib/decks/schemas";
 import { fetchDeckDetail } from "@/lib/decks/queries";
+import { serverError } from "@/lib/api-errors";
 import {
   validateCommanderPrinting,
   validatePartnerPrinting,
@@ -23,11 +24,7 @@ export async function GET(
     }
     return NextResponse.json(detail);
   } catch (err) {
-    console.error("[api/decks GET id]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id", err, "Couldn't load that deck.");
   }
 }
 
@@ -78,11 +75,7 @@ export async function PATCH(
     }
     return NextResponse.json({ deck: updated[0] });
   } catch (err) {
-    console.error("[api/decks PATCH]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id", err, "Couldn't load that deck.");
   }
 }
 
@@ -101,10 +94,6 @@ export async function DELETE(
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[api/decks DELETE]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id", err, "Couldn't load that deck.");
   }
 }

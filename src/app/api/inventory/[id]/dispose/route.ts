@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { inventory } from "@/db/schema";
 import { disposeRowSchema } from "@/lib/inventory/schemas";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(
@@ -43,10 +44,6 @@ export async function POST(
     }
     return NextResponse.json({ row: updated[0] });
   } catch (err) {
-    console.error("[api/inventory dispose]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/inventory/id/dispose", err, "Couldn't dispose that card.");
   }
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { locations } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 const createSchema = z.object({
@@ -54,10 +55,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ location: created }, { status: 201 });
   } catch (err) {
-    console.error("[api/locations POST]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/locations", err, "Couldn't save location.");
   }
 }

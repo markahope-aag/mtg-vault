@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { deckCards, decks } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
@@ -31,10 +32,6 @@ export async function DELETE(
       .where(eq(decks.id, id));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[api/decks card DELETE]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/cards/printingId", err, "Couldn't update that card.");
   }
 }

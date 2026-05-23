@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { fetchDeckDetail } from "@/lib/decks/queries";
 import { sqlArray } from "@/lib/sql";
+import { serverError } from "@/lib/api-errors";
 import {
   classifyCard,
   slotStatus,
@@ -42,10 +43,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const detail = await fetchDeckDetail(id);
-  if (!detail) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  try {
+    const detail = await fetchDeckDetail(id);
+    if (!detail) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
   // 1) Classify what's already in the deck.
   const counts = new Map<Slot, number>();
@@ -149,6 +151,13 @@ export async function GET(
     });
   }
 
-  const response: CoachResponse = { slots, suggestions };
-  return NextResponse.json(response);
+    const response: CoachResponse = { slots, suggestions };
+    return NextResponse.json(response);
+  } catch (err) {
+    return serverError(
+      "api/decks/[id]/coach",
+      err,
+      "Coach analysis failed.",
+    );
+  }
 }

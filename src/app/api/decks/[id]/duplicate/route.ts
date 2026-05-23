@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { decks } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(
@@ -44,10 +45,6 @@ export async function POST(
 
     return NextResponse.json({ deck: copy }, { status: 201 });
   } catch (err) {
-    console.error("[api/decks duplicate]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/decks/id/duplicate", err, "Couldn't duplicate that deck.");
   }
 }

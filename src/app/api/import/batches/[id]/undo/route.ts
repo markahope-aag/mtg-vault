@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { importBatches, inventory } from "@/db/schema";
 
+import { serverError } from "@/lib/api-errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(
@@ -54,10 +55,6 @@ export async function POST(
       restored,
     });
   } catch (err) {
-    console.error("[api/import/batches/undo]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return serverError("api/import/batches/id/undo", err, "Couldn't undo that import.");
   }
 }
