@@ -30,7 +30,7 @@ A personal Magic: The Gathering inventory and Commander deckbuilding tool. Deskt
 
 ### Still out of scope
 
-Camera scanning, PWA, multi-user, non-Commander formats, trade ledger, local Spellbook combo DB sync.
+Multi-user (deferred — `proxy.ts` allowlist works for the single-user case), non-Commander-format deckbuilding (legality badges exist on card pages, but the deckbuilder is Commander-only), local Spellbook combo DB sync.
 
 ---
 
@@ -43,8 +43,8 @@ Camera scanning, PWA, multi-user, non-Commander formats, trade ledger, local Spe
 | DB | Supabase Postgres | Hosted |
 | ORM | Drizzle | Direct `DATABASE_URL` connection; bypasses RLS as owner |
 | Auth | Supabase Auth (magic link) | Comma-separated `ALLOWED_EMAIL` allowlist |
-| Tables | TanStack Table v8 + Virtual | Inventory grid |
-| Client state | TanStack Query | Deck mutations, search |
+| Tables | Custom (`inventory-table/index.tsx`) | Hand-rolled grouped/physical view with client-side state; no virtualization |
+| Client state | `fetch` + `useState`/`useEffect` | Each pane owns its own fetches and error toasts; no global query cache |
 | Forms | react-hook-form + Zod | API + dialog validation |
 | Charts | Recharts | Dashboard + price history |
 | AI | Anthropic SDK | Strategy tab only; optional |
@@ -137,7 +137,7 @@ magic-app/
 │   │   ├── importers/
 │   │   └── supabase/
 │   └── proxy.ts                        # Auth + allowlist (was middleware.ts in Next 15)
-├── drizzle/                            # 13 migrations
+├── drizzle/                            # 16 migrations
 ├── scripts/sync-scryfall.ts            # Full bulk sync (also `pnpm db:seed`)
 ├── .github/workflows/weekly-card-sync.yml
 ├── vercel.json
@@ -183,7 +183,7 @@ Notable schema choices:
 
 ### RLS
 
-Migration `0002_enable_rls.sql` enables RLS with **no policies** on core tables, blocking anon/authenticated PostgREST access. Drizzle uses the Postgres owner role and bypasses RLS. **`locations` is missing RLS** — known gap to fix in a future migration.
+Migration `0002_enable_rls.sql` enables RLS with **no policies** on core tables, blocking anon/authenticated PostgREST access. Drizzle uses the Postgres owner role and bypasses RLS. The `locations` table was missed in 0002 and was retroactively enabled in `0013_locations_rls_and_drop_combos.sql`; `trades` (added in `0015_trades.sql`) was enabled at create time.
 
 ---
 
@@ -372,15 +372,19 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 ---
 
-## 15. v1+ roadmap (not started)
+## 15. v1 — shipped
 
-- PWA shell (manifest, offline inventory read)
-- Single-card vision scanner
-- EDHREC synergy view
-- Non-Commander format legality
-- Trade tracker
-- Multi-user (`user_id` columns + RLS policies)
-- Local Spellbook combo DB sync (or drop dead tables)
+- PWA shell — `manifest.webmanifest`, service worker with offline-safe cache for shell + Scryfall images + `/api/*`.
+- Single-card vision scanner — camera capture on Inventory → Claude Haiku identifies → hands off to AddCardsDialog.
+- Synergy view — co-occurrence-in-your-decks signal rendered on card detail pages (chosen over scraping EDHrec).
+- Non-Commander format legality — `cards.legalities` jsonb populated by sync; badges on card detail.
+- Trade tracker — `/trades` history + log/detail; `trades` table + `inventory.trade_id` tags both directions.
+
+### Not started
+
+- Multi-user (`user_id` columns + RLS policies) — deferred indefinitely; allowlist works for the single-user case.
+- Non-Commander-format deckbuilding (legality is surfaced, but the deckbuilder still assumes Commander rules).
+- Local Spellbook combo DB sync — the dead tables were dropped in `0013`; bring it back only if Spellbook adds a usable diff feed.
 
 ---
 
@@ -389,7 +393,6 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 - **Card images:** Scryfall CDN directly — do not proxy or self-host
 - **Multi-currency:** USD only (EUR column exists on printings)
 - **Sealed product tracking:** use `notes` if needed
-- **Mobile/PWA:** desktop-first; PWA deferred
 - **Tagging beyond location:** deferred
 
 ---

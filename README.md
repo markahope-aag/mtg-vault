@@ -64,7 +64,7 @@ pnpm db:migrate    # apply migrations from drizzle/
 pnpm db:seed       # full Scryfall bulk sync (long-running; ~500MB download)
 ```
 
-Migrations live in `drizzle/` (13 applied). Schema source of truth: `src/db/schema.ts`.
+Migrations live in `drizzle/` (16 applied). Schema source of truth: `src/db/schema.ts`.
 
 ### Scripts
 

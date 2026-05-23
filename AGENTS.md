@@ -24,7 +24,7 @@ When changing user-facing copy, update **both** `USER-GUIDE.md` and `src/lib/hel
 - Next.js **16** App Router, React 19, TypeScript strict
 - Auth: Supabase magic link + `src/proxy.ts` email allowlist (`ALLOWED_EMAIL`, comma-separated)
 - Data: Drizzle ORM over `DATABASE_URL` (not Supabase client for queries)
-- UI: Tailwind v4, shadcn/ui, TanStack Table/Query
+- UI: Tailwind v4, shadcn/ui, custom table + raw `fetch`/`useState` per pane (TanStack libs are installed but not used; safe to remove)
 
 ## Conventions
 
@@ -33,7 +33,7 @@ When changing user-facing copy, update **both** `USER-GUIDE.md` and `src/lib/hel
 - **Inventory model:** one DB row per physical card (no `quantity` on `inventory`)
 - **Cron routes:** `/api/cron/*` skip proxy auth; require `CRON_SECRET` bearer token
 - **Scryfall bulk sync:** `pnpm db:seed` / GitHub Action — not a Vercel cron (timeout)
-- **Bracket combos:** live Commander Spellbook API — `combos` tables in schema are unused
+- **Bracket combos:** live Commander Spellbook API — the `combos` / `combo_pieces` tables were dropped in migration `0013`
 
 ## Before committing
 
