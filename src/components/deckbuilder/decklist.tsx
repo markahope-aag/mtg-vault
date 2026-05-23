@@ -31,14 +31,21 @@ export function Decklist() {
     moveCard,
   } = useDeckbuilder();
 
-  const mainCards = deck.cards.filter(
-    (c) => c.deckCardRow.category === "main",
+  // Memoize the category splits on deck.cards so downstream useMemos
+  // (mainGroups, curve) actually hit instead of invalidating every render —
+  // each .filter() call returns a fresh array reference, which is what was
+  // breaking the curve memo before.
+  const mainCards = useMemo(
+    () => deck.cards.filter((c) => c.deckCardRow.category === "main"),
+    [deck.cards],
   );
-  const maybeboard = deck.cards.filter(
-    (c) => c.deckCardRow.category === "maybeboard",
+  const maybeboard = useMemo(
+    () => deck.cards.filter((c) => c.deckCardRow.category === "maybeboard"),
+    [deck.cards],
   );
-  const considering = deck.cards.filter(
-    (c) => c.deckCardRow.category === "considering",
+  const considering = useMemo(
+    () => deck.cards.filter((c) => c.deckCardRow.category === "considering"),
+    [deck.cards],
   );
 
   const mainGroups = useMemo(() => {
