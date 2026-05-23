@@ -67,7 +67,6 @@ const ROW_ID = "11111111-1111-4111-8111-111111111111";
 const ORACLE_ID = "22222222-2222-4222-8222-222222222222";
 const PRINTING_ID = "33333333-3333-4333-8333-333333333333";
 const BATCH_ID = "44444444-4444-4444-8444-444444444444";
-const TRADE_ID = "66666666-6666-4666-8666-666666666666";
 const INVENTORY_ID = "55555555-5555-4555-8555-555555555555";
 const VALID_IMAGE_BASE64 = "A".repeat(64);
 const LOCATION_ID = "77777777-7777-4777-8777-777777777777";
@@ -631,162 +630,11 @@ describe("API routes", () => {
     });
   });
 
-  describe("trades routes", () => {
-    it("POST rejects empty trade body", async () => {
-      const { POST } = await import("@/app/api/trades/route");
-      const res = await POST(
-        jsonRequest("http://localhost/api/trades", "POST", {
-          partner: "Alex",
-          out: [],
-          in: [],
-        }),
-      );
-      expect(res.status).toBe(400);
-    });
-
-    it("POST rejects invalid outgoing inventory id", async () => {
-      const { POST } = await import("@/app/api/trades/route");
-      const res = await POST(
-        jsonRequest("http://localhost/api/trades", "POST", {
-          partner: "Alex",
-          out: [{ inventoryId: "not-a-uuid" }],
-          in: [],
-        }),
-      );
-      expect(res.status).toBe(400);
-    });
-
-    it("POST creates a trade with incoming cards", async () => {
-      dbMock.mocks.returning.mockResolvedValueOnce([
-        {
-          id: TRADE_ID,
-          partner: "Alex",
-          tradedAt: new Date("2024-06-01T12:00:00.000Z"),
-          notes: null,
-        },
-      ]);
-      const { POST } = await import("@/app/api/trades/route");
-      const res = await POST(
-        jsonRequest("http://localhost/api/trades", "POST", {
-          partner: "Alex",
-          out: [],
-          in: [{ printingId: PRINTING_ID, condition: "NM" }],
-        }),
-      );
-      expect(res.status).toBe(201);
-      await expect(res.json()).resolves.toMatchObject({
-        trade: { id: TRADE_ID, partner: "Alex" },
-      });
-    });
-
-    it("GET lists trades", async () => {
-      dbMock.mocks.execute.mockResolvedValueOnce([
-        {
-          id: TRADE_ID,
-          partner: "Alex",
-          traded_at: "2024-06-01T12:00:00.000Z",
-          notes: null,
-          created_at: "2024-06-01T12:00:00.000Z",
-          out_count: 1,
-          out_value: "10.00",
-          in_count: 2,
-          in_value: "25.50",
-        },
-      ]);
-      const { GET } = await import("@/app/api/trades/route");
-      const res = await GET();
-      expect(res.status).toBe(200);
-      await expect(res.json()).resolves.toEqual({
-        trades: [
-          {
-            id: TRADE_ID,
-            partner: "Alex",
-            tradedAt: "2024-06-01T12:00:00.000Z",
-            notes: null,
-            outCount: 1,
-            outValue: 10,
-            inCount: 2,
-            inValue: 25.5,
-          },
-        ],
-      });
-    });
-
-    it("GET detail returns 404 for missing trade", async () => {
-      dbMock.mocks.limit.mockResolvedValueOnce([]);
-      const { GET } = await import("@/app/api/trades/[id]/route");
-      const res = await GET(
-        new NextRequest(`http://localhost/api/trades/${TRADE_ID}`),
-        { params: Promise.resolve({ id: TRADE_ID }) },
-      );
-      expect(res.status).toBe(404);
-    });
-
-    it("GET detail returns trade ledger rows", async () => {
-      dbMock.mocks.limit.mockResolvedValueOnce([
-        {
-          id: TRADE_ID,
-          partner: "Alex",
-          tradedAt: new Date("2024-06-01T12:00:00.000Z"),
-          notes: "FNM trade",
-        },
-      ]);
-      dbMock.mocks.execute.mockResolvedValueOnce([
-        {
-          id: INVENTORY_ID,
-          foil: false,
-          etched: false,
-          condition: "NM",
-          disposed_at: "2024-06-01T12:00:00.000Z",
-          disposed_price: "5.00",
-          disposed_to: "Trade: Alex",
-          acquired_price: null,
-          purchased_from: null,
-          location: null,
-          oracle_id: ORACLE_ID,
-          name: "Sol Ring",
-          mana_cost: "{1}",
-          type_line: "Artifact",
-          set_code: "c21",
-          set_name: "Commander 2021",
-          collector_number: "250",
-          image_uri: null,
-        },
-        {
-          id: "99999999-9999-4999-8999-999999999999",
-          foil: false,
-          etched: false,
-          condition: "LP",
-          disposed_at: null,
-          disposed_price: null,
-          disposed_to: null,
-          acquired_price: "3.50",
-          purchased_from: "Trade: Alex",
-          location: "Binder A",
-          oracle_id: ORACLE_ID,
-          name: "Lightning Bolt",
-          mana_cost: "{R}",
-          type_line: "Instant",
-          set_code: "mh2",
-          set_name: "Modern Horizons 2",
-          collector_number: "361",
-          image_uri: null,
-        },
-      ]);
-      const { GET } = await import("@/app/api/trades/[id]/route");
-      const res = await GET(
-        new NextRequest(`http://localhost/api/trades/${TRADE_ID}`),
-        { params: Promise.resolve({ id: TRADE_ID }) },
-      );
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.trade.partner).toBe("Alex");
-      expect(body.out).toHaveLength(1);
-      expect(body.in).toHaveLength(1);
-      expect(body.out[0].name).toBe("Sol Ring");
-      expect(body.in[0].name).toBe("Lightning Bolt");
-    });
-  });
+  // Legacy /api/trades routes were retired in migration 0018 — the
+  // transactions table now covers purchases, sales, and trades in one
+  // model. New transaction tests live in src/lib/ledger/allocate.test.ts
+  // for the math; the API surface is exercised manually until a
+  // transactions describe block is written.
 
   describe("card detail route", () => {
     it("GET returns 404 when card is missing", async () => {

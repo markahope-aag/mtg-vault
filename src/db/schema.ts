@@ -127,15 +127,9 @@ export const inventory = pgTable(
     grade: text("grade"),
     notes: text("notes"),
     importBatchId: uuid("import_batch_id"),
-    // Trade tag — set on inventory rows that came in via a trade (purchase
-    // direction) and on rows disposed via a trade (out direction). Lets the
-    // /trades page reconstruct the full event from both sides. Superseded by
-    // transactionId; kept until the legacy /trades infrastructure is
-    // retired in the UI commit.
-    tradeId: uuid("trade_id"),
-    // Transaction tag (Phase A of the ledger). Replaces tradeId going
-    // forward — every new purchase / sale / trade writes both this and
-    // the legacy disposal fields on the inventory row.
+    // Transaction tag (Phase A of the ledger). Every purchase / sale /
+    // trade writes both this and the canonical inventory.acquired_* /
+    // disposed_* fields on the row.
     transactionId: uuid("transaction_id"),
     // Disposal fields — set when the card is sold/traded/lost. The row is
     // never deleted on disposal so it remains available for historical
@@ -293,23 +287,6 @@ export const deckProposals = pgTable(
   (t) => ({
     statusIdx: index("deck_proposals_status_idx").on(t.status),
     createdAtIdx: index("deck_proposals_created_at_idx").on(t.createdAt),
-  }),
-);
-
-// ─── TRADES (legacy — superseded by transactions) ───────────────
-
-export const trades = pgTable(
-  "trades",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    partner: text("partner").notNull(),
-    tradedAt: timestamp("traded_at").defaultNow().notNull(),
-    notes: text("notes"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    partnerIdx: index("trades_partner_idx").on(t.partner),
-    tradedAtIdx: index("trades_traded_at_idx").on(t.tradedAt),
   }),
 );
 

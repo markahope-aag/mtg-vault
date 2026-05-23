@@ -1,23 +1,25 @@
-import { NewTradeForm } from "@/components/trades/new-trade-form";
+import { TransactionForm } from "@/components/ledger/transaction-form";
 import { BackLink } from "@/components/back-link";
 
 export const dynamic = "force-dynamic";
 
-export default function NewTradePage() {
+export default function NewTransactionPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <div className="mb-4">
-        <BackLink href="/trades" label="Trades" />
+        <BackLink href="/trades" label="Trades &amp; Purchases" />
       </div>
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Log a trade</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Log a transaction
+        </h1>
         <p className="mt-1 text-sm text-text-muted">
-          Record cards going both directions. Out-cards link to existing
-          inventory rows and get marked disposed. In-cards create new
-          inventory rows with the trade as the acquisition source.
+          Purchase: cards in for cash out. Sale: cards out for cash in.
+          Trade: both, with optional cash on either side. Cost basis is
+          allocated automatically by market value; you can override per line.
         </p>
       </header>
-      <NewTradeForm />
+      <TransactionForm />
     </div>
   );
 }
