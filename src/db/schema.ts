@@ -129,8 +129,14 @@ export const inventory = pgTable(
     importBatchId: uuid("import_batch_id"),
     // Trade tag — set on inventory rows that came in via a trade (purchase
     // direction) and on rows disposed via a trade (out direction). Lets the
-    // /trades page reconstruct the full event from both sides.
+    // /trades page reconstruct the full event from both sides. Superseded by
+    // transactionId; kept until the legacy /trades infrastructure is
+    // retired in the UI commit.
     tradeId: uuid("trade_id"),
+    // Transaction tag (Phase A of the ledger). Replaces tradeId going
+    // forward — every new purchase / sale / trade writes both this and
+    // the legacy disposal fields on the inventory row.
+    transactionId: uuid("transaction_id"),
     // Disposal fields — set when the card is sold/traded/lost. The row is
     // never deleted on disposal so it remains available for historical
     // value/cost-basis tracking.
@@ -290,7 +296,7 @@ export const deckProposals = pgTable(
   }),
 );
 
-// ─── TRADES ─────────────────────────────────────────────────────
+// ─── TRADES (legacy — superseded by transactions) ───────────────
 
 export const trades = pgTable(
   "trades",
@@ -304,5 +310,68 @@ export const trades = pgTable(
   (t) => ({
     partnerIdx: index("trades_partner_idx").on(t.partner),
     tradedAtIdx: index("trades_traded_at_idx").on(t.tradedAt),
+  }),
+);
+
+// ─── TRANSACTIONS (Phase A: Trades & Market Intelligence) ──────
+
+// Real-world event grouping inventory movements. A purchase has 1..N 'in'
+// lines; a sale has 1..N 'out' lines; a trade has both. cashOutUsd /
+// cashInUsd live on the header so trades with mixed cash legs ("trade plus
+// $20") express naturally.
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(), // 'purchase' | 'sale' | 'trade'
+    occurredAt: timestamp("occurred_at").notNull(),
+    counterparty: text("counterparty"),
+    channel: text("channel"), // 'lgs' | 'online_marketplace' | 'private' | 'pack' | 'other'
+    cashOutUsd: decimal("cash_out_usd", { precision: 10, scale: 2 }),
+    cashInUsd: decimal("cash_in_usd", { precision: 10, scale: 2 }),
+    feesUsd: decimal("fees_usd", { precision: 10, scale: 2 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    kindIdx: index("transactions_kind_idx").on(t.kind),
+    occurredAtIdx: index("transactions_occurred_at_idx").on(t.occurredAt),
+    counterpartyIdx: index("transactions_counterparty_idx").on(t.counterparty),
+  }),
+);
+
+// One line per inventory movement. allocated_value_usd = cost basis for
+// 'in' lines / proceeds for 'out' lines (allocated from the header cash
+// figures if multiple cards in one transaction). market_value_at_time_usd
+// snapshots printing.usd so allocation works and retro fairness math has a
+// stable basis even after prices move.
+export const transactionLines = pgTable(
+  "transaction_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    inventoryId: uuid("inventory_id").references(() => inventory.id, {
+      onDelete: "set null",
+    }),
+    direction: text("direction").notNull(), // 'in' | 'out'
+    printingId: uuid("printing_id")
+      .notNull()
+      .references(() => printings.id),
+    allocatedValueUsd: decimal("allocated_value_usd", {
+      precision: 10,
+      scale: 2,
+    }),
+    marketValueAtTimeUsd: decimal("market_value_at_time_usd", {
+      precision: 10,
+      scale: 2,
+    }),
+  },
+  (t) => ({
+    transactionIdx: index("transaction_lines_transaction_id_idx").on(
+      t.transactionId,
+    ),
+    inventoryIdx: index("transaction_lines_inventory_id_idx").on(t.inventoryId),
   }),
 );
