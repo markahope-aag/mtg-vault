@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PrintingPicker } from "./printing-picker";
+import { LocationSelect } from "@/components/location-select";
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/inventory/schemas";
 
 export type AddDialogPrinting = {
@@ -260,10 +261,9 @@ export function AddCardsDialog({
                 />
               </Field>
               <Field label="Location">
-                <Input
+                <LocationSelect
                   value={form.location}
-                  onChange={(e) => update("location", e.target.value)}
-                  placeholder="Long box 1"
+                  onChange={(v) => update("location", v)}
                 />
               </Field>
             </div>

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocationSelect } from "@/components/location-select";
 import {
   Select,
   SelectContent,
@@ -324,7 +325,6 @@ export default function ImportPage() {
             setPurchasedFromDefault={setPurchasedFromDefault}
             mode={mode}
             setMode={setMode}
-            locations={locations}
             onBack={() => setStep(1)}
             onNext={() => setStep(3)}
           />
@@ -472,7 +472,6 @@ function StepConfigure({
   setPurchasedFromDefault,
   mode,
   setMode,
-  locations,
   onBack,
   onNext,
 }: {
@@ -483,7 +482,6 @@ function StepConfigure({
   setPurchasedFromDefault: (v: string) => void;
   mode: "append" | "replace_location";
   setMode: (v: "append" | "replace_location") => void;
-  locations: string[];
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -550,18 +548,11 @@ function StepConfigure({
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="defaultLocation">Default location (required)</Label>
-            <Input
-              id="defaultLocation"
-              list="loc-datalist"
+            <LocationSelect
               value={defaultLocation}
-              onChange={(e) => setDefaultLocation(e.target.value)}
-              placeholder="Long box 1, Atraxa deck, …"
+              onChange={setDefaultLocation}
+              placeholder="Pick a location"
             />
-            <datalist id="loc-datalist">
-              {locations.map((l) => (
-                <option key={l} value={l} />
-              ))}
-            </datalist>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="purchasedFromDefault">

@@ -11,8 +11,10 @@ import {
 } from "@/lib/ai/strategy";
 
 export const dynamic = "force-dynamic";
-// LLM call can take 15-40s; default Vercel/Next route timeout is 10s.
-export const maxDuration = 60;
+// LLM call can take 15-60s. Bumped above 60s because a large analysis with
+// the wider max_tokens budget occasionally pushed past the old limit, which
+// caused Vercel to return an HTML error page instead of our JSON response.
+export const maxDuration = 300;
 
 type CachedResponse = {
   analysis: DeckAnalysis | null;

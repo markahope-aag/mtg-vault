@@ -51,11 +51,22 @@ export function StrategyPane() {
       const res = await fetch(`/api/decks/${deck.deck.id}/analyze`, {
         method: "POST",
       });
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+      // The endpoint normally returns JSON, but a platform timeout (Vercel
+      // function limit) can substitute an HTML error page. Read the raw text
+      // and parse defensively so we surface a clean message either way.
+      const text = await res.text();
+      let body: { error?: string; analysis?: unknown } | null = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = null;
       }
-      setData(body as AnalysisResponse);
+      if (!res.ok) {
+        const hint = !body && res.status >= 500 ? " (the request may have timed out — try again)" : "";
+        throw new Error((body?.error ?? `HTTP ${res.status}`) + hint);
+      }
+      if (!body) throw new Error("Empty response from analyze endpoint");
+      setData(body as unknown as AnalysisResponse);
       toast.success("Strategy analysis updated");
     } catch (err) {
       toast.error(

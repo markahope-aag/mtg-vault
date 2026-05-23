@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { db } from "@/db/client";
 import { toIso } from "@/lib/utils";
+import { LocationsManager } from "@/components/system/locations-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -261,6 +262,16 @@ export default async function SystemPage() {
             value={relative(toIso(imports.last_import))}
           />
         </div>
+      </Section>
+
+      {/* Locations */}
+      <Section label="04" title="Locations">
+        <p className="text-[13px] text-[var(--text-secondary)]">
+          Storage locations available when adding or editing inventory cards.
+          Deleting a location only removes it from the dropdown — existing
+          inventory rows keep the value.
+        </p>
+        <LocationsManager />
       </Section>
     </div>
   );

@@ -25,6 +25,7 @@ import {
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/inventory/schemas";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
 import { PrintingPicker, type PrintingOption } from "./printing-picker";
+import { LocationSelect } from "@/components/location-select";
 
 type FormState = {
   printingId: string;
@@ -228,9 +229,9 @@ export function EditRowDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Location">
-              <Input
+              <LocationSelect
                 value={form.location}
-                onChange={(e) => update("location", e.target.value)}
+                onChange={(v) => update("location", v)}
               />
             </Field>
             <Field label="Physical ID">

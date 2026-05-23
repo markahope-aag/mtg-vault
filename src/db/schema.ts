@@ -224,6 +224,14 @@ export const deckSnapshots = pgTable(
   })
 );
 
+// ─── LOCATIONS ──────────────────────────────────────────────────
+
+export const locations = pgTable("locations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── SYNC STATE ─────────────────────────────────────────────────
 
 export const syncState = pgTable("sync_state", {
