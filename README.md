@@ -122,7 +122,14 @@ There are no `user_id` columns — the app assumes one writer. Multi-user would 
 
 ## Testing
 
-No automated test suite yet. Run `pnpm lint` and `pnpm build` before committing.
+Vitest unit tests cover bracket engine pure logic (`src/lib/bracket-engine-logic.ts`) and CSV importers (`src/lib/importers/`).
+
+```powershell
+pnpm test        # run once
+pnpm test:watch  # watch mode
+```
+
+Run `pnpm lint`, `pnpm test`, and `pnpm build` before committing.
 
 ## Spec history
 

@@ -37,4 +37,4 @@ When changing user-facing copy, update **both** `USER-GUIDE.md` and `src/lib/hel
 
 ## Before committing
 
-Run `pnpm lint` and `pnpm build`. No automated test suite yet.
+Run `pnpm lint`, `pnpm test`, and `pnpm build`.
