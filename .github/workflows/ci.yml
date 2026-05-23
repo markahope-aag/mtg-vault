@@ -1,0 +1,50 @@
+name: CI
+
+# Gate every push and PR on lint + tests + a production build. Mirrors the
+# local pre-commit checklist so we never ship a red main again.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Cancel an in-flight run when the same ref is pushed again — saves runner
+# minutes when fixups come in fast.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # `next build` runs typecheck against the whole tree. It also needs a
+      # plausible DATABASE_URL because some modules import the Drizzle client
+      # at import time; the URL never gets connected to during the build.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
