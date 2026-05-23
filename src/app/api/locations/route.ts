@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
@@ -11,11 +11,19 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const rows = await db
-    .select({ id: locations.id, name: locations.name })
-    .from(locations)
-    .orderBy(asc(locations.name));
-  return NextResponse.json({ locations: rows });
+  // Include a usage count so the management UI can warn the user how many
+  // inventory rows will be affected if they delete the location.
+  const rows = (await db.execute(sql`
+    SELECT l.id, l.name,
+           COUNT(i.id) FILTER (WHERE i.disposed_at IS NULL)::int AS used_by
+    FROM locations l
+    LEFT JOIN inventory i ON i.location = l.name
+    GROUP BY l.id, l.name
+    ORDER BY l.name ASC
+  `)) as unknown as Array<{ id: string; name: string; used_by: number }>;
+  return NextResponse.json({
+    locations: rows.map((r) => ({ id: r.id, name: r.name, usedBy: r.used_by })),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -39,7 +47,6 @@ export async function POST(req: NextRequest) {
       .onConflictDoNothing()
       .returning({ id: locations.id, name: locations.name });
     if (!created) {
-      // Already exists — return the existing row instead of 409.
       return NextResponse.json(
         { error: "A location with that name already exists" },
         { status: 409 },

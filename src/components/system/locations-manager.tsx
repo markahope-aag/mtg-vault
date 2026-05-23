@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type LocationRow = { id: string; name: string };
+type LocationRow = { id: string; name: string; usedBy: number };
 
 export function LocationsManager() {
   const [rows, setRows] = useState<LocationRow[]>([]);
@@ -64,7 +64,11 @@ export function LocationsManager() {
 
   const onDelete = useCallback(
     async (row: LocationRow) => {
-      if (!window.confirm(`Delete "${row.name}"? Existing inventory rows keep their value.`)) {
+      const tail =
+        row.usedBy > 0
+          ? ` This will clear the location from ${row.usedBy} inventory card${row.usedBy === 1 ? "" : "s"}.`
+          : "";
+      if (!window.confirm(`Delete "${row.name}"?${tail}`)) {
         return;
       }
       setDeleting(row.id);
@@ -72,8 +76,14 @@ export function LocationsManager() {
         const res = await fetch(`/api/locations/${row.id}`, {
           method: "DELETE",
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        toast.success(`Deleted "${row.name}"`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        const cleared = data?.cleared ?? 0;
+        toast.success(
+          cleared > 0
+            ? `Deleted "${row.name}" · cleared ${cleared} card${cleared === 1 ? "" : "s"}`
+            : `Deleted "${row.name}"`,
+        );
         await refetch();
       } catch (err) {
         toast.error(
@@ -122,7 +132,14 @@ export function LocationsManager() {
               key={r.id}
               className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]"
             >
-              <span className="text-[var(--text-primary)]">{r.name}</span>
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="truncate text-[var(--text-primary)]">
+                  {r.name}
+                </span>
+                <span className="num shrink-0 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                  {r.usedBy} card{r.usedBy === 1 ? "" : "s"}
+                </span>
+              </span>
               <button
                 type="button"
                 onClick={() => void onDelete(r)}

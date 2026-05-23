@@ -268,8 +268,8 @@ export default async function SystemPage() {
       <Section label="04" title="Locations">
         <p className="text-[13px] text-[var(--text-secondary)]">
           Storage locations available when adding or editing inventory cards.
-          Deleting a location only removes it from the dropdown — existing
-          inventory rows keep the value.
+          Deleting a location also clears it from any inventory cards still
+          using it — those rows revert to no location.
         </p>
         <LocationsManager />
       </Section>

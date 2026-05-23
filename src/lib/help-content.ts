@@ -22,7 +22,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "Press Cmd+K (or Ctrl+K) anywhere to open the card search palette.",
+        text: "Press Cmd+K (or Ctrl+K) anywhere to open the card search palette. Card detail pages and the deckbuilder show a back link in the top-left so you don't have to use the browser back button.",
       },
     ],
   },
@@ -53,7 +53,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "To add cards, click Add cards, search for a card, pick it, then choose the printing (filterable by set name, code, or collector number) and fill in condition, location, and acquired price. The card appears in the list immediately.",
+        text: "To add cards, click Add cards, search for a card, pick it, then choose the printing (filterable by set name, code, or collector number) and fill in condition, location, and acquired price. The card appears in the list immediately. Location is a dropdown sourced from the canonical list you manage on the System page.",
       },
     ],
   },
@@ -67,7 +67,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "The filter bar searches by name, set, type, location, and color, with toggles for Foils only and disposed cards. Click a column header to sort; sorting by value uses each card's finish-aware price. The list loads 200 cards at a time — Load more pulls the rest.",
+        text: "The filter bar searches by name, set, type, location, and color, with toggles for Foils only and disposed cards. Click a column header to sort; sorting by value uses each card's finish-aware price. The list loads 200 cards at a time — Load more pulls the rest, and a 'Showing N of M' line keeps you oriented.",
       },
       {
         type: "p",
@@ -81,7 +81,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "Clicking a card name opens its detail page. The art shows a printing you own by default.",
+        text: "Clicking a card name opens its detail page. The art shows a printing you own by default. Double-faced cards show the front face. If the card isn't legal in Commander, a red 'Banned in Commander' tag is displayed.",
       },
       {
         type: "list",
@@ -114,7 +114,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "The deck header menu has Export (copy the decklist in Moxfield/Archidekt text format). Cmd+B opens the bracket panel; Cmd+S saves a snapshot of the deck's value and bracket.",
+        text: "The deck header has a '← Decks' link, the deck name, and an Export action (copy the decklist in Moxfield/Archidekt text format). Cmd+B opens the bracket panel; Cmd+S saves a snapshot of the deck's value and bracket. The right rail has four tabs: Detail, Coach, Strategy, and Acquire.",
       },
     ],
   },
@@ -134,11 +134,15 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Coach is a heuristic build check. Every slot — Ramp, Removal, Card draw, Tutors, and so on — is counted against a target range that scales with the deck's bracket.",
+        text: "The Coach is a heuristic build check. Every slot — Ramp, Removal, Card draw, Tutors, and so on — is counted against a target range that scales with the deck's bracket. Counts update automatically as you add and remove cards.",
       },
       {
         type: "p",
-        text: "Expand a slot to see what's currently in the deck (each with a Remove control) and owned candidates to add. Basic lands have a quantity input and show how many you own; the Coach never adds or recommends more copies than you have.",
+        text: "Expand a slot to see what's currently in the deck and owned candidates to add. The 'N available' badge is uncommitted copies — copies already in another deck don't count, since a physical card can only field one deck. Basic lands have a quantity input on both sides; you can never add more than you have available.",
+      },
+      {
+        type: "p",
+        text: "Each in-deck card has a Remove button. For stacked cards (basic lands), a count input lets you drop a specific number; the row only disappears when the quantity hits zero.",
       },
     ],
   },
@@ -148,11 +152,11 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Strategy tab is an AI analysis. Click Analyze deck for an archetype read, win conditions, a three-phase gameplan, and weaknesses.",
+        text: "The Strategy tab is an AI analysis. Click Analyze deck for an archetype read, win conditions, a three-phase gameplan, and weaknesses. The analysis is cached; use Re-analyze after changing the deck.",
       },
       {
         type: "p",
-        text: "It also lists From your inventory — improvement suggestions drawn from cards you own — and Worth acquiring, a shopping list of strong cards regardless of ownership. The analysis is cached; use Re-analyze after changing the deck.",
+        text: "Two suggestion lists round it out: From your inventory — owned cards that would improve the deck, each with an Add button — and Worth acquiring, best-in-slot recommendations regardless of ownership. The Buy button on a Worth acquiring suggestion adds the card to the deck's 'considering' category, where it flows into the Acquire rollup as a shopping target.",
       },
     ],
   },
@@ -162,7 +166,11 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Acquire tab is a cost-to-build rollup: every non-basic card in the deck you don't own enough copies of, with the shortfall quantity, unit price, and a total. It makes building a theoretical deck from cards you don't own a real workflow — search adds any card, and this panel tells you what assembling it would cost.",
+        text: "The Acquire tab is a cost-to-build rollup: every non-basic card in the deck you don't own enough copies of, with the shortfall quantity, unit price, and a deck total. Basic lands are excluded (those are free). Each row links to the card page.",
+      },
+      {
+        type: "p",
+        text: "Building a theoretical deck from cards you don't own is a real workflow — search adds any card, and this panel tells you what assembling the deck would cost. Strategy's Buy button drops cards straight in.",
       },
     ],
   },
@@ -172,7 +180,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Import page runs a five-step wizard: Upload a CSV (ManaBox, Moxfield, Archidekt, or TCGPlayer), Configure a default location and import mode, Resolve any ambiguous or unmatched rows, Confirm the counts, and Done.",
+        text: "The Import page runs a five-step wizard: Upload a CSV (ManaBox, Moxfield, Archidekt, or TCGPlayer), Configure a default location (picked from the canonical list) and import mode, Resolve any ambiguous or unmatched rows, Confirm the counts, and Done.",
       },
       {
         type: "p",
@@ -191,6 +199,20 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         type: "p",
         text: "The full card database refreshes weekly from Scryfall; the daily value snapshot updates on its own schedule.",
+      },
+    ],
+  },
+  {
+    id: "locations",
+    title: "Locations",
+    blocks: [
+      {
+        type: "p",
+        text: "The Locations section on the System page manages the dropdown options shown when adding or editing inventory cards (and when configuring an import). Seeded with Trade Binder, Kabinka Box, and Card Box, plus any locations already in use. Each row shows how many inventory cards currently have that location.",
+      },
+      {
+        type: "p",
+        text: "Add a new location with the input and Add button. Delete a location with the Delete action — that removes it from the dropdown AND clears the location from any inventory cards still using it (they revert to no location). The confirm dialog tells you exactly how many cards will be affected before you commit.",
       },
     ],
   },
