@@ -60,6 +60,9 @@ export const printings = pgTable(
     collectorNumber: text("collector_number").notNull(),
     rarity: text("rarity"),
     imageUris: jsonb("image_uris"),
+    // Per-face data for double-faced cards (image_uris[0]/[1] etc.). Top-level
+    // image_uris is null for DFCs — the face art lives here.
+    cardFaces: jsonb("card_faces"),
     releasedAt: timestamp("released_at"),
     usd: decimal("usd", { precision: 10, scale: 2 }),
     usdFoil: decimal("usd_foil", { precision: 10, scale: 2 }),

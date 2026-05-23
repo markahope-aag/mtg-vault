@@ -218,6 +218,7 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
       collectorNumber: c.collector_number,
       rarity: c.rarity ?? null,
       imageUris: c.image_uris ?? null,
+      cardFaces: c.card_faces ?? null,
       releasedAt: c.released_at ? new Date(c.released_at) : null,
       usd: c.prices?.usd ?? null,
       usdFoil: c.prices?.usd_foil ?? null,

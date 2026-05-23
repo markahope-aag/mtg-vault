@@ -34,7 +34,7 @@ type SlotSuggestion = {
   manaCost: string | null;
   typeLine: string | null;
   edhrecRank: number | null;
-  ownedCount: number;
+  availableCount: number;
 };
 
 type CoachResponse = {
@@ -398,7 +398,7 @@ function SuggestionRow({
       const printing = data.printings?.[0];
       if (!printing) throw new Error("No printings");
       // Never add more copies than the player owns.
-      const cap = Math.max(1, sug.ownedCount);
+      const cap = Math.max(1, sug.availableCount);
       const n = isBasic ? Math.max(1, Math.min(qty, cap)) : 1;
       await addCard(printing.id, sug.oracleId, "main", n);
       toast.success(`Added ${n}× ${sug.name}`);
@@ -409,7 +409,7 @@ function SuggestionRow({
     } finally {
       setBusy(false);
     }
-  }, [sug.oracleId, sug.name, addCard, isBasic, qty, sug.ownedCount]);
+  }, [sug.oracleId, sug.name, addCard, isBasic, qty, sug.availableCount]);
 
   return (
     <li className="flex items-center gap-2 py-1.5 text-[12px]">
@@ -425,7 +425,7 @@ function SuggestionRow({
         className="num shrink-0 rounded-sm bg-[var(--surface-inset)] px-1 text-[10px] text-[var(--value-positive)]"
         title="Copies you own"
       >
-        {sug.ownedCount} owned
+        {sug.availableCount} avail
       </span>
       {sug.edhrecRank != null && !isBasic && (
         <span className="num shrink-0 text-[10px] text-text-muted">
@@ -436,7 +436,7 @@ function SuggestionRow({
         <input
           type="number"
           min={1}
-          max={Math.max(1, sug.ownedCount)}
+          max={Math.max(1, sug.availableCount)}
           value={qty}
           onChange={(e) =>
             setQty(
@@ -444,12 +444,12 @@ function SuggestionRow({
                 1,
                 Math.min(
                   Number(e.target.value) || 1,
-                  Math.max(1, sug.ownedCount),
+                  Math.max(1, sug.availableCount),
                 ),
               ),
             )
           }
-          aria-label={`Quantity of ${sug.name} (max ${sug.ownedCount} owned)`}
+          aria-label={`Quantity of ${sug.name} (max ${sug.availableCount} avail)`}
           className="num h-5 w-11 shrink-0 rounded-sm border border-border-subtle bg-surface-base px-1 text-[11px] text-text-primary outline-none focus:border-brand"
         />
       )}

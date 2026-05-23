@@ -29,7 +29,7 @@ type SlotSuggestion = {
   manaCost: string | null;
   typeLine: string | null;
   edhrecRank: number | null;
-  ownedCount: number;
+  availableCount: number;
 };
 
 type CoachResponse = {
@@ -88,7 +88,9 @@ export async function GET(
       ? detail.colorIdentity
       : ["W", "U", "B", "R", "G"];
 
-  // Fetch a generous candidate pool — we classify locally and bucket by slot.
+  // Fetch a generous candidate pool — owned cards NOT committed to other
+  // decks (one physical copy can only field one deck). We classify locally
+  // and bucket by slot.
   const rows = (await db.execute(sql`
     SELECT
       c.oracle_id,
@@ -97,10 +99,16 @@ export async function GET(
       c.type_line,
       c.oracle_text,
       c.edhrec_rank,
-      o.owned_count
+      (o.owned_count - COALESCE(other_decks.qty, 0))::int AS available_count
     FROM cards c
     INNER JOIN oracle_ownership o ON o.oracle_id = c.oracle_id
-    WHERE o.owned_count > 0
+    LEFT JOIN (
+      SELECT oracle_id, SUM(committed_qty)::int AS qty
+      FROM deck_commitments
+      WHERE deck_id <> ${id}::uuid
+      GROUP BY oracle_id
+    ) other_decks ON other_decks.oracle_id = c.oracle_id
+    WHERE (o.owned_count - COALESCE(other_decks.qty, 0)) > 0
       AND c.is_commander_legal = TRUE
       AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ${sqlArray(identity, "text")}
     ORDER BY c.edhrec_rank ASC NULLS LAST
@@ -112,7 +120,7 @@ export async function GET(
     type_line: string | null;
     oracle_text: string | null;
     edhrec_rank: number | null;
-    owned_count: number;
+    available_count: number;
   }>;
 
   const suggestions: Record<string, SlotSuggestion[]> = {};
@@ -137,7 +145,7 @@ export async function GET(
       manaCost: r.mana_cost,
       typeLine: r.type_line,
       edhrecRank: r.edhrec_rank,
-      ownedCount: r.owned_count,
+      availableCount: r.available_count,
     });
   }
 
