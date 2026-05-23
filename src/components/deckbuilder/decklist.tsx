@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Trash2 } from "lucide-react";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
+import { pickCardImage } from "@/lib/card-image";
 import {
   TYPE_GROUP_ORDER,
   typeGroupOf,
@@ -80,8 +81,7 @@ export function Decklist() {
         oracleText: c.card.oracleText,
         colorIdentity: c.card.colorIdentity,
         keywords: c.card.keywords,
-        imageUri:
-          (c.printing.imageUris?.small as string | undefined) ?? null,
+        imageUri: pickCardImage(c.printing.imageUris, c.printing.cardFaces, "small"),
         inDeck: {
           printingId: c.deckCardRow.printingId,
           category: c.deckCardRow.category,
@@ -276,9 +276,11 @@ function CommanderRow({
         )}
       >
         <Thumb
-          src={
-            (commander.printing.imageUris?.small as string | undefined) ?? null
-          }
+          src={pickCardImage(
+            commander.printing.imageUris,
+            commander.printing.cardFaces,
+            "small",
+          )}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">

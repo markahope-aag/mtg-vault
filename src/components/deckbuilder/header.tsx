@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ImageOff, MoreHorizontal } from "lucide-react";
+import { pickCardImage } from "@/lib/card-image";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,9 +81,11 @@ export function DeckbuilderHeader({
           printingId: deck.partner.printing.id,
           oracleId: deck.partner.oracleId,
           name: deck.partner.name,
-          imageUri:
-            (deck.partner.printing.imageUris?.normal as string | undefined) ??
-            null,
+          imageUri: pickCardImage(
+            deck.partner.printing.imageUris,
+            deck.partner.printing.cardFaces,
+            "normal",
+          ),
           oracleText: deck.partner.oracleText,
           colorIdentity: deck.partner.colorIdentity,
           typeLine: deck.partner.typeLine,

@@ -93,7 +93,7 @@ async function searchLocal(
       c.color_identity,
       c.edhrec_rank,
       p.id AS default_printing_id,
-      (p.image_uris ->> 'small') AS image_uri
+      COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
     FROM cards c
     LEFT JOIN LATERAL (
       SELECT id, image_uris

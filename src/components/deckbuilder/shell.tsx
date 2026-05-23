@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { AvailabilityMap } from "@/db/queries/availability";
 import type { DeckDetail } from "@/lib/decks/types";
+import { pickCardImage } from "@/lib/card-image";
 import { DeckbuilderHeader } from "./header";
 import { SearchPane } from "./search-pane";
 import { Decklist } from "./decklist";
@@ -69,11 +70,6 @@ export function useDeckbuilder(): DeckbuilderContextValue {
   const ctx = useContext(DeckbuilderContext);
   if (!ctx) throw new Error("useDeckbuilder must be used inside DeckbuilderShell");
   return ctx;
-}
-
-function pickImage(imgs: Record<string, string> | null): string | null {
-  if (!imgs) return null;
-  return imgs.normal ?? imgs.large ?? imgs.small ?? null;
 }
 
 export function DeckbuilderShell({
@@ -376,7 +372,11 @@ export function DeckbuilderShell({
   );
 
   // Pull commander image for the header
-  const commanderImg = pickImage(deck.commander?.printing.imageUris ?? null);
+  const commanderImg = pickCardImage(
+    deck.commander?.printing.imageUris,
+    deck.commander?.printing.cardFaces,
+    "normal",
+  );
 
   return (
     <DeckbuilderContext.Provider value={ctxValue}>

@@ -21,6 +21,7 @@ export type DeckCard = {
     setName: string;
     collectorNumber: string;
     imageUris: Record<string, string> | null;
+    cardFaces: Array<{ image_uris?: Record<string, string> | null }> | null;
     usd: string | null;
     usdFoil: string | null;
   };
@@ -47,6 +48,7 @@ export type DeckCommander = {
     setName: string;
     collectorNumber: string;
     imageUris: Record<string, string> | null;
+    cardFaces: Array<{ image_uris?: Record<string, string> | null }> | null;
     usd: string | null;
     usdFoil: string | null;
   };

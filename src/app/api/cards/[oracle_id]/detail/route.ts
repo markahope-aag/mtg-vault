@@ -24,7 +24,7 @@ export async function GET(
 
     const printings = (await db.execute(sql`
       SELECT id, set_code, set_name, collector_number,
-             (image_uris ->> 'small') AS image_uri,
+             COALESCE(image_uris ->> 'small', card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri,
              usd, usd_foil, rarity
       FROM printings
       WHERE oracle_id = ${oracle_id}

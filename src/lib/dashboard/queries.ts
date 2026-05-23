@@ -52,7 +52,7 @@ export async function fetchTopCardsByValue(limit = 20): Promise<TopCard[]> {
   const rows = (await db.execute(sql`
     SELECT
       c.oracle_id, p.id AS printing_id, c.name, p.set_code, p.set_name,
-      (p.image_uris ->> 'small') AS image_uri,
+      COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri,
       COUNT(*)::int AS count,
       AVG(
         CASE
@@ -115,7 +115,7 @@ export async function fetchDeckSummaries(): Promise<DeckSummary[]> {
     SELECT
       d.id, d.name, d.target_bracket,
       cmd.name AS commander_name,
-      (cmd_p.image_uris ->> 'small') AS commander_image,
+      COALESCE(cmd_p.image_uris ->> 'small', cmd_p.card_faces -> 0 -> 'image_uris' ->> 'small') AS commander_image,
       (
         SELECT calculated_bracket
         FROM deck_snapshots ds

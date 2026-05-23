@@ -10,6 +10,7 @@ import {
 import { ImageOff, Plus, Search } from "lucide-react";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
+import { pickCardImage } from "@/lib/card-image";
 import { cn } from "@/lib/utils";
 
 type SearchResult = {
@@ -238,9 +239,11 @@ export function SearchPane() {
                     colorIdentity: c.card.colorIdentity,
                     edhrecRank: null,
                     defaultPrintingId: c.printing.id,
-                    imageUri:
-                      (c.printing.imageUris?.small as string | undefined) ??
-                      null,
+                    imageUri: pickCardImage(
+                      c.printing.imageUris,
+                      c.printing.cardFaces,
+                      "small",
+                    ),
                   }}
                   availability={availability[c.card.oracleId]}
                   pending={pendingOracleIds.has(c.card.oracleId)}

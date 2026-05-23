@@ -58,7 +58,7 @@ export async function listDecks(opts: {
       d.target_bracket, d.archetype, d.notes, d.is_primary,
       d.created_at, d.updated_at,
       cmd.name AS commander_name,
-      (cmd_p.image_uris ->> 'normal') AS commander_image_uri,
+      COALESCE(cmd_p.image_uris ->> 'normal', cmd_p.card_faces -> 0 -> 'image_uris' ->> 'normal') AS commander_image_uri,
       cmd.color_identity,
       partner.name AS partner_name,
       COALESCE(stats.total_cards, 0)::int AS total_cards,
@@ -135,6 +135,7 @@ export async function fetchDeckDetail(deckId: string) {
       cmd_p.id AS cmd_printing_id, cmd_p.set_code AS cmd_set_code,
       cmd_p.set_name AS cmd_set_name, cmd_p.collector_number AS cmd_collector_number,
       cmd_p.image_uris AS cmd_image_uris,
+      cmd_p.card_faces AS cmd_card_faces,
       cmd_p.usd AS cmd_usd, cmd_p.usd_foil AS cmd_usd_foil,
       pa.oracle_id AS pa_oracle_id, pa.name AS pa_name,
       pa.mana_cost AS pa_mana_cost, pa.cmc AS pa_cmc,
@@ -144,6 +145,7 @@ export async function fetchDeckDetail(deckId: string) {
       pa_p.id AS pa_printing_id, pa_p.set_code AS pa_set_code,
       pa_p.set_name AS pa_set_name, pa_p.collector_number AS pa_collector_number,
       pa_p.image_uris AS pa_image_uris,
+      pa_p.card_faces AS pa_card_faces,
       pa_p.usd AS pa_usd, pa_p.usd_foil AS pa_usd_foil
     FROM decks d
     LEFT JOIN printings cmd_p ON cmd_p.id = d.commander_printing_id
@@ -161,7 +163,7 @@ export async function fetchDeckDetail(deckId: string) {
       dc.printing_id, dc.quantity, dc.category,
       c.oracle_id, c.name, c.mana_cost, c.cmc, c.type_line, c.oracle_text,
       c.colors, c.color_identity, c.keywords,
-      p.set_code, p.set_name, p.collector_number, p.image_uris,
+      p.set_code, p.set_name, p.collector_number, p.image_uris, p.card_faces,
       p.usd, p.usd_foil,
       (
         SELECT count(*)::int FROM inventory i
@@ -196,6 +198,7 @@ export async function fetchDeckDetail(deckId: string) {
     set_name: string;
     collector_number: string;
     image_uris: Record<string, string> | null;
+    card_faces: Array<{ image_uris?: Record<string, string> | null }> | null;
     usd: string | null;
     usd_foil: string | null;
     owned_count: number;
@@ -225,6 +228,7 @@ export async function fetchDeckDetail(deckId: string) {
       setName: r.set_name,
       collectorNumber: r.collector_number,
       imageUris: r.image_uris,
+      cardFaces: r.card_faces,
       usd: r.usd,
       usdFoil: r.usd_foil,
     },
@@ -253,6 +257,9 @@ export async function fetchDeckDetail(deckId: string) {
             setName: d.cmd_set_name as string,
             collectorNumber: d.cmd_collector_number as string,
             imageUris: d.cmd_image_uris as Record<string, string> | null,
+            cardFaces: d.cmd_card_faces as
+              | Array<{ image_uris?: Record<string, string> | null }>
+              | null,
             usd: d.cmd_usd as string | null,
             usdFoil: d.cmd_usd_foil as string | null,
           },
@@ -277,6 +284,9 @@ export async function fetchDeckDetail(deckId: string) {
             setName: d.pa_set_name as string,
             collectorNumber: d.pa_collector_number as string,
             imageUris: d.pa_image_uris as Record<string, string> | null,
+            cardFaces: d.pa_card_faces as
+              | Array<{ image_uris?: Record<string, string> | null }>
+              | null,
             usd: d.pa_usd as string | null,
             usdFoil: d.pa_usd_foil as string | null,
           },

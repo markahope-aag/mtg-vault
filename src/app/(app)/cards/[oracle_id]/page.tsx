@@ -4,6 +4,7 @@ import Link from "next/link";
 import { db } from "@/db/client";
 import { cards, printings } from "@/db/schema";
 import { toIso } from "@/lib/utils";
+import { pickCardImage } from "@/lib/card-image";
 
 type UsedInDeck = {
   deckId: string;
@@ -51,10 +52,13 @@ import type { InventoryRowWithCard } from "@/lib/inventory/types";
 
 type Printing = typeof printings.$inferSelect;
 
-function pickPreferredImage(images: unknown): string | null {
-  if (!images || typeof images !== "object") return null;
-  const map = images as Record<string, string>;
-  return map.normal ?? map.large ?? map.png ?? map.small ?? null;
+// Kept for callers that just have imageUris in scope; routes through the
+// shared helper which handles double-faced cards.
+function pickPreferredImage(
+  images: Record<string, string> | null | undefined,
+  faces?: Array<{ image_uris?: Record<string, string> | null }> | null,
+): string | null {
+  return pickCardImage(images, faces, "normal");
 }
 
 function isPromoLike(p: Printing): boolean {
@@ -74,7 +78,7 @@ async function fetchOwnedRows(
       c.oracle_id, c.name, c.mana_cost, c.type_line, c.color_identity, c.cmc,
       p.set_code, p.set_name, p.collector_number, p.rarity,
       p.usd, p.usd_foil, p.usd_etched,
-      (p.image_uris ->> 'small') AS image_uri
+      COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
     FROM inventory i
     JOIN printings p ON p.id = i.printing_id
     JOIN cards c ON c.oracle_id = p.oracle_id
@@ -208,7 +212,13 @@ export default async function CardDetailPage({
         {/* LEFT: image + static metadata */}
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <CardImage
-            src={pickPreferredImage(selectedPrinting?.imageUris)}
+            src={pickPreferredImage(
+              selectedPrinting?.imageUris as Record<string, string> | null | undefined,
+              selectedPrinting?.cardFaces as
+                | Array<{ image_uris?: Record<string, string> | null }>
+                | null
+                | undefined,
+            )}
             alt={card.name}
           />
 

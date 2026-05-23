@@ -90,7 +90,7 @@ export async function listInventory(
       c.oracle_id, c.name, c.mana_cost, c.type_line, c.color_identity, c.cmc,
       p.set_code, p.set_name, p.collector_number, p.rarity,
       p.usd, p.usd_foil, p.usd_etched,
-      (p.image_uris ->> 'small') AS image_uri
+      COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
     FROM inventory i
     JOIN printings p ON p.id = i.printing_id
     JOIN cards c ON c.oracle_id = p.oracle_id

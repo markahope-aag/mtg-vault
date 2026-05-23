@@ -61,9 +61,13 @@ const TAG_TONE: Record<
     "bg-[var(--color-mtg-blue)]/15 text-[var(--color-mtg-blue)] border-[var(--color-mtg-blue)]/30",
 };
 
-function pickImage(imgs: Record<string, string> | null): string | null {
-  if (!imgs) return null;
-  return imgs.normal ?? imgs.large ?? imgs.small ?? null;
+import { pickCardImage } from "@/lib/card-image";
+
+function pickImage(
+  imgs: Record<string, string> | null | undefined,
+  faces?: Array<{ image_uris?: Record<string, string> | null }> | null,
+): string | null {
+  return pickCardImage(imgs, faces, "normal");
 }
 
 export function DetailPane() {
@@ -122,11 +126,17 @@ export function DetailPane() {
   // For a card that's in the deck, show the art of the printing the deck
   // actually uses — not detail.printings[0], which is just the newest one.
   const deckPrintingImage = isCommander
-    ? pickImage(deck.commander?.printing.imageUris ?? null)
+    ? pickImage(
+        deck.commander?.printing.imageUris,
+        deck.commander?.printing.cardFaces,
+      )
     : isPartner
-      ? pickImage(deck.partner?.printing.imageUris ?? null)
+      ? pickImage(
+          deck.partner?.printing.imageUris,
+          deck.partner?.printing.cardFaces,
+        )
       : inDeck
-        ? pickImage(inDeck.printing.imageUris)
+        ? pickImage(inDeck.printing.imageUris, inDeck.printing.cardFaces)
         : null;
   const headerImage =
     deckPrintingImage ??
