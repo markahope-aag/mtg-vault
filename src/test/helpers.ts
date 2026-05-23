@@ -10,15 +10,21 @@ export function createDbMock() {
   const update = vi.fn().mockReturnValue({ set });
   const del = vi.fn().mockReturnValue({ where });
   const limit = vi.fn().mockResolvedValue([]);
-  const from = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit }) });
+  const selectWhere = vi.fn().mockReturnValue({ limit });
+  const innerJoin = vi.fn().mockReturnValue({ where: selectWhere });
+  const from = vi.fn().mockReturnValue({ where: selectWhere, innerJoin });
   const select = vi.fn().mockReturnValue({ from });
+  // The tx object passed into db.transaction(fn) must expose the same
+  // surface as the real db. Missing `delete` here made the import-undo
+  // and trade tests fail with "tx.delete is not a function" once those
+  // routes were wrapped in transactions.
   const transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-    fn({ execute, insert, update, select }),
+    fn({ execute, insert, update, select, delete: del }),
   );
 
   return {
     db: { execute, insert, update, select, delete: del, transaction },
-    mocks: { execute, insert, values, returning, select, from, limit, where },
+    mocks: { execute, insert, values, returning, select, from, limit, where, selectWhere },
   };
 }
 
