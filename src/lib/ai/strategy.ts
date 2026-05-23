@@ -22,7 +22,10 @@ import type { DeckDetail } from "@/lib/decks/types";
 
 export const STRATEGY_MODEL = "claude-sonnet-4-6";
 const MAX_INVENTORY_CANDIDATES = 150;
-const MAX_OUTPUT_TOKENS = 4096;
+// 4096 was too tight once acquisitions joined improvements — the model could
+// hit the cap mid-tool-use, truncate the JSON, and the response became
+// unparseable. 16384 is comfortable headroom for the full analysis.
+const MAX_OUTPUT_TOKENS = 16384;
 
 export type DeckAnalysis = {
   archetype: string;
@@ -426,7 +429,16 @@ export async function analyzeDeck(detail: DeckDetail): Promise<DeckAnalysis> {
     (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
   );
   if (!toolUse) {
-    throw new Error("Model did not call submit_deck_analysis tool");
+    // Most common cause when the schema gets richer: the response was
+    // truncated by the token cap mid-tool-use, leaving no parseable block.
+    if (response.stop_reason === "max_tokens") {
+      throw new Error(
+        "Response truncated at the token cap — try Re-analyze, or report this so the max can be raised.",
+      );
+    }
+    throw new Error(
+      `Model did not call submit_deck_analysis tool (stop_reason: ${response.stop_reason})`,
+    );
   }
   const raw = toolUse.input as DeckAnalysis;
 
