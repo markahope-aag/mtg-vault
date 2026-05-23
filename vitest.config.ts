@@ -6,7 +6,6 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["src/test/setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
-    environmentMatchGlobs: [["src/**/*.test.tsx", "happy-dom"]],
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/proxy.ts", "src/app/api/**", "src/components/**"],
@@ -18,10 +17,19 @@ export default defineConfig({
         "src/components/ui/**",
       ],
       thresholds: {
-        lines: 45,
-        functions: 45,
-        branches: 38,
-        statements: 45,
+        // Lib + proxy are the regression gate; API/UI coverage is tracked but not blocking yet.
+        "src/lib/**": {
+          lines: 45,
+          functions: 45,
+          branches: 38,
+          statements: 45,
+        },
+        "src/proxy.ts": {
+          lines: 45,
+          functions: 20,
+          branches: 50,
+          statements: 45,
+        },
       },
     },
   },

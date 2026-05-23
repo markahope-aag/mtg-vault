@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+// @vitest-environment happy-dom
+
+import { describe, expect, it, vi, afterEach } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import { BracketBadge } from "./bracket-badge";
 import { ValueDelta } from "./value-delta";
 import { Logo } from "./logo";
@@ -8,6 +10,7 @@ import { ImgWithFallback } from "./img-with-fallback";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
+  useRouter: () => ({ back: vi.fn() }),
 }));
 
 vi.mock("next/link", () => ({
@@ -27,6 +30,9 @@ vi.mock("next/link", () => ({
 }));
 
 import { NavLink } from "./nav-link";
+import { BackLink } from "./back-link";
+
+afterEach(() => cleanup());
 
 describe("BracketBadge", () => {
   it("renders null bracket placeholder", () => {
@@ -77,7 +83,7 @@ describe("ImgWithFallback", () => {
 
   it("renders image when src is provided", () => {
     render(<ImgWithFallback src="https://example.com/card.jpg" alt="Card" />);
-    expect(screen.getByRole("img")).toHaveAttribute(
+    expect(screen.getByAltText("Card")).toHaveAttribute(
       "src",
       "https://example.com/card.jpg",
     );
@@ -91,5 +97,20 @@ describe("NavLink", () => {
       "href",
       "/decks",
     );
+  });
+});
+
+describe("BackLink", () => {
+  it("renders a link when href is provided", () => {
+    render(<BackLink href="/decks" label="Decks" />);
+    expect(screen.getByRole("link", { name: /Decks/i })).toHaveAttribute(
+      "href",
+      "/decks",
+    );
+  });
+
+  it("renders a button when href is omitted", () => {
+    render(<BackLink label="Go back" />);
+    expect(screen.getByRole("button", { name: /Go back/i })).toBeInTheDocument();
   });
 });

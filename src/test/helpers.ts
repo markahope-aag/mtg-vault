@@ -5,9 +5,10 @@ export function createDbMock() {
   const returning = vi.fn().mockResolvedValue([{ id: "mock-id" }]);
   const values = vi.fn().mockReturnValue({ returning, onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) });
   const insert = vi.fn().mockReturnValue({ values });
-  const where = vi.fn().mockResolvedValue(undefined);
+  const where = vi.fn().mockReturnValue({ returning });
   const set = vi.fn().mockReturnValue({ where });
   const update = vi.fn().mockReturnValue({ set });
+  const del = vi.fn().mockReturnValue({ where });
   const limit = vi.fn().mockResolvedValue([]);
   const from = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit }) });
   const select = vi.fn().mockReturnValue({ from });
@@ -16,8 +17,8 @@ export function createDbMock() {
   );
 
   return {
-    db: { execute, insert, update, select, delete: vi.fn().mockReturnValue({ where }), transaction },
-    mocks: { execute, insert, values, returning, select, from, limit },
+    db: { execute, insert, update, select, delete: del, transaction },
+    mocks: { execute, insert, values, returning, select, from, limit, where },
   };
 }
 

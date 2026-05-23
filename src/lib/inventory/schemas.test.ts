@@ -6,7 +6,7 @@ import {
   updateInventoryRowSchema,
 } from "./schemas";
 
-const PRINTING_ID = "11111111-1111-1111-1111-111111111111";
+const PRINTING_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("createInventoryRowSchema", () => {
   it("accepts a valid row", () => {
@@ -27,10 +27,10 @@ describe("createInventoryRowSchema", () => {
     expect(parsed.location).toBeNull();
   });
 
-  it("parses acquired price strings", () => {
+  it("parses numeric acquired prices", () => {
     const parsed = createInventoryRowSchema.parse({
       printingId: PRINTING_ID,
-      acquiredPrice: "$12.50",
+      acquiredPrice: 12.5,
     });
     expect(parsed.acquiredPrice).toBe("12.50");
   });

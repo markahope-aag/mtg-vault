@@ -11,7 +11,7 @@ import {
   validatePartnerPrinting,
 } from "./validation";
 
-const PRINTING_ID = "11111111-1111-1111-1111-111111111111";
+const PRINTING_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("validateCommanderPrinting", () => {
   beforeEach(() => mockExecute.mockReset());
@@ -57,7 +57,7 @@ describe("validatePartnerPrinting", () => {
     mockExecute.mockResolvedValueOnce([{ oracle_text: "Partner" }]);
     const result = await validatePartnerPrinting(
       PRINTING_ID,
-      "22222222-2222-2222-2222-222222222222",
+      "22222222-2222-4222-8222-222222222222",
     );
     expect(result).toEqual({ ok: true });
   });
@@ -66,7 +66,7 @@ describe("validatePartnerPrinting", () => {
     mockExecute.mockResolvedValueOnce([{ oracle_text: "Flying" }]);
     const result = await validatePartnerPrinting(
       PRINTING_ID,
-      "22222222-2222-2222-2222-222222222222",
+      "22222222-2222-4222-8222-222222222222",
     );
     expect(result.ok).toBe(false);
   });

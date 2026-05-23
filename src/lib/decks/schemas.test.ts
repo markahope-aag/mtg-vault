@@ -5,7 +5,7 @@ import {
   upsertDeckCardSchema,
 } from "./schemas";
 
-const PRINTING_ID = "11111111-1111-1111-1111-111111111111";
+const PRINTING_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("createDeckSchema", () => {
   it("accepts a minimal deck", () => {

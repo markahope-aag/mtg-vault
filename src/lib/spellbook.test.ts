@@ -41,7 +41,7 @@ describe("estimateBracket", () => {
   beforeEach(() => {
     mockExecute.mockReset();
     mockExecute.mockResolvedValue([
-      { oracle_id: "11111111-1111-1111-1111-111111111111", name: "Sol Ring" },
+      { oracle_id: "11111111-1111-4111-8111-111111111111", name: "Sol Ring" },
     ]);
   });
 
@@ -69,7 +69,7 @@ describe("estimateBracket", () => {
 
     const result = await estimateBracket({
       commanderOracleIds: [],
-      mainOracleIds: ["11111111-1111-1111-1111-111111111111"],
+      mainOracleIds: ["11111111-1111-4111-8111-111111111111"],
     });
 
     expect(result.spellbookBracket).toBe(3);
@@ -85,7 +85,7 @@ describe("estimateBracket", () => {
     await expect(
       estimateBracket({
         commanderOracleIds: [],
-        mainOracleIds: ["11111111-1111-1111-1111-111111111111"],
+        mainOracleIds: ["33333333-3333-4333-8333-333333333333"],
       }),
     ).rejects.toBeInstanceOf(SpellbookUnavailableError);
   });
