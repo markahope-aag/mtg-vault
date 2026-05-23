@@ -33,6 +33,7 @@ export function GenerateEntry() {
   const [searching, setSearching] = useState(false);
   const [archetype, setArchetype] = useState("");
   const [bracket, setBracket] = useState<string>("3");
+  const [kind, setKind] = useState<"standard" | "rogue">("standard");
   const [submitting, setSubmitting] = useState(false);
   const debounceRef = useRef<number | null>(null);
 
@@ -89,7 +90,7 @@ export function GenerateEntry() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          kind: "standard",
+          kind,
           commanderOracleId: commander?.oracleId,
           archetypeBrief: archetype.trim() || undefined,
           targetBracket: bracket ? Number.parseInt(bracket, 10) : null,
@@ -118,7 +119,7 @@ export function GenerateEntry() {
     } finally {
       setSubmitting(false);
     }
-  }, [archetype, bracket, commander, router]);
+  }, [archetype, bracket, commander, kind, router]);
 
   const canSubmit =
     !submitting && (commander != null || archetype.trim().length > 0);
@@ -251,10 +252,54 @@ export function GenerateEntry() {
           </Select>
         </div>
 
+        <div className="space-y-2">
+          <Label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+            Mode
+          </Label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setKind("standard")}
+              className={`rounded-md border p-3 text-left text-xs transition-colors ${
+                kind === "standard"
+                  ? "border-[var(--brand)] bg-[var(--color-brand-soft)]/30"
+                  : "border-border-subtle hover:border-border-strong"
+              }`}
+            >
+              <p className="text-sm font-medium">Standard</p>
+              <p className="mt-1 text-text-muted">
+                Synergy-focused build at temperature 0.7. Aims for the strong,
+                playable version of the commander.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setKind("rogue")}
+              className={`rounded-md border p-3 text-left text-xs transition-colors ${
+                kind === "rogue"
+                  ? "border-[var(--brand)] bg-[var(--color-brand-soft)]/30"
+                  : "border-border-subtle hover:border-border-strong"
+              }`}
+            >
+              <p className="text-sm font-medium">Rogue (high-variance)</p>
+              <p className="mt-1 text-text-muted">
+                Verbalized-sampling ideation + your owned-but-unused inventory
+                + 4 independent critique passes. ~1 in 4 is a real gem; the
+                rest are interesting-but-flawed. The synthesis is honest —
+                expect some &ldquo;questionable&rdquo; verdicts.
+              </p>
+            </button>
+          </div>
+        </div>
+
         <div className="flex items-center justify-end gap-3 pt-2">
           <Button onClick={onGenerate} disabled={!canSubmit}>
             <Sparkles className="size-4" />
-            {submitting ? "Starting…" : "Generate"}
+            {submitting
+              ? "Starting…"
+              : kind === "rogue"
+                ? "Generate rogue build"
+                : "Generate"}
           </Button>
         </div>
       </CardContent>

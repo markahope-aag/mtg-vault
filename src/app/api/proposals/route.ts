@@ -58,10 +58,12 @@ export async function POST(req: NextRequest) {
     await db
       .update(deckProposals)
       .set({
-        status: result.ok ? "ready" : "ready", // surface violations to the user; still 'ready'
+        status: "ready",
         commanderOracleId: result.commanderOracleId,
         cardList: result.cardList,
         analysis: result.analysis,
+        rogueRationale: result.rogueRationale ?? null,
+        critique: result.critique ?? null,
         generationLog: result.log,
         model: result.log.model.generate,
       })

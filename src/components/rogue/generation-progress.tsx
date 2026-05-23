@@ -8,20 +8,30 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const PASS_LABEL: Record<string, string> = {
   pick_commander: "Picking commander",
+  pass1_rogue_ideate: "Verbalized-sampling ideation (Pass 1-rogue)",
   pass1_generate: "Drafting the deck (Pass 1)",
   pass2_validate: "Validating (Pass 2)",
   pass3_repair: "Repairing violations (Pass 3)",
   pass4_manabase: "Computing manabase (Pass 4)",
   pass5_analyze: "Final analysis (Pass 5)",
+  pass_critic: "Adversarial critique (independent)",
+  pass_premortem: "Premortem (assume 0-4)",
+  pass_trade: "Trade vs consensus build",
+  pass_synthesis: "Calibrated synthesis verdict",
 };
 
 const PASS_ORDER = [
   "pick_commander",
+  "pass1_rogue_ideate",
   "pass1_generate",
   "pass2_validate",
   "pass3_repair",
   "pass4_manabase",
   "pass5_analyze",
+  "pass_critic",
+  "pass_premortem",
+  "pass_trade",
+  "pass_synthesis",
 ];
 
 export function GenerationProgress({ proposalId }: { proposalId: string }) {
@@ -94,9 +104,9 @@ export function GenerationProgress({ proposalId }: { proposalId: string }) {
           </span>
         </div>
         <p className="mt-2 text-xs text-text-muted">
-          This usually takes 30-90 seconds. Five passes run in sequence: pick
-          (if no commander given), generate, validate, repair (up to 3 times),
-          manabase, analyze.
+          Standard mode runs ~5 passes in 30-90s. Rogue mode adds verbalized-
+          sampling ideation upfront and four independent critique passes after
+          (critic / premortem / trade / synthesis) — expect 90-180s.
         </p>
         <ul className="mt-4 space-y-1.5 text-xs">
           {PASS_ORDER.map((p) => {

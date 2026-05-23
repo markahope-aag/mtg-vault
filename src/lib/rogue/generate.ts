@@ -1,24 +1,36 @@
 /**
- * Phase B: standard multi-pass deck generator.
+ * Multi-pass deck generator — standard (Phase B) and rogue (Phase C).
  *
- * Pipeline:
+ * Standard pipeline:
  *   Pass 0 (optional): pick a commander if none given.
- *   Pass 1: LLM generates ~62 nonland cards with roles + rationales + a
- *           color-pip target. Sonnet, temp 0.7, tool-use structured output.
- *   Pass 2: Deterministic validateDeck() from A4. No LLM.
- *   Pass 3: LLM narrow repair. Haiku, temp 0.4. Loops with Pass 2; max 3
- *           iterations. Remaining violations after the loop are surfaced
- *           rather than allowed to ship broken or loop forever.
- *   Pass 4: Mechanical manabase + structural completion (code only). Lands
- *           split by color pip ratio; total adjusted for curve.
- *   Pass 5: Lean analyzeProposal() — archetype + win cons + 3-phase gameplan
- *           + weaknesses. Doesn't reuse strategy.ts's analyzeDeck because
- *           that one expects a DeckDetail with inventory context; this runs
- *           on a fresh proposal before save.
+ *   Pass 1: LLM generates ~62 nonland cards (temp 0.7).
+ *   Pass 2: Deterministic validateDeck(). No LLM.
+ *   Pass 3: LLM narrow repair (Haiku, temp 0.4). Loops with Pass 2.
+ *   Pass 4: Mechanical manabase + count.
+ *   Pass 5: Lean analyzeProposal() — archetype + win cons + gameplan.
  *
- * Critical design rule from the spec: the LLM generates and repairs;
- * deterministic code validates. validateDeck is the single source of truth
- * for "is this legal" — the model never certifies its own compliance.
+ * Rogue pipeline adds (and is otherwise identical):
+ *   Pass 1-ROGUE replaces Pass 1: verbalized-sampling ideation. Two calls.
+ *     1a) Name consensus, propose 5 theses with unusualness scores, pick
+ *         one, articulate a power thesis. Temp 1.0.
+ *     1b) Generate ~62 nonlands around the chosen thesis, biased toward
+ *         the user's owned-but-rarely-played cards. Temp 1.0.
+ *   After compliance + manabase + analyze, four ADVERSARIAL passes run
+ *   against the final list, each a SEPARATE LLM call with an objective
+ *   independent of the author:
+ *     CRITIC: hostile evaluation — name 3 fastest threats at bracket and
+ *       walk turn-by-turn, the single most-crippling answer, capability
+ *       gaps. Forced concrete and falsifiable.
+ *     PREMORTEM: assume 0-4 as a premise, walk back the failure.
+ *     TRADE: vs the consensus build, what does this give up + gain.
+ *     SYNTHESIS: reconciled verdict. Output schema explicitly allows
+ *       "this doesn't hold up" so a talked-down rogue build can ship
+ *       honestly. Confidence level: speculative / promising /
+ *       questionable / likely_flawed.
+ *
+ * Critical design rule: the LLM generates and repairs; deterministic code
+ * validates. The critique passes' role-separation discipline is the same
+ * principle — never ask one call to certify its own thesis.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -57,13 +69,40 @@ export type DeckAnalysis = {
   weaknesses: string[];
 };
 
+export type RogueThesisProposal = {
+  name: string;
+  description: string;
+  unusualnessScore: number;
+  offConsensusReason: string;
+};
+
+export type RogueRationale = {
+  consensusBuild: string;
+  departure: string;
+  powerThesis: string;
+  unusualnessScore: number;
+};
+
+export type RogueCritique = {
+  counterarguments: string[];
+  premortemFailures: string[];
+  tradeVerdict: string;
+  confidence: "speculative" | "promising" | "questionable" | "likely_flawed";
+  confidenceCaveat: string;
+};
+
 export type GenerationPass =
   | { name: "pick_commander"; durationMs: number; output: { name: string; rationale: string } }
   | { name: "pass1_generate"; durationMs: number; output: { cards: Array<{ name: string; role: string; rationale: string }>; colorPipTarget: ColorPipTarget; notes?: string } }
+  | { name: "pass1_rogue_ideate"; durationMs: number; output: { consensusBuild: string; theses: RogueThesisProposal[]; chosenIndex: number; powerThesis: { underratedClaim: string; specificMechanic: string; whyItCouldWork: string }; unusualnessScore: number } }
   | { name: "pass2_validate"; iteration: number; durationMs: number; output: { violations: Violation[]; isClean: boolean; metrics: unknown } }
   | { name: "pass3_repair"; iteration: number; durationMs: number; output: { replacements: Array<{ remove: string; add: string; role?: string; rationale?: string }> } }
   | { name: "pass4_manabase"; durationMs: number; output: { lands: Array<{ name: string; count: number }>; nonlandCount: number; totalCount: number; flagged?: string[] } }
-  | { name: "pass5_analyze"; durationMs: number; output: DeckAnalysis };
+  | { name: "pass5_analyze"; durationMs: number; output: DeckAnalysis }
+  | { name: "pass_critic"; durationMs: number; output: unknown }
+  | { name: "pass_premortem"; durationMs: number; output: unknown }
+  | { name: "pass_trade"; durationMs: number; output: unknown }
+  | { name: "pass_synthesis"; durationMs: number; output: RogueCritique };
 
 export type GenerationLog = {
   startedAt: string;
@@ -77,6 +116,8 @@ export type GenerateResult = {
   commanderOracleId: string;
   cardList: GeneratedCard[];
   analysis: DeckAnalysis;
+  rogueRationale?: RogueRationale;
+  critique?: RogueCritique;
   log: GenerationLog;
   ok: boolean; // true if final validation is clean
 };
@@ -220,6 +261,241 @@ const ANALYZE_TOOL: Anthropic.Tool = {
       "winConditions",
       "gameplan",
       "weaknesses",
+    ],
+  },
+};
+
+// ─── Rogue: ideation tool ──────────────────────────────────────
+
+const ROGUE_THESIS_TOOL: Anthropic.Tool = {
+  name: "submit_thesis",
+  description:
+    "Submit the consensus build, five distinct strategic theses, the chosen thesis, and a power-argument for why the chosen direction could win despite being off-meta.",
+  input_schema: {
+    type: "object",
+    properties: {
+      consensusBuild: {
+        type: "string",
+        description:
+          "What the consensus / format-typical build of this commander looks like. Be specific — name the archetype and 3-5 cards that everyone runs.",
+      },
+      theses: {
+        type: "array",
+        minItems: 5,
+        maxItems: 5,
+        description:
+          "Five distinct strategic theses for this commander, each genuinely off-consensus.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            description: {
+              type: "string",
+              description:
+                "Two-three sentences on the strategic premise. What does this deck want to do?",
+            },
+            unusualnessScore: {
+              type: "number",
+              description: "1 (close to consensus) to 10 (radical departure).",
+            },
+            offConsensusReason: {
+              type: "string",
+              description:
+                "One sentence: why the format DOESN'T usually build this way.",
+            },
+          },
+          required: [
+            "name",
+            "description",
+            "unusualnessScore",
+            "offConsensusReason",
+          ],
+        },
+      },
+      chosenIndex: {
+        type: "number",
+        description:
+          "Index 0-4 of the chosen thesis from the five above. Pick the most interesting unusual-but-defensible direction.",
+      },
+      powerThesis: {
+        type: "object",
+        description:
+          "The argument for why the chosen thesis could be strong DESPITE being uncommon.",
+        properties: {
+          underratedClaim: {
+            type: "string",
+            description:
+              "What does the format underrate that this deck exploits?",
+          },
+          specificMechanic: {
+            type: "string",
+            description:
+              "The specific synergy / blind-spot / interaction that makes this work.",
+          },
+          whyItCouldWork: {
+            type: "string",
+            description:
+              "Concrete reasoning. If you can't articulate a real power argument, the thesis isn't viable — say so and rethink.",
+          },
+        },
+        required: ["underratedClaim", "specificMechanic", "whyItCouldWork"],
+      },
+    },
+    required: ["consensusBuild", "theses", "chosenIndex", "powerThesis"],
+  },
+};
+
+// ─── Rogue: critique tools ─────────────────────────────────────
+
+const CRITIC_TOOL: Anthropic.Tool = {
+  name: "submit_critique",
+  description:
+    "Submit a hostile evaluation of the deck. Concrete, falsifiable, calibrated to the target bracket.",
+  input_schema: {
+    type: "object",
+    properties: {
+      fastestThreats: {
+        type: "array",
+        minItems: 3,
+        maxItems: 3,
+        description:
+          "The three fastest archetypes this deck will face at the target bracket. For each, walk turn-by-turn how that archetype beats this deck before it executes its plan.",
+        items: {
+          type: "object",
+          properties: {
+            archetype: { type: "string" },
+            turnByTurn: { type: "string" },
+          },
+          required: ["archetype", "turnByTurn"],
+        },
+      },
+      cripplingAnswer: {
+        type: "object",
+        description:
+          "The single removal / answer / hate card that most cripples this strategy. Calibrate copies-per-pod to the bracket.",
+        properties: {
+          card: { type: "string" },
+          why: { type: "string" },
+          podFrequency: {
+            type: "string",
+            description:
+              "How many copies of effects like this appear in a typical pod at the target bracket.",
+          },
+        },
+        required: ["card", "why", "podFrequency"],
+      },
+      capabilityGaps: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Things this deck struggles to do that strong decks at this bracket do reliably. Be specific.",
+      },
+    },
+    required: ["fastestThreats", "cripplingAnswer", "capabilityGaps"],
+  },
+};
+
+const PREMORTEM_TOOL: Anthropic.Tool = {
+  name: "submit_premortem",
+  description:
+    "Forensic analysis of a 0-4 outcome. The failure is asserted as a premise; your job is to explain it.",
+  input_schema: {
+    type: "object",
+    properties: {
+      perGameFailures: {
+        type: "array",
+        minItems: 4,
+        maxItems: 4,
+        description: "One failure mode per game. Concrete — name cards / lines.",
+        items: { type: "string" },
+      },
+      rootCauses: {
+        type: "array",
+        minItems: 2,
+        maxItems: 5,
+        description:
+          "Synthesis: 3-5 root causes that better explain the losses than bad luck.",
+        items: { type: "string" },
+      },
+    },
+    required: ["perGameFailures", "rootCauses"],
+  },
+};
+
+const TRADE_TOOL: Anthropic.Tool = {
+  name: "submit_trade_verdict",
+  description:
+    "Explicit comparison vs the consensus build of the same commander.",
+  input_schema: {
+    type: "object",
+    properties: {
+      worse: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Things this deck does WORSE than the consensus, with consequences.",
+      },
+      better: {
+        type: "array",
+        items: { type: "string" },
+        description: "Specific advantages this deck gains by departing.",
+      },
+      verdict: {
+        type: "string",
+        description: "Net assessment: is the upside worth the downside?",
+      },
+      honestAssessment: {
+        type: "string",
+        enum: ["upside_clearly_worth_it", "marginal_choice", "consensus_better"],
+        description:
+          "Most off-meta ideas are off-meta because they're worse. Be honest if that applies.",
+      },
+    },
+    required: ["worse", "better", "verdict", "honestAssessment"],
+  },
+};
+
+const SYNTHESIS_TOOL: Anthropic.Tool = {
+  name: "submit_synthesis",
+  description:
+    "Reconciled, calibrated verdict on the rogue deck. EXPLICITLY allowed to be negative — 'this doesn't hold up' is a valid output and arguably the system working.",
+  input_schema: {
+    type: "object",
+    properties: {
+      counterarguments: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Strongest surviving attacks from the critic — the ones you can't dismiss.",
+      },
+      premortemFailures: {
+        type: "array",
+        items: { type: "string" },
+        description: "Most plausible failure modes from the premortem.",
+      },
+      tradeVerdict: {
+        type: "string",
+        description:
+          "One-sentence verdict on the trade vs consensus.",
+      },
+      confidence: {
+        type: "string",
+        enum: ["speculative", "promising", "questionable", "likely_flawed"],
+        description:
+          "Calibrated confidence. Avoid sycophancy toward the author's thesis. A questionable / likely_flawed verdict is HONEST, not a failure.",
+      },
+      confidenceCaveat: {
+        type: "string",
+        description:
+          "What has to go right for this deck, or what the actual gamble is. The user reads this to decide if the bet is one they want to make.",
+      },
+    },
+    required: [
+      "counterarguments",
+      "premortemFailures",
+      "tradeVerdict",
+      "confidence",
+      "confidenceCaveat",
     ],
   },
 };
@@ -575,6 +851,367 @@ Be specific and honest. Avoid generic phrases like "this deck has good ramp."`;
   return extractTool<DeckAnalysis>(response, "submit_analysis");
 }
 
+// ─── Rogue ideation: owned-but-rarely-played inventory bias ─────
+
+type InventoryBiasCard = {
+  oracleId: string;
+  name: string;
+  typeLine: string | null;
+  manaCost: string | null;
+  edhrecRank: number | null;
+};
+
+/**
+ * Owned cards the format considers obscure: in inventory, color-identity
+ * compatible with the commander, NOT currently in any deck, Commander-legal.
+ * Sorted by edhrec_rank DESC so the highest-rank (= most obscure) cards
+ * surface first. Capped so the model gets a curated list rather than
+ * thousands of bulk commons.
+ *
+ * This is the personal-relevance differentiator: novelty + a card you
+ * already paid for. The model's prompt is told to PREFER configurations
+ * that exploit these.
+ */
+async function fetchOwnedRarelyPlayed(
+  colorIdentity: string[],
+  limit = 60,
+): Promise<InventoryBiasCard[]> {
+  const ciExpr = colorIdentity.length > 0
+    ? sql`AND COALESCE(c.color_identity, ARRAY[]::text[]) <@ ARRAY[${sql.join(
+        colorIdentity.map((x) => sql`${x}`),
+        sql`, `,
+      )}]::text[]`
+    : sql`AND (c.color_identity IS NULL OR array_length(c.color_identity, 1) IS NULL)`;
+  const rows = (await db.execute(sql`
+    SELECT
+      c.oracle_id, c.name, c.type_line, c.mana_cost, c.edhrec_rank
+    FROM cards c
+    INNER JOIN oracle_ownership o ON o.oracle_id = c.oracle_id
+    LEFT JOIN deck_commitments dc ON dc.oracle_id = c.oracle_id
+    WHERE o.owned_count > 0
+      AND dc.oracle_id IS NULL
+      AND c.is_commander_legal = TRUE
+      ${ciExpr}
+      AND NOT (c.type_line ILIKE '%Basic Land%')
+    ORDER BY c.edhrec_rank DESC NULLS LAST
+    LIMIT ${limit}
+  `)) as unknown as Array<{
+    oracle_id: string;
+    name: string;
+    type_line: string | null;
+    mana_cost: string | null;
+    edhrec_rank: number | null;
+  }>;
+  return rows.map((r) => ({
+    oracleId: r.oracle_id,
+    name: r.name,
+    typeLine: r.type_line,
+    manaCost: r.mana_cost,
+    edhrecRank: r.edhrec_rank,
+  }));
+}
+
+// ─── Pass 1-Rogue: verbalized sampling + biased generation ─────
+
+async function pass1RogueIdeate(
+  commander: CommanderContext,
+  input: GenerateInput,
+): Promise<{
+  consensusBuild: string;
+  theses: RogueThesisProposal[];
+  chosenIndex: number;
+  powerThesis: {
+    underratedClaim: string;
+    specificMechanic: string;
+    whyItCouldWork: string;
+  };
+  unusualnessScore: number;
+}> {
+  const ci = commander.colorIdentity.length > 0
+    ? commander.colorIdentity.join("")
+    : "C (colorless)";
+
+  const prompt = `You are designing a ROGUE Commander deck — explicitly off-meta, high-variance, willing to be wrong if it's interesting.
+
+Commander: ${commander.name}
+Mana cost: ${commander.manaCost ?? "—"}
+Type line: ${commander.typeLine}
+Color identity: ${ci}
+Oracle text:
+${commander.oracleText ?? "(no oracle text)"}
+
+Target bracket: ${input.targetBracket ?? "unspecified"} — ${bracketDescription(input.targetBracket)}
+
+Playstyle brief from the user:
+${input.archetypeBrief?.trim() || "(none — explore unusual but defensible directions)"}
+
+Verbalized sampling. Do NOT propose "the best deck." Instead:
+
+1. Name the CONSENSUS build of this commander — the standard archetype most players go for. Be specific. Name 3-5 cards everyone runs.
+
+2. Propose FIVE genuinely distinct strategic theses, each off-consensus. Rate each by unusualnessScore (1 = close to consensus, 10 = radical). For each, explicitly state the reason it's NOT the usual build.
+
+3. Pick ONE thesis as the chosen direction. Pick the most interesting unusual-but-defensible one — not the most extreme, not the safest.
+
+4. Articulate a POWER THESIS for the chosen direction: what does the format underrate that this deck exploits? What is the specific synergy / blind-spot / interaction that makes it potentially strong DESPITE being uncommon? If you can't articulate a real power argument, the thesis isn't viable — say so and reconsider. A thesis without a power argument is a quality-gate cut.
+
+Submit via submit_thesis.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 4096,
+    temperature: 1.0,
+    tools: [ROGUE_THESIS_TOOL],
+    tool_choice: { type: "tool", name: "submit_thesis" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool(response, "submit_thesis");
+}
+
+async function pass1RogueGenerate(
+  commander: CommanderContext,
+  input: GenerateInput,
+  thesis: {
+    consensusBuild: string;
+    chosenThesis: RogueThesisProposal;
+    powerThesis: {
+      underratedClaim: string;
+      specificMechanic: string;
+      whyItCouldWork: string;
+    };
+  },
+  ownedRarelyPlayed: InventoryBiasCard[],
+): Promise<{
+  cards: Array<{ name: string; role: string; rationale: string }>;
+  colorPipTarget: ColorPipTarget;
+  notes?: string;
+}> {
+  const ci = commander.colorIdentity.length > 0
+    ? commander.colorIdentity.join("")
+    : "C (colorless)";
+
+  // Cap the printed list to avoid blowing past token limits while still
+  // giving the model real personal-relevance signal.
+  const ownedList = ownedRarelyPlayed
+    .slice(0, 60)
+    .map(
+      (c) =>
+        `- ${c.name}${c.manaCost ? ` ${c.manaCost}` : ""}${c.typeLine ? ` — ${c.typeLine}` : ""}${c.edhrecRank ? ` (EDHREC #${c.edhrecRank})` : ""}`,
+    )
+    .join("\n");
+
+  const prompt = `Generate the nonland cards for this rogue Commander deck.
+
+Commander: ${commander.name}
+Color identity: ${ci}
+Target bracket: ${input.targetBracket ?? "unspecified"} — ${bracketDescription(input.targetBracket)}
+
+CHOSEN THESIS (unusualness ${thesis.chosenThesis.unusualnessScore}/10):
+${thesis.chosenThesis.name}: ${thesis.chosenThesis.description}
+
+Why this departs from consensus: ${thesis.chosenThesis.offConsensusReason}
+
+POWER THESIS:
+- Underrated claim: ${thesis.powerThesis.underratedClaim}
+- Specific mechanic: ${thesis.powerThesis.specificMechanic}
+- Why it could work: ${thesis.powerThesis.whyItCouldWork}
+
+INVENTORY BIAS — the user's owned-but-rarely-played cards (color-compatible, not in any existing deck, sorted by EDHREC rank descending — the format considers these obscure). PREFER configurations that exploit these. Personal relevance + novelty + a card already paid for is the unique-to-us advantage:
+
+${ownedList || "(no owned-but-unused cards found)"}
+
+Generate ${TARGET_NONLAND_COUNT} nonland cards. Constraints:
+1. Singleton — every nonland unique.
+2. Color identity — every card within ${ci || "colorless"}.
+3. Bracket — ${bracketDescription(input.targetBracket)}
+4. COMMIT to the chosen thesis. Don't drift back to consensus. If the thesis is "self-mill voltron," don't sneak in standard ramp staples that have nothing to do with the plan.
+5. Where defensible, prefer cards from the inventory-bias list.
+
+For each card: name (exact printed), role (short tag), and rationale that names the SPECIFIC synergy with the thesis, not just "good card in these colors."
+
+Also submit a color pip target for mechanical manabase computation.
+
+Submit via submit_deck.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 8192,
+    temperature: 1.0,
+    tools: [GENERATE_DECK_TOOL],
+    tool_choice: { type: "tool", name: "submit_deck" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool(response, "submit_deck");
+}
+
+// ─── Critique passes (each independent) ────────────────────────
+
+async function passCritic(
+  commander: CommanderContext,
+  finalCardNames: string[],
+  targetBracket: number | null,
+): Promise<unknown> {
+  // Independent evaluator — NO knowledge it's supposed to like the deck or
+  // that there's an author with a thesis. Hostile by role assignment.
+  const prompt = `You are evaluating a Commander deck. You don't know who built it. You don't know what they were trying to do. Your job is to find why this deck LOSES.
+
+Bracket: ${targetBracket ?? "—"} — ${bracketDescription(targetBracket)}. The deck will be played at bracket ${targetBracket ?? "3"} pods. Calibrate your critique to that level. A deck that loses to a turn-3 cEDH combo is irrelevant if it's never seeing one.
+
+Commander: ${commander.name}
+Color identity: ${commander.colorIdentity.join("") || "colorless"}
+Decklist (final, including lands):
+${finalCardNames.join(", ")}
+
+Find concrete, falsifiable problems. Submit via submit_critique with:
+- fastestThreats: the 3 fastest archetypes at this bracket, with turn-by-turn lines for each
+- cripplingAnswer: the single most-crippling removal/answer + pod-frequency at this bracket
+- capabilityGaps: what this deck struggles to do that strong decks at this bracket do reliably
+
+Name specific decks. Name specific cards. No "this deck is too slow" without saying compared to what.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 3072,
+    temperature: 0.5,
+    tools: [CRITIC_TOOL],
+    tool_choice: { type: "tool", name: "submit_critique" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool(response, "submit_critique");
+}
+
+async function passPremortem(
+  commander: CommanderContext,
+  finalCardNames: string[],
+  targetBracket: number | null,
+): Promise<unknown> {
+  // The failure is asserted as a PREMISE — not "could this lose," but "it
+  // already lost, walk back why." Defeats optimism bias structurally.
+  const prompt = `This Commander deck went 0-4 at a four-pod table. Walk back the most likely reasons.
+
+The failure is a premise. Don't ask "would it lose" — assume it did. Your job is forensic.
+
+Commander: ${commander.name}
+Bracket: ${targetBracket ?? "—"} — ${bracketDescription(targetBracket)}
+Decklist:
+${finalCardNames.join(", ")}
+
+Submit via submit_premortem with:
+- perGameFailures: one plausible failure mode per game (4 entries). Concrete — name cards or game lines.
+- rootCauses: 3-5 root causes that explain the losses better than bad luck.
+
+No "it ran out of cards" — give me specific failure mechanics.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 2048,
+    temperature: 0.5,
+    tools: [PREMORTEM_TOOL],
+    tool_choice: { type: "tool", name: "submit_premortem" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool(response, "submit_premortem");
+}
+
+async function passTrade(
+  commander: CommanderContext,
+  finalCardNames: string[],
+  targetBracket: number | null,
+  consensusBuild: string,
+): Promise<unknown> {
+  // Forced explicit comparison to the strong known build. Most off-meta
+  // ideas ARE worse than consensus — surface that honestly.
+  const prompt = `Compare this Commander deck explicitly to the CONSENSUS build of ${commander.name}.
+
+Consensus build (as identified independently): ${consensusBuild}
+
+This deck (the off-meta departure):
+${finalCardNames.join(", ")}
+
+Bracket: ${targetBracket ?? "—"}
+
+Most off-meta ideas are off-meta because they're worse. Be honest if that applies here. Submit via submit_trade_verdict with:
+- worse: things this deck does WORSE than the consensus, with consequences (not just card differences)
+- better: specific advantages this deck gains by departing
+- verdict: net assessment in 1-2 sentences
+- honestAssessment: upside_clearly_worth_it / marginal_choice / consensus_better
+
+If the answer is "consensus_better," say so. The user wants honest comparison, not flattery.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 2048,
+    temperature: 0.5,
+    tools: [TRADE_TOOL],
+    tool_choice: { type: "tool", name: "submit_trade_verdict" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool(response, "submit_trade_verdict");
+}
+
+async function passSynthesis(
+  commander: CommanderContext,
+  finalCardNames: string[],
+  targetBracket: number | null,
+  powerThesis: {
+    underratedClaim: string;
+    specificMechanic: string;
+    whyItCouldWork: string;
+  },
+  critic: unknown,
+  premortem: unknown,
+  trade: unknown,
+): Promise<RogueCritique> {
+  // Synthesis call. Has access to the power thesis AND all three critiques,
+  // and is explicitly told a negative verdict is honest, not a failure.
+  // The output schema enforces that — confidence enum includes
+  // questionable + likely_flawed as valid endpoints.
+  const prompt = `You're synthesizing three independent critiques of a Commander deck into a calibrated final verdict.
+
+Commander: ${commander.name}
+Bracket: ${targetBracket ?? "—"}
+
+THE AUTHOR'S POWER THESIS:
+- Underrated claim: ${powerThesis.underratedClaim}
+- Specific mechanic: ${powerThesis.specificMechanic}
+- Why it could work: ${powerThesis.whyItCouldWork}
+
+INDEPENDENT CRITIC (hostile evaluation):
+${JSON.stringify(critic, null, 2)}
+
+INDEPENDENT PREMORTEM (assumed-failure walkback):
+${JSON.stringify(premortem, null, 2)}
+
+INDEPENDENT TRADE VERDICT (vs consensus build):
+${JSON.stringify(trade, null, 2)}
+
+Final list:
+${finalCardNames.join(", ")}
+
+Synthesize honestly. The author was bullish — they were trying to make this deck work. The three critics are independent. Your job is calibrated truth, not consensus-by-averaging.
+
+CRITICAL: your output is EXPLICITLY ALLOWED to say "this doesn't hold up." A talked-down rogue verdict is the system WORKING, not a failure mode. Don't be hand-wavy positive. Don't reflexively defend the author's thesis. If the critic and premortem and trade all converge on "this is worse than the consensus build for unclear gain," say so.
+
+Avoid: "good deck with some interesting choices." Be specific.
+
+Submit via submit_synthesis with:
+- counterarguments: 2-4 surviving attacks from the critic — the ones you couldn't dismiss
+- premortemFailures: 2-4 plausible failure modes from the premortem
+- tradeVerdict: 1-2 sentence verdict on the trade vs consensus
+- confidence: speculative / promising / questionable / likely_flawed
+- confidenceCaveat: what HAS to go right for this deck, or what the actual gamble is. The user reads this to decide whether the bet is one they want to make.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 3072,
+    temperature: 0.5,
+    tools: [SYNTHESIS_TOOL],
+    tool_choice: { type: "tool", name: "submit_synthesis" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool<RogueCritique>(response, "submit_synthesis");
+}
+
 // ─── Orchestrator ──────────────────────────────────────────────
 
 export async function generateDeck(
@@ -603,14 +1240,59 @@ export async function generateDeck(
 
   const commander = await fetchCommander(commanderOracleId);
 
-  // Pass 1: generate.
-  const t1 = Date.now();
-  const gen = await pass1Generate(commander, input);
-  passes.push({
-    name: "pass1_generate",
-    durationMs: Date.now() - t1,
-    output: gen,
-  });
+  // Pass 1: generate. For 'rogue' kind, do verbalized-sampling ideation
+  // first (consensus + 5 theses + power thesis) and bias generation toward
+  // owned-but-rarely-played cards.
+  let rogueIdeation:
+    | (Awaited<ReturnType<typeof pass1RogueIdeate>> & {
+        chosenThesis: RogueThesisProposal;
+      })
+    | null = null;
+  let gen: {
+    cards: Array<{ name: string; role: string; rationale: string }>;
+    colorPipTarget: ColorPipTarget;
+    notes?: string;
+  };
+
+  if (input.kind === "rogue") {
+    const tIdeate = Date.now();
+    const ideation = await pass1RogueIdeate(commander, input);
+    rogueIdeation = {
+      ...ideation,
+      chosenThesis: ideation.theses[ideation.chosenIndex],
+    };
+    passes.push({
+      name: "pass1_rogue_ideate",
+      durationMs: Date.now() - tIdeate,
+      output: ideation,
+    });
+    const ownedBias = await fetchOwnedRarelyPlayed(commander.colorIdentity);
+    const tGen = Date.now();
+    gen = await pass1RogueGenerate(
+      commander,
+      input,
+      {
+        consensusBuild: ideation.consensusBuild,
+        chosenThesis: rogueIdeation.chosenThesis,
+        powerThesis: ideation.powerThesis,
+      },
+      ownedBias,
+    );
+    passes.push({
+      name: "pass1_generate",
+      durationMs: Date.now() - tGen,
+      output: gen,
+    });
+  } else {
+    const t1 = Date.now();
+    gen = await pass1Generate(commander, input);
+    passes.push({
+      name: "pass1_generate",
+      durationMs: Date.now() - t1,
+      output: gen,
+    });
+  }
+
   const currentNames = gen.cards.map((c) => c.name);
   const roleByName = new Map(gen.cards.map((c) => [c.name, c]));
 
@@ -770,10 +1452,82 @@ export async function generateDeck(
     })
     .filter((c): c is GeneratedCard => c !== null);
 
+  // Rogue critique passes — run AFTER compliance + manabase + analyze, on
+  // the FINAL list. Each pass is a separate LLM call with role separation;
+  // skepticism comes from independent objectives, not from asking one call
+  // to be self-critical.
+  let rogueRationale: RogueRationale | undefined;
+  let critique: RogueCritique | undefined;
+  if (input.kind === "rogue" && rogueIdeation) {
+    const finalNamesForCritique = cardList.map((c) => c.name);
+
+    const tCritic = Date.now();
+    const criticOut = await passCritic(
+      commander,
+      finalNamesForCritique,
+      input.targetBracket,
+    );
+    passes.push({
+      name: "pass_critic",
+      durationMs: Date.now() - tCritic,
+      output: criticOut,
+    });
+
+    const tPremortem = Date.now();
+    const premortemOut = await passPremortem(
+      commander,
+      finalNamesForCritique,
+      input.targetBracket,
+    );
+    passes.push({
+      name: "pass_premortem",
+      durationMs: Date.now() - tPremortem,
+      output: premortemOut,
+    });
+
+    const tTrade = Date.now();
+    const tradeOut = await passTrade(
+      commander,
+      finalNamesForCritique,
+      input.targetBracket,
+      rogueIdeation.consensusBuild,
+    );
+    passes.push({
+      name: "pass_trade",
+      durationMs: Date.now() - tTrade,
+      output: tradeOut,
+    });
+
+    const tSynth = Date.now();
+    critique = await passSynthesis(
+      commander,
+      finalNamesForCritique,
+      input.targetBracket,
+      rogueIdeation.powerThesis,
+      criticOut,
+      premortemOut,
+      tradeOut,
+    );
+    passes.push({
+      name: "pass_synthesis",
+      durationMs: Date.now() - tSynth,
+      output: critique,
+    });
+
+    rogueRationale = {
+      consensusBuild: rogueIdeation.consensusBuild,
+      departure: rogueIdeation.chosenThesis.description,
+      powerThesis: rogueIdeation.powerThesis.whyItCouldWork,
+      unusualnessScore: rogueIdeation.chosenThesis.unusualnessScore,
+    };
+  }
+
   return {
     commanderOracleId,
     cardList,
     analysis,
+    rogueRationale,
+    critique,
     log: {
       startedAt,
       endedAt: new Date().toISOString(),

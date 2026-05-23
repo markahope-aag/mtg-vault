@@ -11,6 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ReconcileResult } from "@/lib/rogue/reconcile";
+import {
+  RogueVerdict,
+  type RogueCritique,
+  type RogueRationale,
+} from "./rogue-verdict";
 
 type ProposalRow = {
   id: string;
@@ -21,6 +26,8 @@ type ProposalRow = {
   status: string;
   cardList: unknown;
   analysis: unknown;
+  rogueRationale: unknown;
+  critique: unknown;
   generationLog: unknown;
   savedDeckId: string | null;
 };
@@ -76,6 +83,11 @@ export function ProposalView({
   }, [initial.generationLog]);
 
   const analysis = (initial.analysis ?? null) as Analysis | null;
+  const rogueRationale = (initial.rogueRationale ?? null) as
+    | RogueRationale
+    | null;
+  const critique = (initial.critique ?? null) as RogueCritique | null;
+  const isRogue = initial.kind === "rogue" && rogueRationale && critique;
 
   // Run reconciliation on mount + whenever cards change. The pipeline
   // already wrote the proposal's cardList; the reconcile endpoint reads
@@ -235,6 +247,10 @@ export function ProposalView({
           </Button>
         </div>
       </header>
+
+      {isRogue && rogueRationale && critique && (
+        <RogueVerdict rationale={rogueRationale} critique={critique} />
+      )}
 
       {violations.length > 0 && (
         <Card className="border-amber-500/40 bg-amber-500/5">
