@@ -239,6 +239,13 @@ export function DeckbuilderHeader({
             <DropdownMenuItem onSelect={onExport}>
               Export decklist
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                window.location.href = `/decks/${deck.deck.id}/reconcile`;
+              }}
+            >
+              Reconcile (cost / contention)
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={onDelete}

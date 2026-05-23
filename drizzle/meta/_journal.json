@@ -113,6 +113,13 @@
 			"when": 1780200000000,
 			"tag": "0015_trades",
 			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "7",
+			"when": 1780300000000,
+			"tag": "0016_deck_proposals",
+			"breakpoints": true
 		}
 	]
 }

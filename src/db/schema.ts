@@ -258,6 +258,38 @@ export const importBatches = pgTable(
   }),
 );
 
+// ─── DECK PROPOSALS (Rogue Deck Builder) ────────────────────────
+
+// Transient AI-generated deck drafts. Distinct from `decks` because they're
+// not committed yet — they don't show up in deck_commitments / availability
+// math until the user explicitly saves one (savedDeckId fills in then).
+export const deckProposals = pgTable(
+  "deck_proposals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(), // 'standard' | 'rogue'
+    commanderOracleId: uuid("commander_oracle_id"),
+    partnerOracleId: uuid("partner_oracle_id"),
+    targetBracket: integer("target_bracket"),
+    archetypeBrief: text("archetype_brief"),
+    status: text("status").notNull(), // 'generating' | 'ready' | 'failed' | 'saved'
+    cardList: jsonb("card_list"),
+    analysis: jsonb("analysis"),
+    rogueRationale: jsonb("rogue_rationale"),
+    critique: jsonb("critique"),
+    generationLog: jsonb("generation_log"),
+    model: text("model"),
+    savedDeckId: uuid("saved_deck_id").references(() => decks.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index("deck_proposals_status_idx").on(t.status),
+    createdAtIdx: index("deck_proposals_created_at_idx").on(t.createdAt),
+  }),
+);
+
 // ─── TRADES ─────────────────────────────────────────────────────
 
 export const trades = pgTable(
