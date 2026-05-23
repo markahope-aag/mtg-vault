@@ -37,6 +37,7 @@ export function DisposeDialog({
   const [disposedAt, setDisposedAt] = useState(todayIso());
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [targets, setTargets] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -49,13 +50,30 @@ export function DisposeDialog({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, rows]);
 
-  if (rows.length === 0) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent />
-      </Dialog>
-    );
-  }
+  // Load prior "Disposed to" values once the dialog opens so the input
+  // datalist can autocomplete repeat destinations (Card Kingdom, TCGPlayer,
+  // a specific friend's name, etc.).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/inventory/dispose-targets")
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+        return data;
+      })
+      .then((d) => {
+        if (!cancelled) setTargets(d.targets ?? []);
+      })
+      .catch(() => {
+        /* fallback: input still works without suggestions */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  if (rows.length === 0) return null;
 
   const totalValue = rows.reduce((s, r) => s + currentValueOf(r), 0);
   const isBulk = rows.length > 1;
@@ -134,7 +152,16 @@ export function DisposeDialog({
               value={disposedTo}
               onChange={(e) => setDisposedTo(e.target.value)}
               placeholder="TCGPlayer, traded to X, etc."
+              list="dispose-targets"
+              autoComplete="off"
             />
+            {targets.length > 0 && (
+              <datalist id="dispose-targets">
+                {targets.map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">

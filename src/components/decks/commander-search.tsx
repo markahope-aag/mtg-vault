@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImageOff, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 
 export type CommanderPick = {
   printingId: string;
@@ -192,19 +193,12 @@ export function CommanderSearch({
 }
 
 function Thumb({ src }: { src: string | null }) {
-  if (!src) {
-    return (
-      <div className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground">
-        <ImageOff className="size-4" />
-      </div>
-    );
-  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ImgWithFallback
       src={src}
       alt=""
       className="size-10 rounded object-cover"
+      fallbackClassName="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground"
       loading="lazy"
     />
   );

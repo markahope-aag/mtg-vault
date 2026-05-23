@@ -109,13 +109,11 @@ export function EditRowDialog({
     };
   }, [open, row]);
 
-  if (!row || !form) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent />
-      </Dialog>
-    );
-  }
+  // Don't render an empty DialogContent while the printings list is loading
+  // — base-ui still traps focus inside the dialog with nothing inside it.
+  // Showing nothing at all is the right behavior; the loading spinner on the
+  // trigger is enough signal.
+  if (!row || !form) return null;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));

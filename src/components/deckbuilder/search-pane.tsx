@@ -7,9 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { ImageOff, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useDeckbuilder } from "./shell";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import { ManaCost } from "@/components/mana-cost";
 import { pickCardImage } from "@/lib/card-image";
 import { cn } from "@/lib/utils";
@@ -433,19 +434,13 @@ function ResultRow({
 }
 
 function Thumb({ src }: { src: string | null }) {
-  if (!src) {
-    return (
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-surface-inset text-text-muted">
-        <ImageOff className="size-3.5" />
-      </div>
-    );
-  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ImgWithFallback
       src={src}
       alt=""
       className="size-9 shrink-0 rounded-sm object-cover ring-1 ring-border-subtle"
+      fallbackClassName="flex size-9 shrink-0 items-center justify-center rounded-sm bg-surface-inset text-text-muted"
+      fallbackIconClassName="size-3.5"
       loading="lazy"
     />
   );

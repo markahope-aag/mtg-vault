@@ -401,20 +401,11 @@ export function DeckbuilderShell({
           <RightPane />
         </div>
 
-        {/* Below 1024px the three panes don't fit. Render the decklist alone
-             and surface the trading-desk-voiced banner so the experience
-             degrades on-brand rather than collapsing into broken columns. */}
-        <div className="flex flex-1 flex-col gap-3 p-3 lg:hidden">
-          <div className="rounded-md border border-border-subtle bg-surface-inset px-4 py-3 text-xs">
-            <p className="font-mono uppercase tracking-[0.18em] text-text-muted">
-              terminal width
-            </p>
-            <p className="mt-1 text-text-secondary">
-              The deckbuilder is built for ≥1024px. Decklist shown; search and
-              detail panes are hidden until you widen the window.
-            </p>
-          </div>
-          <Decklist />
+        {/* Below 1024px the three panes don't fit side-by-side. Stack them
+             into a tabbed view so the user can still search, view the
+             decklist, and inspect a card — just one at a time. */}
+        <div className="flex flex-1 flex-col lg:hidden">
+          <MobilePaneSwitcher />
         </div>
 
         <ShortcutFooter />
@@ -451,6 +442,46 @@ function useKeyDown(handler: (e: KeyboardEvent) => void) {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [handler]);
+}
+
+type MobilePane = "deck" | "search" | "right";
+
+function MobilePaneSwitcher() {
+  const { active } = useDeckbuilder();
+  const [pane, setPane] = useState<MobilePane>("deck");
+
+  // When the user taps a card in the decklist or search pane, auto-switch
+  // to the right (detail/coach/strategy/acquire) tab. Without this, the
+  // user has to manually flip tabs every time they pick a card.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (active?.oracleId) setPane("right");
+  }, [active?.oracleId]);
+
+  return (
+    <>
+      <div className="sticky top-[49px] z-20 flex shrink-0 items-center gap-1 border-b border-border-subtle bg-surface-base/95 p-2 backdrop-blur">
+        <TabButton active={pane === "deck"} onClick={() => setPane("deck")}>
+          Decklist
+        </TabButton>
+        <TabButton active={pane === "search"} onClick={() => setPane("search")}>
+          Search
+        </TabButton>
+        <TabButton active={pane === "right"} onClick={() => setPane("right")}>
+          Detail
+        </TabButton>
+      </div>
+      <div className="min-h-0 flex-1 p-3">
+        {pane === "deck" ? (
+          <Decklist />
+        ) : pane === "search" ? (
+          <SearchPane />
+        ) : (
+          <RightPane />
+        )}
+      </div>
+    </>
+  );
 }
 
 type RightTab = "detail" | "coach" | "strategy" | "acquire";

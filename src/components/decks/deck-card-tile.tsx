@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ImageOff, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { ManaCost } from "@/components/mana-cost";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 
 export type DeckCardTileData = {
   id: string;
@@ -37,18 +38,14 @@ export function DeckCardTile({ deck }: { deck: DeckCardTileData }) {
       href={`/decks/${deck.id}`}
       className="group relative aspect-[5/7] overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md"
     >
-      {deck.commanderImageUri ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={deck.commanderImageUri}
-          alt={deck.commanderName ?? deck.name}
-          className="absolute inset-0 size-full object-cover transition-transform group-hover:scale-105"
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground">
-          <ImageOff className="size-10" />
-        </div>
-      )}
+      <ImgWithFallback
+        src={deck.commanderImageUri}
+        alt={deck.commanderName ?? deck.name}
+        className="absolute inset-0 size-full object-cover transition-transform group-hover:scale-105"
+        fallbackClassName="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
+        fallbackIconClassName="size-10"
+      />
+
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
       {/* Top-right badges */}

@@ -10,7 +10,6 @@ import {
   ArrowUpFromLine,
   ChevronDown,
   ChevronRight,
-  ImageOff,
   Layers,
   MoreHorizontal,
   Pencil,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { confirmToast } from "@/lib/confirm-toast";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -1510,19 +1510,13 @@ function PhysicalRowRenderer({
 }
 
 function Thumb({ src, alt }: { src: string | null; alt: string }) {
-  if (!src) {
-    return (
-      <div className="flex size-9 items-center justify-center rounded-sm bg-surface-inset text-text-muted ring-1 ring-border-subtle">
-        <ImageOff className="size-3.5" />
-      </div>
-    );
-  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ImgWithFallback
       src={src}
       alt={alt}
       className="size-9 rounded-sm object-cover ring-1 ring-border-subtle"
+      fallbackClassName="flex size-9 items-center justify-center rounded-sm bg-surface-inset text-text-muted ring-1 ring-border-subtle"
+      fallbackIconClassName="size-3.5"
       loading="lazy"
     />
   );

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ImageOff, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
 import { SetSymbol } from "@/components/set-symbol";
@@ -177,18 +178,14 @@ export function DetailPane() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="p-3">
-          {headerImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={headerImage}
-              alt={headerName ?? ""}
-              className="aspect-[488/680] w-full rounded-md object-cover ring-1 ring-border-subtle"
-            />
-          ) : (
-            <div className="flex aspect-[488/680] w-full items-center justify-center rounded-md bg-surface-inset text-text-muted ring-1 ring-border-subtle">
-              <ImageOff className="size-10" />
-            </div>
-          )}
+          <ImgWithFallback
+            src={headerImage}
+            alt={headerName ?? ""}
+            className="aspect-[488/680] w-full rounded-md object-cover ring-1 ring-border-subtle"
+            fallbackClassName="flex aspect-[488/680] w-full items-center justify-center rounded-md bg-surface-inset text-text-muted ring-1 ring-border-subtle"
+            fallbackIconClassName="size-10"
+          />
+
         </div>
 
         <div className="space-y-3 px-3 pb-3">

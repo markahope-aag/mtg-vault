@@ -53,6 +53,26 @@ describe("pickComboPieceToRemove", () => {
     expect(removal?.oracleId).toBe("p2");
     expect(removal?.reason).toContain("Breaks 2-card combo");
   });
+
+  it("reuses a piece already marked for removal", () => {
+    const flagged = new Map<string, FlaggedCard>([
+      ["p1", card({ oracleId: "p1", name: "Piece 1", usd: 20 })],
+      ["p2", card({ oracleId: "p2", name: "Piece 2", usd: 2 })],
+    ]);
+    const combo: SpellbookCombo = {
+      id: "c1",
+      name: "Test Combo",
+      resultText: "Win",
+      pieces: [
+        { oracleId: "p1", name: "Piece 1" },
+        { oracleId: "p2", name: "Piece 2" },
+      ],
+    };
+
+    const removal = pickComboPieceToRemove(combo, flagged, new Set(["p1"]));
+    expect(removal?.oracleId).toBe("p1");
+    expect(removal?.reason).toContain("Already removed");
+  });
 });
 
 describe("evaluateBracketRules", () => {
@@ -150,6 +170,95 @@ describe("evaluateBracketRules", () => {
     expect(result.confidence).toBe("conservative");
     expect(result.reasons.some((r) => r.text.includes("Spellbook"))).toBe(true);
   });
+
+  it("returns Bracket 3 for mass land denial", () => {
+    const result = evaluateBracketRules({
+      gameChangers: [],
+      mld: [card({ oracleId: "mld", name: "Armageddon", isMassLandDenial: true })],
+      extraTurns: [],
+      tutorCount: 0,
+      twoCardCombos: [],
+      multiCardCombos: [],
+      spellbookAvailable: true,
+    });
+    expect(result.bracket).toBe(3);
+    expect(result.reasons.some((r) => r.category === "mass-land-denial")).toBe(
+      true,
+    );
+  });
+
+  it("returns Bracket 3 for three or more extra-turn cards", () => {
+    const extraTurns = ["e1", "e2", "e3"].map((id) =>
+      card({ oracleId: id, name: id, isExtraTurn: true }),
+    );
+    const result = evaluateBracketRules({
+      gameChangers: [],
+      mld: [],
+      extraTurns,
+      tutorCount: 0,
+      twoCardCombos: [],
+      multiCardCombos: [],
+      spellbookAvailable: true,
+    });
+    expect(result.bracket).toBe(3);
+    expect(result.reasons.some((r) => r.category === "extra-turns")).toBe(true);
+  });
+
+  it("returns Bracket 3 for multi-card combos without hitting Bracket 4", () => {
+    const result = evaluateBracketRules({
+      gameChangers: [],
+      mld: [],
+      extraTurns: [],
+      tutorCount: 0,
+      twoCardCombos: [],
+      multiCardCombos: [
+        {
+          id: "mc1",
+          name: "Kiki combo",
+          resultText: "Infinite",
+          pieces: [
+            { oracleId: "p1", name: "A" },
+            { oracleId: "p2", name: "B" },
+            { oracleId: "p3", name: "C" },
+          ],
+        },
+      ],
+      spellbookAvailable: true,
+    });
+    expect(result.bracket).toBe(3);
+    expect(result.reasons.some((r) => r.category === "multi-card-combos")).toBe(
+      true,
+    );
+  });
+
+  it("surfaces cEDH-shaped hint at Bracket 4", () => {
+    const gcs = Array.from({ length: 5 }, (_, i) =>
+      card({ oracleId: `gc${i}`, name: `GC${i}`, isGameChanger: true }),
+    );
+    const result = evaluateBracketRules({
+      gameChangers: gcs,
+      mld: [],
+      extraTurns: [],
+      tutorCount: 5,
+      twoCardCombos: [
+        {
+          id: "c1",
+          name: "Combo",
+          resultText: "Win",
+          pieces: [
+            { oracleId: "p1", name: "A" },
+            { oracleId: "p2", name: "B" },
+          ],
+        },
+      ],
+      multiCardCombos: [],
+      spellbookAvailable: true,
+    });
+    expect(result.bracket).toBe(4);
+    expect(
+      result.reasons.some((r) => r.text.includes("cEDH-level characteristics")),
+    ).toBe(true);
+  });
 });
 
 describe("buildToReachBracketDiffs", () => {
@@ -202,5 +311,26 @@ describe("buildToReachBracketDiffs", () => {
       flagged: new Map(),
     });
     expect(diffs[1]?.note).toContain("Bracket 1");
+  });
+
+  it("suggests extra-turn removals down to two cards", () => {
+    const extraTurns = ["e1", "e2", "e3", "e4"].map((id, i) =>
+      card({
+        oracleId: id,
+        name: id,
+        isExtraTurn: true,
+        edhrecRank: (i + 1) * 100,
+      }),
+    );
+    const flagged = new Map(extraTurns.map((c) => [c.oracleId, c]));
+    const diffs = buildToReachBracketDiffs({
+      bracket: 3,
+      gameChangers: [],
+      mld: [],
+      extraTurns,
+      twoCardCombos: [],
+      flagged,
+    });
+    expect(diffs[2]?.remove.filter((r) => r.reason.includes("Extra turn"))).toHaveLength(2);
   });
 });

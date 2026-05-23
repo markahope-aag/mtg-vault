@@ -125,8 +125,9 @@ There are no `user_id` columns — the app assumes one writer. Multi-user would 
 Vitest unit tests cover bracket engine pure logic (`src/lib/bracket-engine-logic.ts`) and CSV importers (`src/lib/importers/`).
 
 ```powershell
-pnpm test        # run once
-pnpm test:watch  # watch mode
+pnpm test           # run once
+pnpm test:watch     # watch mode
+pnpm test:coverage  # with coverage report + thresholds
 ```
 
 Run `pnpm lint`, `pnpm test`, and `pnpm build` before committing.

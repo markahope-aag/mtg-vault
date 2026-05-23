@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImageOff, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import { pickCardImage } from "@/lib/card-image";
 import { confirmToast } from "@/lib/confirm-toast";
 import {
@@ -143,18 +144,14 @@ export function DeckbuilderHeader({
       <div className="flex items-center gap-3 px-4 py-2">
         <BackLink href="/decks" label="Decks" className="shrink-0" />
         <span className="h-4 w-px bg-border-subtle" />
-        {commanderImg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={commanderImg}
-            alt={deck.commander?.name ?? deck.deck.name}
-            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-border-subtle"
-          />
-        ) : (
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-inset text-text-muted ring-1 ring-border-subtle">
-            <ImageOff className="size-3.5" />
-          </div>
-        )}
+        <ImgWithFallback
+          src={commanderImg}
+          alt={deck.commander?.name ?? deck.deck.name}
+          className="size-8 shrink-0 rounded-full object-cover ring-1 ring-border-subtle"
+          fallbackClassName="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-inset text-text-muted ring-1 ring-border-subtle"
+          fallbackIconClassName="size-3.5"
+        />
+
 
         <div className="min-w-0">
           <h1 className="truncate text-sm font-semibold tracking-tight text-text-primary">

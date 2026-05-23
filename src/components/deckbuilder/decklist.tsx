@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import { useDeckbuilder } from "./shell";
 import { ManaCost } from "@/components/mana-cost";
 import { pickCardImage } from "@/lib/card-image";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import {
   TYPE_GROUP_ORDER,
   typeGroupOf,
@@ -413,16 +414,12 @@ function Row({
 }
 
 function Thumb({ src }: { src: string | null }) {
-  if (!src)
-    return (
-      <div className="size-9 shrink-0 rounded-sm bg-surface-inset ring-1 ring-border-subtle" />
-    );
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ImgWithFallback
       src={src}
       alt=""
       className="size-9 shrink-0 rounded-sm object-cover ring-1 ring-border-subtle"
+      fallbackClassName="size-9 shrink-0 rounded-sm bg-surface-inset ring-1 ring-border-subtle"
       loading="lazy"
     />
   );

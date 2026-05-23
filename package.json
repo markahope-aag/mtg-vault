@@ -9,8 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/sync-scryfall.ts"
@@ -54,6 +53,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/stream-json": "1",
+    "@vitest/coverage-v8": "^4.1.7",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",

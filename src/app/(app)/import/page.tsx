@@ -7,12 +7,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  ImageOff,
   Loader2,
   Search,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1108,19 +1108,13 @@ function Stat({
 }
 
 function Thumb({ src }: { src: string | null }) {
-  if (!src) {
-    return (
-      <div className="flex size-8 items-center justify-center rounded bg-muted text-muted-foreground">
-        <ImageOff className="size-3.5" />
-      </div>
-    );
-  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ImgWithFallback
       src={src}
       alt=""
       className="size-8 rounded object-cover"
+      fallbackClassName="flex size-8 items-center justify-center rounded bg-muted text-muted-foreground"
+      fallbackIconClassName="size-3.5"
       loading="lazy"
     />
   );

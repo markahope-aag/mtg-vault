@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImageOff } from "lucide-react";
+import { ImgWithFallback } from "@/components/img-with-fallback";
 import {
   Card,
   CardContent,
@@ -368,19 +368,13 @@ export default async function DashboardPage() {
                         <span className="num w-6 shrink-0 text-right text-[11px] text-text-muted">
                           {gi * 10 + i + 1}
                         </span>
-                        {c.imageUri ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={c.imageUri}
-                            alt={c.name}
-                            className="size-10 shrink-0 rounded-sm object-cover ring-1 ring-border-subtle"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-sm bg-surface-inset text-text-muted ring-1 ring-border-subtle">
-                            <ImageOff className="size-4" />
-                          </div>
-                        )}
+                        <ImgWithFallback
+                          src={c.imageUri}
+                          alt={c.name}
+                          className="size-10 shrink-0 rounded-sm object-cover ring-1 ring-border-subtle"
+                          fallbackClassName="flex size-10 shrink-0 items-center justify-center rounded-sm bg-surface-inset text-text-muted ring-1 ring-border-subtle"
+                          loading="lazy"
+                        />
                         <div className="min-w-0 flex-1">
                           <Link
                             href={`/cards/${c.oracleId}`}
