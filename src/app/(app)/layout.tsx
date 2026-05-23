@@ -7,6 +7,7 @@ import { QueryProvider } from "@/components/query-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { NavLink } from "@/components/nav-link";
+import { Logo } from "@/components/logo";
 
 export default async function AppLayout({
   children,
@@ -28,8 +29,9 @@ export default async function AppLayout({
               <div className="flex items-center gap-7">
                 <Link
                   href="/dashboard"
-                  className="font-[var(--font-mono)] text-[15px] font-semibold uppercase tracking-[0.22em] text-[var(--text-primary)] hover:text-[var(--brand)]"
+                  className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[15px] font-semibold uppercase tracking-[0.22em] text-[var(--text-primary)] hover:text-[var(--brand)]"
                 >
+                  <Logo size={22} className="text-[var(--brand)]" />
                   MTG · Vault
                 </Link>
                 <nav className="flex items-center gap-6 text-[14px]">
