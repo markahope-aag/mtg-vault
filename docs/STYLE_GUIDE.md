@@ -8,7 +8,8 @@ purpose (color identity), not a decorative one.
 
 Live review surface: [`/style-guide`](../src/app/(app)/style-guide/page.tsx).
 
----
+Developer docs: [README](../README.md), [build spec](../mtg-vault-v0-spec.md).
+User-facing docs: [USER-GUIDE](../USER-GUIDE.md), in-app `/help`.
 
 ## Principles
 

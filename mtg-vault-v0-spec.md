@@ -1,742 +1,402 @@
-# MTG Vault — v0 Build Spec
+# MTG Vault — Build Spec
 
-A personal Magic: The Gathering inventory and Commander deckbuilding tool. Desktop-first web app. Single user (you). Built on Next.js + Supabase + Drizzle, deployed to Vercel.
+A personal Magic: The Gathering inventory and Commander deckbuilding tool. Desktop-first web app. Single user. Built on Next.js + Supabase + Drizzle, deployed to Vercel.
 
-> **Working project name:** `mtg-vault`. Rename anything you want once you ship.
+> **Status (May 2026):** v0 is **complete and in active use**. All phased deliverables shipped. See [README](./README.md) for dev setup and [USER-GUIDE](./USER-GUIDE.md) for usage.
 
 ---
 
-## 1. Goals (v0 scope)
+## 1. Goals
+
+### v0 scope (shipped)
 
 1. **Inventory.** Know what cards you own, where they are, what you paid, what they're worth now.
-2. **Deckbuilder.** Build and edit Commander decks against your inventory. "Own / need" diff per deck.
+2. **Deckbuilder.** Build and edit Commander decks against your inventory. Own / need diff per deck.
 3. **Bracket engine.** Compute the official Commander Bracket (1–5) for any deck, with a "to drop a bracket, remove these cards" diff.
 4. **Value.** Total collection value, per-deck value, value-over-time charts.
 
-**Explicitly out of v0:** camera scanning, AI strategy advisor, PWA, multi-user, non-Commander formats. All deferred to v1+.
+### Post-v0 additions (also shipped)
+
+- CSV import with undo (ManaBox, Moxfield, Archidekt, **TCGPlayer**)
+- Canonical **locations** list managed on the System page
+- **Coach** pane — heuristic slot targets scaled to bracket
+- **Strategy** pane — Claude AI deck analysis (`ANTHROPIC_API_KEY`)
+- **Acquire** pane — cost-to-build rollup for cards you don't own
+- Import **history** with batch undo
+- Admin **bracket-flag** audit page (`/admin/bracket-flags`)
+- Physical-card inventory model (one DB row per card, no quantity column)
+- Disposal tracking (soft dispose / restore, cost-basis history)
+- Availability views (`deck_commitments`, `oracle_ownership`) — a physical card can only be in one deck
+
+### Still out of scope
+
+Camera scanning, PWA, multi-user, non-Commander formats, trade ledger, local Spellbook combo DB sync.
 
 ---
 
-## 2. Tech stack
+## 2. Tech stack (as built)
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Framework | Next.js 15 (App Router) | TypeScript strict |
-| Styling | Tailwind v4 + shadcn/ui | DataTable, Command palette, Dialog, Form |
-| DB | Supabase Postgres | Hosted, free tier is fine for personal use |
-| ORM | Drizzle | Matches your usual setup |
-| Auth | Supabase Auth (magic link) | Email allowlist of just you |
-| Tables | TanStack Table v8 | For inventory grid |
-| Client state | TanStack Query | For Scryfall queries, deck mutations |
-| Forms | react-hook-form + Zod | Standard |
-| Cron | Vercel Cron | Daily Scryfall + Spellbook + Game Changers sync |
+| Framework | **Next.js 16** (App Router) | TypeScript strict; auth via `src/proxy.ts` (Next.js 16 proxy convention) |
+| Styling | Tailwind v4 + shadcn/ui | Design tokens in `src/app/globals.css`; see [STYLE_GUIDE](./docs/STYLE_GUIDE.md) |
+| DB | Supabase Postgres | Hosted |
+| ORM | Drizzle | Direct `DATABASE_URL` connection; bypasses RLS as owner |
+| Auth | Supabase Auth (magic link) | Comma-separated `ALLOWED_EMAIL` allowlist |
+| Tables | TanStack Table v8 + Virtual | Inventory grid |
+| Client state | TanStack Query | Deck mutations, search |
+| Forms | react-hook-form + Zod | API + dialog validation |
+| Charts | Recharts | Dashboard + price history |
+| AI | Anthropic SDK | Strategy tab only; optional |
+| Cron | Vercel Cron + GitHub Actions | See §6 |
 | Deploy | Vercel | Free tier; Postgres on Supabase |
 | Icons | Lucide | |
 
-**Why Supabase over PlanetScale here:** Postgres has better JSON support, which matters for the Scryfall data shape (Scryfall returns deeply nested JSON for prices, image_uris, card_faces).
+**Why Supabase Postgres:** JSON support for Scryfall shapes (prices, `image_uris`, `card_faces`).
 
 ---
 
-## 3. Setup (Windows PowerShell)
+## 3. Local setup
 
 ```powershell
-# Prerequisites: Node 20+, pnpm, git, claude (Claude Code CLI)
-# Verify:
+# Prerequisites: Node 20+, pnpm, git
 node --version
 pnpm --version
-claude --version
 
-# Bootstrap
-mkdir mtg-vault
-cd mtg-vault
-pnpm create next-app@latest . --typescript --tailwind --app --eslint --src-dir --import-alias "@/*" --no-turbopack
+git clone <repo>
+cd magic-app
+pnpm install
 
-# Core dependencies
-pnpm add drizzle-orm postgres @supabase/supabase-js @supabase/ssr
-pnpm add @tanstack/react-table @tanstack/react-query
-pnpm add react-hook-form @hookform/resolvers zod
-pnpm add lucide-react date-fns recharts
-pnpm add papaparse  # CSV parsing
-pnpm add -D drizzle-kit @types/papaparse tsx
-
-# shadcn/ui
-pnpm dlx shadcn@latest init -d
-pnpm dlx shadcn@latest add button input label form dialog table command popover select badge card tabs separator dropdown-menu sonner
-
-# Env file (do NOT commit)
-New-Item -ItemType File -Path .env.local
-# Add the following keys (fill in values from Supabase dashboard):
-#   NEXT_PUBLIC_SUPABASE_URL=
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY=
-#   SUPABASE_SERVICE_ROLE_KEY=     (server-only, for sync jobs)
-#   DATABASE_URL=                  (Supabase direct connection string)
-#   CRON_SECRET=                   (random string for cron auth)
-#   ALLOWED_EMAIL=                 (your email)
-
-# Start Claude Code in this directory
-claude
+# Create .env.local — see §4
+pnpm db:migrate
+pnpm dev
 ```
 
-**PowerShell gotchas to know:**
-- `&&` works in PS 7+ only. On PS 5.1, use `;` to chain commands (or just run them separately).
-- Set session env vars with `$env:VARNAME = "value"`. For persistent, edit `.env.local`.
-- Paths: forward slashes work in all Node tools; you can mix.
+**PowerShell notes:**
+- `&&` works in PS 7+; on PS 5.1 use `;` or run commands separately.
+- Session env: `$env:VARNAME = "value"`. Persistent: edit `.env.local`.
+
+**First-time card data:** Run `pnpm db:seed` locally or trigger the GitHub Action. Expect 30–60 minutes for the full Scryfall bulk sync.
 
 ---
 
-## 4. Project structure
+## 4. Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Auth (not used for data queries) |
+| `DATABASE_URL` | Yes | Drizzle Postgres connection |
+| `DIRECT_URL` | Recommended | Direct connection for migrations (`drizzle.config.ts` prefers this) |
+| `ALLOWED_EMAIL` | Yes | Comma-separated allowlist, e.g. `you@example.com,partner@example.com` |
+| `CRON_SECRET` | Yes (prod) | Bearer token for cron routes |
+| `ANTHROPIC_API_KEY` | Optional | Strategy tab AI analysis |
+
+`SUPABASE_SERVICE_ROLE_KEY` is **not used** — all DB access goes through Drizzle with `DATABASE_URL`.
+
+---
+
+## 5. Project structure (current)
 
 ```
-mtg-vault/
+magic-app/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/login/page.tsx
 │   │   ├── (app)/
-│   │   │   ├── layout.tsx              # Auth-gated shell
-│   │   │   ├── inventory/page.tsx      # Data table view
-│   │   │   ├── decks/
-│   │   │   │   ├── page.tsx            # Deck list
-│   │   │   │   └── [id]/page.tsx       # Three-pane builder
-│   │   │   ├── cards/[oracle_id]/page.tsx  # Card detail
-│   │   │   └── dashboard/page.tsx      # Value charts
-│   │   ├── api/
-│   │   │   ├── cron/
-│   │   │   │   ├── scryfall-sync/route.ts
-│   │   │   │   ├── game-changers-sync/route.ts
-│   │   │   │   └── spellbook-sync/route.ts
-│   │   │   ├── search/route.ts         # Card search (Scryfall fallback + local)
-│   │   │   ├── import/csv/route.ts     # CSV importer
-│   │   │   └── bracket/route.ts        # Bracket calculation
+│   │   │   ├── layout.tsx              # Auth-gated shell + nav
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── inventory/page.tsx
+│   │   │   ├── decks/page.tsx
+│   │   │   ├── decks/[id]/page.tsx     # Deckbuilder shell
+│   │   │   ├── cards/[oracle_id]/page.tsx
+│   │   │   ├── import/page.tsx
+│   │   │   ├── import/history/page.tsx
+│   │   │   ├── system/page.tsx
+│   │   │   ├── help/page.tsx
+│   │   │   ├── admin/bracket-flags/page.tsx
+│   │   │   └── style-guide/page.tsx
+│   │   ├── api/                        # See README for route list
+│   │   └── auth/callback/route.ts
 │   ├── components/
-│   │   ├── card-search/                # cmd-K palette
-│   │   ├── deckbuilder/                # Three-pane layout
-│   │   ├── inventory-table/            # TanStack Table wrapper
+│   │   ├── card-search/                # ⌘K palette
+│   │   ├── deckbuilder/                # Multi-pane builder
+│   │   ├── inventory-table/
 │   │   └── ui/                         # shadcn primitives
 │   ├── db/
-│   │   ├── schema.ts                   # Drizzle schema (see §5)
-│   │   ├── client.ts                   # Drizzle client
-│   │   └── queries/                    # Reusable query functions
+│   │   ├── schema.ts                   # Source of truth
+│   │   ├── client.ts
+│   │   └── queries/
 │   ├── lib/
-│   │   ├── scryfall.ts                 # Scryfall client + sync
-│   │   ├── spellbook.ts                # Commander Spellbook client
-│   │   ├── bracket-engine.ts           # Bracket calculation
+│   │   ├── scryfall.ts
+│   │   ├── spellbook.ts                # Live Commander Spellbook API
+│   │   ├── bracket-engine.ts
+│   │   ├── bracket-flags.ts
+│   │   ├── game-changers.ts
+│   │   ├── ai/strategy.ts
 │   │   ├── importers/
-│   │   │   ├── manabox.ts
-│   │   │   ├── moxfield.ts
-│   │   │   ├── archidekt.ts
-│   │   │   └── detect.ts               # Header sniffing
 │   │   └── supabase/
-│   │       ├── server.ts
-│   │       └── client.ts
-│   └── middleware.ts                   # Email allowlist enforcement
-├── drizzle/                            # Generated migrations
-├── drizzle.config.ts
-├── vercel.json                         # Cron config
+│   └── proxy.ts                        # Auth + allowlist (was middleware.ts in Next 15)
+├── drizzle/                            # 13 migrations
+├── scripts/sync-scryfall.ts            # Full bulk sync (also `pnpm db:seed`)
+├── .github/workflows/weekly-card-sync.yml
+├── vercel.json
 └── .env.local
 ```
 
 ---
 
-## 5. Database schema (Drizzle)
+## 6. Database schema
 
-Two layers: **reference** (synced from external sources, never user-edited) and **user** (your inventory and decks).
+**Source of truth:** `src/db/schema.ts`. Do not copy stale snippets from older spec revisions — run `pnpm db:generate` after edits.
 
-```typescript
-// src/db/schema.ts
-import { pgTable, text, integer, boolean, timestamp, jsonb, uuid, decimal, primaryKey, index } from "drizzle-orm/pg-core";
+### Reference layer (synced from Scryfall)
 
-// ─── REFERENCE LAYER (synced nightly from Scryfall) ─────────────
+| Table | Purpose |
+|---|---|
+| `cards` | Oracle-level card data + bracket flags |
+| `printings` | Individual printings, prices, images, `card_faces` for DFCs |
+| `price_history` | Daily price snapshots per printing |
+| `combos` / `combo_pieces` | **Schema only — not populated.** Combo detection uses live Spellbook API. |
+| `sync_state` | Key/value sync metadata |
 
-export const cards = pgTable("cards", {
-  oracleId: uuid("oracle_id").primaryKey(),
-  name: text("name").notNull(),
-  manaCost: text("mana_cost"),
-  cmc: decimal("cmc", { precision: 4, scale: 1 }),
-  typeLine: text("type_line").notNull(),
-  oracleText: text("oracle_text"),
-  power: text("power"),
-  toughness: text("toughness"),
-  loyalty: text("loyalty"),
-  colors: text("colors").array(),              // ['W','U']
-  colorIdentity: text("color_identity").array(),
-  keywords: text("keywords").array(),
-  layout: text("layout"),                       // normal, transform, modal_dfc, etc.
-  cardFaces: jsonb("card_faces"),               // For DFCs/split cards
-  edhrecRank: integer("edhrec_rank"),
-  isCommanderLegal: boolean("is_commander_legal").default(true),
-  isReservedList: boolean("is_reserved_list").default(false),
-  // Bracket-relevant flags (set during sync from Scryfall tags / our own rules):
-  isGameChanger: boolean("is_game_changer").default(false),
-  isExtraTurn: boolean("is_extra_turn").default(false),
-  isMassLandDenial: boolean("is_mass_land_denial").default(false),
-  isTutor: boolean("is_tutor").default(false),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (t) => ({
-  nameIdx: index("cards_name_idx").on(t.name),
-  edhrecRankIdx: index("cards_edhrec_rank_idx").on(t.edhrecRank),
-}));
+Notable schema choices:
+- `cmc` is `numeric(12,1)` (Gleemax overflow fix)
+- Bracket flags on `cards`: `is_game_changer`, `is_extra_turn`, `is_mass_land_denial`, `is_tutor`
 
-export const printings = pgTable("printings", {
-  id: uuid("id").primaryKey(),                  // Scryfall card id
-  oracleId: uuid("oracle_id").notNull().references(() => cards.oracleId, { onDelete: "cascade" }),
-  setCode: text("set_code").notNull(),
-  setName: text("set_name").notNull(),
-  collectorNumber: text("collector_number").notNull(),
-  rarity: text("rarity"),                       // common, uncommon, rare, mythic
-  imageUris: jsonb("image_uris"),               // { small, normal, large, png, art_crop, border_crop }
-  releasedAt: timestamp("released_at"),
-  usd: decimal("usd", { precision: 10, scale: 2 }),
-  usdFoil: decimal("usd_foil", { precision: 10, scale: 2 }),
-  usdEtched: decimal("usd_etched", { precision: 10, scale: 2 }),
-  eur: decimal("eur", { precision: 10, scale: 2 }),
-  tix: decimal("tix", { precision: 10, scale: 2 }),
-  finishes: text("finishes").array(),           // ['nonfoil','foil','etched']
-  promoTypes: text("promo_types").array(),
-  scryfallUri: text("scryfall_uri"),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (t) => ({
-  oracleIdx: index("printings_oracle_id_idx").on(t.oracleId),
-  setIdx: index("printings_set_code_idx").on(t.setCode),
-}));
+### User layer
 
-export const priceHistory = pgTable("price_history", {
-  printingId: uuid("printing_id").notNull().references(() => printings.id, { onDelete: "cascade" }),
-  date: text("date").notNull(),                 // YYYY-MM-DD
-  usd: decimal("usd", { precision: 10, scale: 2 }),
-  usdFoil: decimal("usd_foil", { precision: 10, scale: 2 }),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.printingId, t.date] }),
-  dateIdx: index("price_history_date_idx").on(t.date),
-}));
+| Table | Purpose |
+|---|---|
+| `inventory` | **One row per physical card** — no `quantity` column |
+| `decks` | Deck metadata + cached AI analysis JSON |
+| `deck_cards` | Cards in deck (`category`: main / maybeboard / considering). Commander stored on `decks`, not here. |
+| `deck_snapshots` | Point-in-time value + bracket |
+| `collection_snapshots` | Daily whole-collection value |
+| `import_batches` | CSV import audit trail |
+| `locations` | Canonical storage location names |
 
-export const combos = pgTable("combos", {
-  id: text("id").primaryKey(),                  // Commander Spellbook combo id
-  name: text("name"),
-  resultText: text("result_text"),              // What the combo does
-  pieceCount: integer("piece_count").notNull(), // Number of cards required
-  colorIdentity: text("color_identity").array(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (t) => ({
-  pieceCountIdx: index("combos_piece_count_idx").on(t.pieceCount),
-}));
+### Views
 
-export const comboPieces = pgTable("combo_pieces", {
-  comboId: text("combo_id").notNull().references(() => combos.id, { onDelete: "cascade" }),
-  oracleId: uuid("oracle_id").notNull().references(() => cards.oracleId, { onDelete: "cascade" }),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.comboId, t.oracleId] }),
-  oracleIdx: index("combo_pieces_oracle_id_idx").on(t.oracleId),
-}));
+- `deck_commitments` — which inventory rows are assigned to which deck
+- `oracle_ownership` — uncommitted copy counts per oracle id
 
-// ─── USER LAYER ─────────────────────────────────────────────────
+### RLS
 
-export const inventory = pgTable("inventory", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  printingId: uuid("printing_id").notNull().references(() => printings.id),
-  quantity: integer("quantity").notNull().default(1),
-  foil: boolean("foil").default(false),
-  etched: boolean("etched").default(false),
-  condition: text("condition").default("NM"),   // NM, LP, MP, HP, DMG
-  language: text("language").default("en"),
-  location: text("location"),                   // "Long box 1", "Atraxa deck", "Trade binder"
-  acquiredPrice: decimal("acquired_price", { precision: 10, scale: 2 }),
-  acquiredAt: timestamp("acquired_at"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => ({
-  printingIdx: index("inventory_printing_id_idx").on(t.printingId),
-}));
-
-export const decks = pgTable("decks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  commanderPrintingId: uuid("commander_printing_id").references(() => printings.id),
-  partnerPrintingId: uuid("partner_printing_id").references(() => printings.id),
-  targetBracket: integer("target_bracket"),     // 1-5, what you're aiming for
-  archetype: text("archetype"),                 // "Aristocrats", "Voltron", etc.
-  notes: text("notes"),
-  isPrimary: boolean("is_primary").default(false), // Sleeved up / built physically
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const deckCards = pgTable("deck_cards", {
-  deckId: uuid("deck_id").notNull().references(() => decks.id, { onDelete: "cascade" }),
-  printingId: uuid("printing_id").notNull().references(() => printings.id),
-  quantity: integer("quantity").notNull().default(1),
-  category: text("category").default("main"),   // main, maybeboard, considering
-  isCommander: boolean("is_commander").default(false),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.deckId, t.printingId, t.category] }),
-}));
-
-export const deckSnapshots = pgTable("deck_snapshots", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  deckId: uuid("deck_id").notNull().references(() => decks.id, { onDelete: "cascade" }),
-  snapshotAt: timestamp("snapshot_at").defaultNow().notNull(),
-  totalValueUsd: decimal("total_value_usd", { precision: 12, scale: 2 }),
-  calculatedBracket: integer("calculated_bracket"),
-  bracketReasons: jsonb("bracket_reasons"),     // { gameChangers: [...], combos: [...], etc. }
-}, (t) => ({
-  deckIdx: index("deck_snapshots_deck_id_idx").on(t.deckId),
-}));
-```
-
-Generate migrations:
-
-```powershell
-pnpm drizzle-kit generate
-pnpm drizzle-kit migrate
-```
+Migration `0002_enable_rls.sql` enables RLS with **no policies** on core tables, blocking anon/authenticated PostgREST access. Drizzle uses the Postgres owner role and bypasses RLS. **`locations` is missing RLS** — known gap to fix in a future migration.
 
 ---
 
-## 6. Data sync jobs
+## 7. Data sync jobs
 
-All three run nightly via Vercel Cron. Each is a `GET /api/cron/...` route protected by `CRON_SECRET` (passed in `Authorization: Bearer ${CRON_SECRET}`). Vercel injects the secret in production; in dev, hit the endpoint manually.
+### Architecture
 
-### 6.1 Scryfall sync (`/api/cron/scryfall-sync`)
+The Scryfall **Default Cards** bulk file (~500MB) cannot reliably stream + upsert within a Vercel serverless timeout. Sync is split:
 
-Scryfall's [bulk data endpoint](https://api.scryfall.com/bulk-data) returns metadata for downloadable JSON files. Use the **"Default Cards"** file (~500MB, every English-language printing with full data). Stream parse it — never `JSON.parse` the whole file into memory on Vercel.
+| Job | Runner | Schedule | Implementation |
+|---|---|---|---|
+| Full Scryfall sync | **GitHub Action** | Sundays 08:00 UTC | `.github/workflows/weekly-card-sync.yml` → `pnpm db:seed` |
+| Daily collection snapshot | Vercel cron | 06:00 UTC | `/api/cron/daily-snapshot` |
+| Game changers | Vercel cron | 06:30 UTC | `/api/cron/game-changers-sync` |
+| Bracket flags (extra turn, MLD, tutors) | Vercel cron | 08:00 UTC | `/api/cron/refresh-bracket-flags` |
 
-```typescript
-// src/lib/scryfall.ts
-import { db } from "@/db/client";
-import { cards, printings, priceHistory } from "@/db/schema";
-import { sql } from "drizzle-orm";
+All cron routes check `Authorization: Bearer $CRON_SECRET` via `src/lib/cron-auth.ts`. The proxy skips auth for `/api/cron/*`.
 
-const BULK_META = "https://api.scryfall.com/bulk-data";
+### Scryfall sync (`scripts/sync-scryfall.ts`)
 
-export async function syncScryfall() {
-  // 1. Get the download URI for "default_cards"
-  const meta = await fetch(BULK_META).then(r => r.json());
-  const defaultCards = meta.data.find((d: any) => d.type === "default_cards");
-  if (!defaultCards) throw new Error("No default_cards bulk file");
+- Downloads Default Cards bulk metadata from `https://api.scryfall.com/bulk-data`
+- Stream-parses with `stream-json` (never loads 500MB into memory)
+- Upserts `cards`, `printings`, `price_history` in chunks
+- Runs tutor + game-changer flag passes
+- MLD list: `src/lib/curated/mld.ts`
+- Tutors: Scryfall `is:tutor` search during sync
 
-  // 2. Stream-parse the JSON (use a streaming JSON parser like `stream-json`)
-  //    or pipe to a temp file and read in chunks
-  const res = await fetch(defaultCards.download_uri);
-  if (!res.ok || !res.body) throw new Error("Bulk download failed");
+### Game changers (`src/lib/game-changers.ts`)
 
-  // 3. For each card object, upsert into cards (dedupe by oracle_id) and printings
-  //    Batch upserts in chunks of 500
-  //    Capture today's price into price_history (one row per printing per day)
+Scryfall `is:gamechanger` search; resets and re-flags `cards.is_game_changer`.
 
-  // Pseudocode for the per-card transformation:
-  //   const card = { oracleId, name, manaCost, cmc, typeLine, oracleText, colors,
-  //                  colorIdentity, keywords, layout, cardFaces, edhrecRank,
-  //                  isCommanderLegal: !legalities.commander === 'not_legal',
-  //                  isReservedList: reserved };
-  //   const printing = { id, oracleId, setCode, setName, collectorNumber,
-  //                      rarity, imageUris, releasedAt, usd, usdFoil, usdEtched,
-  //                      eur, tix, finishes, promoTypes, scryfallUri };
+### Commander Spellbook (live API, not bulk sync)
 
-  // 4. After upsert, run a second pass to set bracket-relevant flags:
-  //    - isExtraTurn: oracle_text ILIKE '%extra turn%' AND type_line NOT ILIKE '%land%'
-  //    - isMassLandDenial: see curated list below
-  //    - isTutor: see Scryfall `is:tutor` query, or use curated list
-  //    Game changers are handled by the separate game-changers sync.
-}
-```
+**Original spec:** nightly bulk sync of `variants.json` into `combos` / `combo_pieces`.
 
-**Recommended npm package:** `stream-json` for streaming parse. Don't try to load 500MB into a string.
+**As built:** `src/lib/spellbook.ts` calls `backend.commanderspellbook.com/estimate-bracket` at bracket-calculation time. 8s timeout, 1h in-memory cache per serverless instance. `bracket-engine.ts` degrades gracefully when Spellbook is unavailable.
 
-**MLD curated list** (seed these with `isMassLandDenial = true` after sync):
-Armageddon, Catastrophe, Ravages of War, Wildfire, Decree of Annihilation, Obliterate, Jokulhaups, Cataclysm, Cleansing, Worldfire, Magus of the Disk (when paired with land-destruction shells), Sunder, Land Equilibrium, Global Ruin, Akroma's Vengeance. Keep this list in `/src/lib/curated/mld.ts` so you can extend it.
+The local combo tables remain in schema but are unused. Either implement bulk sync later or drop the tables.
 
-**Tutor list:** Scryfall maintains a tag — query `is:tutor` returns ~200 cards. Fetch this list during sync and flip `isTutor = true`. URL: `https://api.scryfall.com/cards/search?q=is%3Atutor&unique=cards`.
-
-### 6.2 Game Changers sync (`/api/cron/game-changers-sync`)
-
-Scryfall maintains the official Game Changers list under the `game_changer:true` flag. Pull it directly:
-
-```typescript
-// src/lib/game-changers.ts
-export async function syncGameChangers() {
-  const url = "https://api.scryfall.com/cards/search?q=is%3Agamechanger&unique=cards";
-  let next: string | null = url;
-  const oracleIds = new Set<string>();
-
-  while (next) {
-    const data = await fetch(next).then(r => r.json());
-    for (const card of data.data) oracleIds.add(card.oracle_id);
-    next = data.has_more ? data.next_page : null;
-    await new Promise(r => setTimeout(r, 100)); // Scryfall asks for 50–100ms between requests
-  }
-
-  // Reset flag, then mark current set
-  await db.update(cards).set({ isGameChanger: false }).execute();
-  await db.update(cards)
-    .set({ isGameChanger: true })
-    .where(sql`oracle_id = ANY(${Array.from(oracleIds)}::uuid[])`)
-    .execute();
-}
-```
-
-**Scryfall request etiquette:** they ask for a 50–100ms delay between requests, a meaningful `User-Agent`, and an `Accept: application/json` header. Add both.
-
-### 6.3 Commander Spellbook sync (`/api/cron/spellbook-sync`)
-
-Commander Spellbook publishes their full database as JSON at `https://json.commanderspellbook.com/variants.json` (~50MB). Fetch, parse, upsert `combos` and `combo_pieces`.
-
-```typescript
-export async function syncSpellbook() {
-  const data = await fetch("https://json.commanderspellbook.com/variants.json").then(r => r.json());
-  // Each variant has: id, name, status, uses (array of { card: { oracleId } }), produces (array of features)
-  // Insert into combos (one row), then combo_pieces (one per used card)
-  // Filter to status === 'OK' (excludes broken / illegal / draft combos)
-  // pieceCount = variant.uses.length
-}
-```
-
-### 6.4 Cron config (`vercel.json`)
+### `vercel.json` (current)
 
 ```json
 {
   "crons": [
-    { "path": "/api/cron/scryfall-sync", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/daily-snapshot", "schedule": "0 6 * * *" },
     { "path": "/api/cron/game-changers-sync", "schedule": "30 6 * * *" },
-    { "path": "/api/cron/spellbook-sync", "schedule": "0 7 * * *" }
+    { "path": "/api/cron/refresh-bracket-flags", "schedule": "0 8 * * *" }
   ]
 }
 ```
 
 ---
 
-## 7. CSV importer
+## 8. CSV importer
 
-Three vendor formats to support: **ManaBox**, **Moxfield**, **Archidekt**. Detect by header signature, route to the right parser, normalize to a common shape, then upsert into `inventory`.
+**Formats:** ManaBox, Moxfield, Archidekt, TCGPlayer (`src/lib/importers/detect.ts`).
 
-```typescript
-// src/lib/importers/detect.ts
-type ImporterFormat = "manabox" | "moxfield" | "archidekt" | "tcgplayer" | "unknown";
+**Flow:** Upload → configure (location + mode) → resolve unmatched → confirm → commit.
 
-export function detectFormat(headers: string[]): ImporterFormat {
-  const h = new Set(headers.map(s => s.toLowerCase()));
-  if (h.has("scryfall id") && h.has("foil")) return "manabox";
-  if (h.has("tradelist count") && h.has("edition")) return "moxfield";
-  if (h.has("collectornumber") && h.has("edition code")) return "archidekt";
-  if (h.has("product name") && h.has("number")) return "tcgplayer";
-  return "unknown";
-}
-```
+**Matching priority:**
+1. Scryfall ID (ManaBox)
+2. Set code + collector number
+3. Name + set code (may need manual disambiguation)
+4. Name only (chooser)
 
-**Common shape** (normalize all three to this):
+**Physical-card expansion:** Import rows with `quantity: N` expand into N inventory rows on commit.
 
-```typescript
-type NormalizedRow = {
-  name: string;
-  setCode: string;            // lowercase 3-5 letter Scryfall set code
-  collectorNumber: string;
-  quantity: number;
-  foil: boolean;
-  condition?: "NM" | "LP" | "MP" | "HP" | "DMG";
-  language?: string;
-  acquiredPrice?: number;
-};
-```
+**Modes:**
+- **Append** — add rows to inventory
+- **Replace location** — dispose existing cards at the target location, then import (undo restores disposed cards)
 
-**Matching strategy** for each row:
-1. Best case: row has `scryfall_id` (ManaBox does) → direct lookup in `printings`.
-2. Otherwise: `setCode + collectorNumber` → unique key in `printings`. Lookup.
-3. Fallback: `name + setCode` → may match multiple printings (variant collector numbers); flag for manual disambiguation.
-4. Last resort: name only → present a chooser if multiple matches.
-
-Build the UI as: upload → preview table → resolve unmatched rows → confirm → batch insert.
+**Undo:** `/import/history` → undo batch removes imported rows and restores disposed cards from that batch.
 
 ---
 
-## 8. Deckbuilder UI
+## 9. Deckbuilder UI
 
-**Three-pane layout** at ≥1280px, single column below (graceful degradation, not the priority):
+Three-pane layout at ≥1024px (`src/components/deckbuilder/shell.tsx`):
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Atraxa, Praetors' Voice — Target: Bracket 3 — Current: B4 ⚠     │  Header
-├──────────────┬──────────────────────────────┬────────────────────┤
-│              │                              │                    │
-│  Search      │   Decklist (99 + 1)          │  Card detail       │
-│  + Filters   │   grouped by type            │  + EDHREC rank     │
-│              │                              │  + Synergy with    │
-│  Inventory   │   Creatures (28)             │    commander       │
-│  toggle:     │     1 Atraxa, Praetors' Voi… │  + Combos this     │
-│  [ ] only    │     1 Solemn Simulacrum      │    card is in      │
-│  cards I own │     ...                      │  + Owned: 2 (1F)   │
-│              │   Lands (37)                 │                    │
-│              │   ...                        │                    │
-│              │                              │                    │
-└──────────────┴──────────────────────────────┴────────────────────┘
-```
+| Pane | Purpose |
+|---|---|
+| Left | Card search (full DB), filters, owned-only toggle |
+| Middle | Decklist grouped by type, ownership indicators |
+| Right | Detail / Coach / Strategy / Acquire tabs |
 
-**Keyboard-first interactions (table stakes for a desktop tool):**
+**Bracket panel** — overlay via ⌘B showing calculated bracket, reasons, removal diffs.
+
+### Keyboard shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `cmd/ctrl + k` | Open global card search palette |
-| `↑ ↓` | Navigate results |
-| `Enter` | Add highlighted card to active deck |
-| `1`–`9` | Set quantity for newly added card (default 1) |
-| `cmd/ctrl + Enter` | Add to maybeboard instead of main |
-| `Backspace` on a decklist row | Remove |
-| `cmd/ctrl + /` | Toggle "owned cards only" filter |
-| `cmd/ctrl + b` | Recalculate bracket |
-| `cmd/ctrl + s` | Save snapshot |
+| ⌘K / Ctrl+K | Global card search |
+| / | Focus deckbuilder search |
+| Enter | Add highlighted card |
+| Backspace | Remove selected decklist row |
+| ⌘/ | Toggle owned-only filter |
+| ⌘B | Bracket panel |
+| ⌘S | Save deck snapshot |
+| Esc | Clear selected card |
 
-Use the shadcn `Command` component (CMDK under the hood) for the palette. Wire keyboard handlers at the page level with `useEffect`.
+### Availability
 
-**Decklist grouping:** Creatures → Planeswalkers → Instants → Sorceries → Artifacts → Enchantments → Battles → Lands. Auto-sort by CMC then alpha within each group.
-
-**Owned/needed indicator on every row:** small badge showing `Own: 1/1` or `Need: 0/1`. Drives the "what do I actually need to buy to complete this deck" calculation.
+A physical card can only be in one deck. `src/db/queries/availability.ts` uses DB views to compute committed vs available copies. Coach and own/need badges respect this.
 
 ---
 
-## 9. Bracket engine
+## 10. Bracket engine
 
-This is the unique value of the tool. Build it as a pure function that takes a decklist and returns a structured result.
+**Implementation:** `src/lib/bracket-engine.ts` + `POST /api/decks/[id]/bracket`
 
-```typescript
-// src/lib/bracket-engine.ts
+Takes deck oracle IDs, fetches local flag data, calls Spellbook for combo detection, applies WotC bracket rules, returns:
 
-type DeckCard = { oracleId: string; quantity: number; isCommander: boolean };
+- `bracket` (1–5), `confidence` (calculated / declared / conservative)
+- Structured `reasons` by category
+- `toReachBracket` removal diffs with EDHREC/price heuristics
+- `declaredAsCedh` path for Bracket 5 (intent-based; user confirms)
 
-type BracketResult = {
-  bracket: 1 | 2 | 3 | 4 | 5;
-  reasons: string[];
-  gameChangers: Array<{ oracleId: string; name: string }>;
-  twoCardCombos: Array<{ comboId: string; pieces: string[]; resultText: string }>;
-  massLandDenial: Array<{ oracleId: string; name: string }>;
-  extraTurnCards: Array<{ oracleId: string; name: string }>;
-  tutorCount: number;
-  // What you'd need to remove to drop a bracket
-  toReachBracket: {
-    [target: number]: { remove: Array<{ oracleId: string; name: string; reason: string }> };
-  };
-};
+**UI caveat:** Bracket 5 is intent-based. The engine surfaces "looks like cEDH" signals but Bracket 5 requires user declaration.
 
-export async function calculateBracket(deck: DeckCard[]): Promise<BracketResult> {
-  const oracleIds = deck.map(d => d.oracleId);
-
-  // Fetch flags for all deck cards in one query
-  const flaggedCards = await db
-    .select({
-      oracleId: cards.oracleId,
-      name: cards.name,
-      isGameChanger: cards.isGameChanger,
-      isMassLandDenial: cards.isMassLandDenial,
-      isExtraTurn: cards.isExtraTurn,
-      isTutor: cards.isTutor,
-    })
-    .from(cards)
-    .where(sql`oracle_id = ANY(${oracleIds}::uuid[])`);
-
-  const gameChangers = flaggedCards.filter(c => c.isGameChanger);
-  const mld = flaggedCards.filter(c => c.isMassLandDenial);
-  const extraTurns = flaggedCards.filter(c => c.isExtraTurn);
-  const tutorCount = flaggedCards.filter(c => c.isTutor).length;
-
-  // Find two-card combos entirely contained in the deck
-  // A combo is "in the deck" if ALL its pieces are in the deck.
-  // Query: combos where pieceCount = 2 AND every piece's oracle_id is in our deck
-  const twoCardCombos = await db.execute(sql`
-    SELECT c.id, c.name, c.result_text, array_agg(cp.oracle_id) AS pieces
-    FROM combos c
-    JOIN combo_pieces cp ON cp.combo_id = c.id
-    WHERE c.piece_count = 2
-    GROUP BY c.id, c.name, c.result_text
-    HAVING bool_and(cp.oracle_id = ANY(${oracleIds}::uuid[]))
-  `);
-
-  // Bracket determination per WotC's published rules
-  // (see https://magic.wizards.com/en/news/announcements for the current criteria;
-  //  sync this logic against the latest beta update at build time)
-  const reasons: string[] = [];
-  let bracket: 1 | 2 | 3 | 4 | 5 = 2;
-
-  // Bracket 5 (cEDH) is intent-based and can't be auto-detected reliably.
-  // We can flag "cEDH-shaped" if all of: many game changers, fast mana density, low CMC,
-  // heavy tutoring, 2-card infinite present. Surface as "Looks like cEDH" but let user confirm.
-  const looksLikeCEDH =
-    gameChangers.length >= 5 &&
-    twoCardCombos.length >= 1 &&
-    tutorCount >= 5;
-
-  if (looksLikeCEDH) {
-    bracket = 5;
-    reasons.push(`High Game Changer count (${gameChangers.length}), 2-card infinite present, ${tutorCount} tutors`);
-  } else if (gameChangers.length > 3 || twoCardCombos.length > 0) {
-    bracket = 4;
-    if (gameChangers.length > 3) reasons.push(`${gameChangers.length} Game Changers (Bracket 3 allows 3)`);
-    if (twoCardCombos.length > 0) reasons.push(`${twoCardCombos.length} two-card infinite combo(s) detected`);
-  } else if (
-    gameChangers.length >= 1 ||
-    extraTurns.length >= 3 ||
-    mld.length > 0
-  ) {
-    bracket = 3;
-    if (gameChangers.length) reasons.push(`${gameChangers.length} Game Changer(s) — none allowed in Bracket 2`);
-    if (extraTurns.length >= 3) reasons.push(`${extraTurns.length} extra-turn cards (chaining risk)`);
-    if (mld.length) reasons.push(`${mld.length} mass land denial card(s) — not appropriate for Bracket 2`);
-  } else {
-    bracket = 2;
-  }
-
-  // Build "to drop a bracket" diffs
-  const toReachBracket: BracketResult["toReachBracket"] = {};
-  if (bracket >= 3) {
-    toReachBracket[2] = {
-      remove: [
-        ...gameChangers.map(c => ({ oracleId: c.oracleId, name: c.name, reason: "Game Changer (not allowed B1/B2)" })),
-        ...mld.map(c => ({ oracleId: c.oracleId, name: c.name, reason: "Mass land denial" })),
-        ...(extraTurns.length >= 3 ? extraTurns.slice(0, extraTurns.length - 2).map(c => ({ oracleId: c.oracleId, name: c.name, reason: "Extra turn (reduce to ≤2)" })) : []),
-      ],
-    };
-  }
-  if (bracket >= 4) {
-    toReachBracket[3] = {
-      remove: [
-        ...(gameChangers.length > 3 ? gameChangers.slice(3).map(c => ({ oracleId: c.oracleId, name: c.name, reason: "Game Changer count over 3" })) : []),
-        ...twoCardCombos.flatMap(combo => combo.pieces.slice(0, 1).map((id: string) => ({ oracleId: id, name: "", reason: `Breaks 2-card combo: ${combo.name}` }))),
-      ],
-    };
-  }
-
-  return {
-    bracket,
-    reasons,
-    gameChangers: gameChangers.map(c => ({ oracleId: c.oracleId, name: c.name })),
-    twoCardCombos: twoCardCombos as any,
-    massLandDenial: mld.map(c => ({ oracleId: c.oracleId, name: c.name })),
-    extraTurnCards: extraTurns.map(c => ({ oracleId: c.oracleId, name: c.name })),
-    tutorCount,
-    toReachBracket,
-  };
-}
-```
-
-**Important caveat to surface in UI:** Bracket 5 is intent-based — WotC explicitly says cEDH is about tournament play, not just power level. The engine can detect "this deck is cEDH-shaped" but should never auto-classify as B5 without user confirmation. Show as: "Looks like Bracket 4/5 — is this built for tournaments? [Yes, it's cEDH] [No, just powerful]".
+**MLD curated list:** `src/lib/curated/mld.ts`
 
 ---
 
-## 10. Value tracking
+## 11. Value tracking
 
-Three views:
+| View | Source |
+|---|---|
+| Collection total | Finish-aware join of `inventory` × `printings` (foil/etched columns) |
+| Per-deck value | Same join scoped to `deck_cards` |
+| Value over time | `collection_snapshots` (daily cron) + `deck_snapshots` (manual ⌘S or bracket route) |
+| Dashboard | `src/app/(app)/dashboard/page.tsx` + Recharts |
 
-1. **Collection total** — `SELECT SUM(printings.usd * inventory.quantity) FROM inventory JOIN printings ON ...`. Show foil pricing where `inventory.foil = true`.
-2. **Per-deck value** — same join, scoped by `deck_cards`.
-3. **Value over time** — chart from `deck_snapshots.totalValueUsd` + `priceHistory` aggregated across owned printings.
-
-Use Recharts (`AreaChart` for collection value, `LineChart` for per-deck snapshot timeline).
-
-**Snapshot trigger:** on every deck save, write a row to `deck_snapshots` with computed bracket and value. Cheap, gives you a full history.
-
----
-
-## 11. Auth (single-user)
-
-Supabase magic-link with an email allowlist enforced in middleware:
-
-```typescript
-// src/middleware.ts
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
-
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { /* ... see Supabase SSR docs */ } }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  const isAuthRoute = req.nextUrl.pathname.startsWith("/login");
-  const isApiCron = req.nextUrl.pathname.startsWith("/api/cron");
-
-  if (isApiCron) return res; // cron uses CRON_SECRET, not user auth
-
-  if (!user && !isAuthRoute) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-  if (user && user.email !== process.env.ALLOWED_EMAIL) {
-    await supabase.auth.signOut();
-    return NextResponse.redirect(new URL("/login?error=not_allowed", req.url));
-  }
-  return res;
-}
-
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
-```
-
-Single-user trick: no `user_id` columns needed on inventory/decks. You're the only writer. If you ever go multi-user later, add a `userId` column and backfill.
+**Note:** Deck list tiles use base `printings.usd`, not finish-aware pricing — minor inconsistency vs inventory.
 
 ---
 
-## 12. Phased build order
+## 12. Auth (single-user)
 
-Each phase is a discrete Claude Code session. Don't try to do them all in one shot.
+**Proxy:** `src/proxy.ts` (Next.js 16 — replaces `middleware.ts`).
 
-| Phase | Effort | Output |
+- Magic-link login at `/login`
+- PKCE callback at `/auth/callback`
+- Comma-separated `ALLOWED_EMAIL` allowlist
+- Non-allowlisted users signed out → `/login?error=not_allowed`
+- App layout double-checks user server-side
+- No `user_id` columns — single writer assumed
+
+Cron routes bypass user auth; protected by `CRON_SECRET`.
+
+API route handlers do not re-check auth individually — they rely on the proxy. Acceptable for single-user; add per-handler checks if opening up.
+
+---
+
+## 13. Phased build order (complete)
+
+All phases from the original plan shipped. Approximate original estimates vs reality:
+
+| Phase | Status | Output |
 |---|---|---|
-| **P1: Foundation** | 3–4h | Project scaffolded, Drizzle wired to Supabase, schema migrated, auth + middleware working, can log in |
-| **P2: Scryfall sync** | 5–7h | `/api/cron/scryfall-sync` populates `cards` + `printings`. Manual trigger works. ~120K printings in DB. |
-| **P3: Card search** | 4–5h | `cmd-K` global palette, server-side fuzzy search over local `cards` table, card detail page renders |
-| **P4: Inventory** | 6–8h | Manual add/edit, TanStack Table grid with filters, total value display |
-| **P5: CSV importer** | 6–8h | Upload UI, header detection, ManaBox + Moxfield + Archidekt parsers, unmatched-row resolver |
-| **P6: Decks (CRUD)** | 3–4h | Deck list, create/rename/delete, commander assignment |
-| **P7: Deckbuilder UI** | 8–10h | Three-pane layout, keyboard shortcuts, owned/needed badges, decklist grouping |
-| **P8: Game Changers + Spellbook sync** | 3–4h | Both cron jobs working, flags populated |
-| **P9: Bracket engine** | 5–7h | Pure function + API route, UI panel showing current bracket + diff to lower brackets |
-| **P10: Value over time** | 3–4h | Snapshot writer on deck save, Recharts dashboards |
+| P1: Foundation | ✅ | Drizzle, schema, auth, proxy |
+| P2: Scryfall sync | ✅ | Bulk sync via script + GH Action |
+| P3: Card search | ✅ | ⌘K palette, local + Scryfall fallback search |
+| P4: Inventory | ✅ | Physical-card model, grouped/physical views, disposal |
+| P5: CSV importer | ✅ | Four formats, undo, replace-location mode |
+| P6: Decks CRUD | ✅ | List, create, commander assignment |
+| P7: Deckbuilder UI | ✅ | Multi-pane + Coach/Strategy/Acquire |
+| P8: Game Changers + flags | ✅ | Cron jobs; Spellbook bulk sync deferred |
+| P9: Bracket engine | ✅ | Engine + panel + snapshots |
+| P10: Value over time | ✅ | Collection snapshots, dashboard charts |
 
-**Total: ~46–61h.** Not 30–45 like I quoted earlier — I underestimated the importer and deckbuilder. Real numbers.
-
----
-
-## 13. Claude Code kickoff prompt
-
-Paste this verbatim into your first Claude Code session in the `mtg-vault` directory (after running the setup commands in §3):
-
-> ```
-> You're helping me build MTG Vault, a personal Magic: The Gathering inventory and Commander deckbuilding tool. The full spec is in ./mtg-vault-v0-spec.md — read it first, end to end, before doing anything else.
->
-> We're building in phases. Right now we're on Phase 1: Foundation. Do not touch later phases.
->
-> Phase 1 deliverables:
-> 1. Verify the Next.js + Tailwind + shadcn scaffold is in place (it should be — I ran the bootstrap commands already).
-> 2. Set up Drizzle: create src/db/client.ts pointing at DATABASE_URL, create drizzle.config.ts, write the schema in src/db/schema.ts exactly as specified in §5 of the spec.
-> 3. Generate and apply the initial migration. Confirm tables exist in Supabase.
-> 4. Wire up Supabase Auth: create src/lib/supabase/server.ts and src/lib/supabase/client.ts following the @supabase/ssr cookie pattern. Add the login page at src/app/(auth)/login/page.tsx with magic-link form. Add the middleware in src/middleware.ts exactly as specified in §11.
-> 5. Create a stub /app/(app)/layout.tsx that just renders children inside a basic header showing the logged-in email and a "Log out" button.
-> 6. Add a stub /app/(app)/dashboard/page.tsx that says "MTG Vault — Phase 1 complete".
-> 7. Verify the auth flow end-to-end: I should be able to hit /, get redirected to /login, request a magic link, click it from my email, and land on /dashboard.
->
-> Ask me before installing any package not already listed in package.json. Use pnpm, not npm. When you write SQL or Drizzle queries, run them through `pnpm drizzle-kit` rather than crafting raw migrations. We're on Windows PowerShell — use && only if you've confirmed pnpm is being run in PS 7+, otherwise chain commands with `;` or run them sequentially.
->
-> When Phase 1 is done, stop and wait for me to verify before starting Phase 2. Do not assume Phase 2 starts automatically.
-> ```
-
-For subsequent phases, the prompt template is the same — change the phase number and deliverables list, point at the relevant spec section, and keep the "stop and wait" discipline. That last instruction is what keeps Claude Code from cargo-culting ahead of you into work you haven't reviewed yet.
+Post-v0 work (AI strategy, locations, import history, admin tools) was added without a formal phase plan.
 
 ---
 
-## 14. Things I deliberately left out
+## 14. Known gaps and tech debt
 
-- **Card image hosting.** Use Scryfall's `image_uris` directly — they're CDN-backed and serving images is their explicit policy. Don't proxy or self-host.
-- **Multi-currency.** USD only in v0. If you want EUR later, you've already got the column.
-- **Sealed product / packs / boxes tracking.** Personal tool, you can just put "1x Bloomburrow Commander Precon" in `notes` if you want.
-- **Trade tracking.** Out of scope. The acquisition price column gives you cost basis if you ever need it.
-- **Format legality beyond Commander.** `isCommanderLegal` is the only legality flag in v0.
-- **Tagging / categorization beyond `location`.** You can add a tags array later. Don't pre-build.
-- **Mobile.** Already covered. Add PWA in v1.5 if you ever miss it.
+| Item | Severity | Notes |
+|---|---|---|
+| No automated tests | Medium | Bracket engine and importers are highest-value targets |
+| `combos` tables unused | Low | Live Spellbook API replaced bulk sync plan |
+| `locations` missing RLS | Low | Inconsistent with other tables |
+| Import commit not transactional | Medium | Partial failure can leave inconsistent batch state |
+| Partner validation heuristic | Low | Regex `Partner` only; Background/Friends Forever deferred |
+| No color-identity enforcement on add | Low | Banned cards warn; off-color cards allowed |
+| Spellbook cache per-instance | Low | Cold starts re-hit external API |
 
 ---
 
-## 15. What v1+ adds (for reference, not v0 scope)
+## 15. v1+ roadmap (not started)
 
-- PWA shell (manifest, service worker, offline inventory read) — 4–6h
-- Single-card Claude vision scanner — 6–8h
-- LLM strategy advisor (decklist → archetype, win cons, gameplan, weaknesses, "cards in your inventory that would improve this deck") — 12–16h
-- EDHREC-style synergy view ("commonly played with [commander]") via EDHREC unofficial API — 4–6h
-- Non-Commander format legality checking — 2–3h per format
-- Trade tracker — 6–8h
+- PWA shell (manifest, offline inventory read)
+- Single-card vision scanner
+- EDHREC synergy view
+- Non-Commander format legality
+- Trade tracker
+- Multi-user (`user_id` columns + RLS policies)
+- Local Spellbook combo DB sync (or drop dead tables)
 
-Total v1 if you do all of it: ~35–50h.
+---
+
+## 16. Deliberate exclusions (unchanged)
+
+- **Card images:** Scryfall CDN directly — do not proxy or self-host
+- **Multi-currency:** USD only (EUR column exists on printings)
+- **Sealed product tracking:** use `notes` if needed
+- **Mobile/PWA:** desktop-first; PWA deferred
+- **Tagging beyond location:** deferred
+
+---
+
+## 17. Agent / contributor notes
+
+- Read [AGENTS.md](./AGENTS.md) — this project uses **Next.js 16** with breaking changes vs training data; check `node_modules/next/dist/docs/` before writing Next.js code.
+- Match existing conventions in surrounding code; schema changes need `pnpm db:generate` + migration.
+- Design work follows [docs/STYLE_GUIDE.md](./docs/STYLE_GUIDE.md).
+- User-facing copy changes should update both [USER-GUIDE.md](./USER-GUIDE.md) and `src/lib/help-content.ts`.

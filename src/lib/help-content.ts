@@ -22,7 +22,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "Press Cmd+K (or Ctrl+K) anywhere to open the card search palette. Card detail pages and the deckbuilder show a back link in the top-left so you don't have to use the browser back button.",
+        text: "Press Cmd+K (or Ctrl+K) anywhere to open the card search palette. Card detail pages and the deckbuilder show a back link in the top-left so you don't have to use the browser back button. This Help page mirrors the USER-GUIDE in the repo.",
       },
     ],
   },
@@ -49,7 +49,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Inventory page lists every card you own. Grouped view (default) shows one row per card with copies collapsed and a Sets column of printing symbols — expand a group to see individual copies. Physical view shows one row per physical card with condition, location, and price detail.",
+        text: "The Inventory page lists every card you own — one database row per physical card. Grouped view (default) shows one row per card with copies collapsed and a Sets column of printing symbols — expand a group to see individual copies. Physical view shows one row per physical card with condition, location, and price detail.",
       },
       {
         type: "p",
@@ -110,11 +110,11 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "Opening a deck shows a three-pane workspace (needs a window at least 1024px wide). The left pane searches any card in the database — not just cards you own — with filters for color identity, type, and owned-only. Click a result to add it. The middle pane is the decklist, grouped by type with ownership indicators.",
+        text: "Opening a deck shows a three-pane workspace (needs a window at least 1024px wide). The left pane searches any card in the database — not just cards you own — with filters for color identity, type, and owned-only (Cmd+/ toggles owned-only). Click a result or press Enter to add it. The middle pane is the decklist, grouped by type with ownership indicators; Backspace removes the selected row.",
       },
       {
         type: "p",
-        text: "The deck header has a '← Decks' link, the deck name, and an Export action (copy the decklist in Moxfield/Archidekt text format). Cmd+B opens the bracket panel; Cmd+S saves a snapshot of the deck's value and bracket. The right rail has four tabs: Detail, Coach, Strategy, and Acquire.",
+        text: "The deck header has a '← Decks' link, the deck name, and an Export action (copy the decklist in Moxfield/Archidekt text format). Cmd+B opens the bracket panel; Cmd+S saves a snapshot of the deck's value and bracket. The right rail has four tabs: Detail, Coach, Strategy, and Acquire. A shortcut bar at the bottom lists the same keys.",
       },
     ],
   },
@@ -152,7 +152,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Strategy tab is an AI analysis. Click Analyze deck for an archetype read, win conditions, a three-phase gameplan, and weaknesses. The analysis is cached; use Re-analyze after changing the deck.",
+        text: "The Strategy tab is an AI analysis powered by Claude. Click Analyze deck for an archetype read, win conditions, a three-phase gameplan, and weaknesses. Requires ANTHROPIC_API_KEY on the server — if it's missing, the tab explains why analysis isn't available. The analysis is cached; use Re-analyze after changing the deck.",
       },
       {
         type: "p",
@@ -175,16 +175,30 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: "deckbuilder-bracket",
+    title: "Deckbuilder: Bracket panel",
+    blocks: [
+      {
+        type: "p",
+        text: "Press Cmd+B to open the bracket overlay. It shows the calculated bracket (1–5), confidence level, reasons grouped by category (game changers, combos, mass land denial, extra turns, tutors), and suggested removals to drop a bracket.",
+      },
+      {
+        type: "p",
+        text: "Bracket 5 (cEDH) is intent-based — you confirm tournament intent explicitly. Combo detection uses the live Commander Spellbook API; if Spellbook is unreachable, the estimate may be conservative and the panel says so.",
+      },
+    ],
+  },
+  {
     id: "importing",
     title: "Importing a CSV",
     blocks: [
       {
         type: "p",
-        text: "The Import page runs a five-step wizard: Upload a CSV (ManaBox, Moxfield, Archidekt, or TCGPlayer), Configure a default location (picked from the canonical list) and import mode, Resolve any ambiguous or unmatched rows, Confirm the counts, and Done.",
+        text: "The Import page runs a five-step wizard: Upload a CSV (ManaBox, Moxfield, Archidekt, or TCGPlayer), Configure a default location (from the canonical list) and import mode (append or replace location), Resolve any ambiguous or unmatched rows, Confirm the counts, and Done. Each imported quantity becomes one inventory row per physical card.",
       },
       {
         type: "p",
-        text: "Import history lists every batch and lets you Undo one — it removes the rows that batch created and restores anything it disposed.",
+        text: "Import history (link on the Import page) lists every batch and lets you Undo one — it removes the rows that batch created and restores anything it disposed.",
       },
     ],
   },
@@ -198,7 +212,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "The full card database refreshes weekly from Scryfall; the daily value snapshot updates on its own schedule.",
+        text: "The full card database refreshes weekly from Scryfall (GitHub Action). Daily jobs update collection value snapshots and bracket-related flags.",
       },
     ],
   },
@@ -223,8 +237,11 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         type: "list",
         items: [
-          "Cmd+K or Ctrl+K — open card search",
+          "Cmd+K or Ctrl+K — open card search (global)",
           "/ — focus search (in the deckbuilder)",
+          "Enter — add highlighted search result (in the deckbuilder)",
+          "Backspace — remove selected decklist row (in the deckbuilder)",
+          "Cmd+/ — toggle owned-only filter (in the deckbuilder)",
           "Cmd+B — bracket panel (in the deckbuilder)",
           "Cmd+S — save deck snapshot (in the deckbuilder)",
           "Esc — clear the selected card",

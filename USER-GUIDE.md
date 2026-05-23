@@ -29,6 +29,8 @@ Press **⌘K** (Ctrl+K) anywhere to open the card search palette. Card detail
 pages and the deckbuilder show a back link in the top-left so you don't have
 to use the browser back button.
 
+The in-app **Help** page mirrors this guide.
+
 ---
 
 ## Dashboard
@@ -47,7 +49,9 @@ A snapshot of the whole collection:
 
 ## Your collection (Inventory)
 
-The **Inventory** page lists every card you own.
+The **Inventory** page lists every card you own. Each database row is one
+**physical card** — a playset of four Sol Rings is four rows, not one row
+with quantity 4.
 
 ### Views
 
@@ -128,11 +132,14 @@ Opening a deck shows a three-pane workspace (needs a window ≥1024px wide):
 ### Left — Search
 
 Search any card in the database (not just cards you own). Filter by color
-identity, type, or owned-only. Click a result to add it.
+identity, type, or owned-only (**⌘/** toggles owned-only). Click a result to
+add it, or press **Enter** on the highlighted result.
 
 ### Middle — Decklist
 
-The deck's cards, grouped by type, with ownership indicators.
+The deck's cards, grouped by type, with ownership indicators. **Backspace**
+removes the selected row. A physical card committed to another deck shows as
+unavailable elsewhere.
 
 ### Right — four tabs
 
@@ -146,23 +153,45 @@ The deck's cards, grouped by type, with ownership indicators.
   stacked cards like basics) and **owned candidates** to add. Suggestions
   only show cards you have available — copies already committed to another
   deck don't count, since a physical card can only field one deck.
-- **Strategy** — an AI analysis (Claude). Click **Analyze deck** for
+- **Strategy** — an AI analysis powered by Claude. Click **Analyze deck** for
   archetype, win conditions, a three-phase gameplan, weaknesses,
   **From your inventory** (improvement suggestions you own), and
-  **Worth acquiring** (a shopping list regardless of ownership). Each
-  *Worth acquiring* card has a **Buy** button that adds it to the deck's
-  *considering* category, where it flows into the **Acquire** rollup.
+  **Worth acquiring** (a shopping list regardless of ownership). Requires
+  `ANTHROPIC_API_KEY` on the server — if it's missing, the tab explains why
+  analysis isn't available. Results are cached; use **Re-analyze** after
+  changing the deck. Each *Worth acquiring* card has a **Buy** button that
+  adds it to the deck's *considering* category, where it flows into the
+  **Acquire** rollup.
 - **Acquire** — a cost-to-build rollup: every non-basic card in the deck
-  you don't own enough copies of, with a deck-total price. Each row links
-  to its card page.
+  you don't own enough copies of, with a deck-total price. Basic lands are
+  excluded. Each row links to its card page.
+
+### Bracket panel
+
+Press **⌘B** (or use the bracket control in the header) to open the bracket
+overlay. It shows:
+
+- **Calculated bracket** (1–5) with confidence (calculated, declared, or
+  conservative when Commander Spellbook is unreachable)
+- **Reasons** grouped by category — game changers, combos, mass land denial,
+  extra turns, tutors
+- **To reach Bracket N** — suggested removals to drop a bracket, with brief
+  rationale per card
+
+Bracket 5 (cEDH) is intent-based. The engine can flag a deck as cEDH-shaped,
+but you confirm tournament intent explicitly.
+
+Combo detection uses the live Commander Spellbook API. If Spellbook is down,
+the estimate may be conservative and the panel says so.
 
 ### Other deckbuilder actions
 
 - **← Decks** in the deckbuilder header — return to the decks list.
 - **Export** (in the header menu) — copy the decklist in Moxfield/Archidekt
   text format.
-- **⌘B** — open the bracket panel (power-level estimate and reasons).
 - **⌘S** — save a snapshot of the deck's value and bracket.
+
+The shortcut bar at the bottom of the deckbuilder lists the same keys.
 
 ---
 
@@ -172,13 +201,17 @@ The deck's cards, grouped by type, with ownership indicators.
 
 1. **Upload** — drop a CSV (ManaBox, Moxfield, Archidekt, TCGPlayer).
 2. **Configure** — pick a default location (from the canonical list) and an
-   import mode.
+   import mode (**append** or **replace location** — the latter disposes
+   existing cards at that location before importing).
 3. **Resolve** — fix any ambiguous or unmatched rows.
 4. **Confirm** — review the counts.
 5. **Done** — the cards are in your inventory.
 
-**Import history** lists every batch and lets you **Undo** one — it removes
-the rows it created and restores anything it disposed.
+Each imported quantity becomes one inventory row per physical card.
+
+**Import history** (link on the Import page) lists every batch and lets you
+**Undo** one — it removes the rows that batch created and restores anything
+it disposed.
 
 ---
 
@@ -192,8 +225,8 @@ The **System** page reports app health:
 - **Collection & activity** — inventory, deck, snapshot, and import stats.
 - **Locations** — manage the canonical list (see next section).
 
-The full card database refreshes weekly from Scryfall; prices and the daily
-value snapshot update on their own schedule.
+The full card database refreshes **weekly** from Scryfall (GitHub Action).
+Daily jobs update collection value snapshots and bracket-related flags.
 
 ---
 
@@ -220,8 +253,11 @@ any locations already in use.
 
 | Shortcut | Action |
 |----------|--------|
-| ⌘K / Ctrl+K | Open card search |
+| ⌘K / Ctrl+K | Open card search (global) |
 | / | Focus search (in the deckbuilder) |
+| Enter | Add highlighted search result (in the deckbuilder) |
+| Backspace | Remove selected decklist row (in the deckbuilder) |
+| ⌘/ | Toggle owned-only filter (in the deckbuilder) |
 | ⌘B | Bracket panel (in the deckbuilder) |
 | ⌘S | Save deck snapshot (in the deckbuilder) |
 | Esc | Clear the selected card |
