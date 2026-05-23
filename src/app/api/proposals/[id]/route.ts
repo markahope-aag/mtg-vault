@@ -77,3 +77,23 @@ export async function PATCH(
     );
   }
 }
+
+// Hard delete. Deck_proposals.saved_deck_id has ON DELETE SET NULL pointing
+// at decks(id), but we don't go the other way: deleting a proposal NEVER
+// touches the linked deck. The proposal is just an audit / draft record.
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  try {
+    await db.delete(deckProposals).where(eq(deckProposals.id, id));
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return serverError(
+      "api/proposals/id DELETE",
+      err,
+      "Couldn't delete that proposal.",
+    );
+  }
+}
