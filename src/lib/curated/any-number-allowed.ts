@@ -8,16 +8,15 @@ export const ANY_NUMBER_ALLOWED: ReadonlyArray<{
 }> = [
   { name: "Dragon's Approach", max: null },
   { name: "Hare Apparent", max: null },
-  // TODO: Nazgûl in The Lord of the Rings: Tales of Middle-earth allows up to
-  // 9 named copies. Treating as unlimited for v0 — refine when the bracket
-  // engine grows a "max copies" rule.
-  { name: "Nazgûl", max: null },
+  // Nazgûl's printed rules text reads "A deck can have up to nine cards
+  // named Nazgûl." Cap at 9; anything beyond is a singleton violation.
+  { name: "Nazgûl", max: 9 },
   { name: "Persistent Petitioners", max: null },
   { name: "Rat Colony", max: null },
   { name: "Relentless Rats", max: null },
-  // TODO: Seven Dwarves caps at 7 copies, but for v0 we treat as unlimited
-  // since the engine doesn't yet enforce per-card caps below 99.
-  { name: "Seven Dwarves", max: null },
+  // Seven Dwarves caps at 7 — printed rules text says "A deck can have up
+  // to seven cards named Seven Dwarves."
+  { name: "Seven Dwarves", max: 7 },
   { name: "Shadowborn Apostle", max: null },
   { name: "Slime Against Humanity", max: null },
   { name: "Templar Knight", max: null },
@@ -26,6 +25,15 @@ export const ANY_NUMBER_ALLOWED: ReadonlyArray<{
 // Convenience Set for hot-path lookups in the deckbuilder singleton check.
 export const ANY_NUMBER_ALLOWED_NAMES: ReadonlySet<string> = new Set(
   ANY_NUMBER_ALLOWED.map((e) => e.name),
+);
+
+// Per-card caps for the small set of cards that allow more than 1 but less
+// than infinity. Anything not in this map is either unlimited (when listed
+// in ANY_NUMBER_ALLOWED with max: null) or capped at 1 by the singleton rule.
+export const ANY_NUMBER_ALLOWED_CAPS: ReadonlyMap<string, number> = new Map(
+  ANY_NUMBER_ALLOWED.filter((e) => e.max != null).map(
+    (e) => [e.name, e.max as number],
+  ),
 );
 
 export const BASIC_LAND_NAMES: ReadonlySet<string> = new Set([

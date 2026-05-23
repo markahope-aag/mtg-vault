@@ -53,15 +53,6 @@ import type { InventoryRowWithCard } from "@/lib/inventory/types";
 
 type Printing = typeof printings.$inferSelect;
 
-// Kept for callers that just have imageUris in scope; routes through the
-// shared helper which handles double-faced cards.
-function pickPreferredImage(
-  images: Record<string, string> | null | undefined,
-  faces?: Array<{ image_uris?: Record<string, string> | null }> | null,
-): string | null {
-  return pickCardImage(images, faces, "normal");
-}
-
 function isPromoLike(p: Printing): boolean {
   return Array.isArray(p.promoTypes) && p.promoTypes.length > 0;
 }
@@ -223,12 +214,13 @@ export default async function CardDetailPage({
         {/* LEFT: image + static metadata */}
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <CardImage
-            src={pickPreferredImage(
+            src={pickCardImage(
               selectedPrinting?.imageUris as Record<string, string> | null | undefined,
               selectedPrinting?.cardFaces as
                 | Array<{ image_uris?: Record<string, string> | null }>
                 | null
                 | undefined,
+              "normal",
             )}
             alt={card.name}
           />

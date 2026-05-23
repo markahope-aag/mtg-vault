@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { ArrowDown, ArrowUp, Check, ImageOff, Loader2, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ManaCost } from "@/components/mana-cost";
@@ -6,6 +7,12 @@ import { SetSymbol } from "@/components/set-symbol";
 export const dynamic = "force-dynamic";
 
 export default function StyleGuide() {
+  // Dev-only route. Returns a 404 in production builds so the design tokens
+  // showcase doesn't ship to end users (but stays accessible during local
+  // theming work).
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
   return (
     <main className="bg-[var(--surface-base)] text-[var(--text-primary)]">
       <div className="mx-auto w-full max-w-6xl px-6 py-8">

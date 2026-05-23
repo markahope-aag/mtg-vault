@@ -362,7 +362,7 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 | Item | Severity | Notes |
 |---|---|---|
-| Automated tests | Partial | Vitest covers bracket logic + importers; API/integration tests still missing |
+| Automated tests | Partial | Vitest: bracket logic, importers, slots, sql, calculateBracket wiring; API/UI still untested |
 | `combos` tables unused | Low | Live Spellbook API replaced bulk sync plan |
 | `locations` missing RLS | Low | Inconsistent with other tables |
 | Import commit not transactional | Medium | Partial failure can leave inconsistent batch state |

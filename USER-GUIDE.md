@@ -127,7 +127,9 @@ now or later.
 
 ## The deckbuilder
 
-Opening a deck shows a three-pane workspace (needs a window ≥1024px wide):
+Opening a deck shows a three-pane workspace (needs a window ≥1024px wide;
+narrower viewports get a tabbed Decklist / Search / Detail layout — tapping
+a card auto-switches to Detail):
 
 ### Left — Search
 
@@ -139,7 +141,9 @@ add it, or press **Enter** on the highlighted result.
 
 The deck's cards, grouped by type, with ownership indicators. **Backspace**
 removes the selected row. A physical card committed to another deck shows as
-unavailable elsewhere.
+unavailable elsewhere. Cards no longer legal in Commander wear a red **Banned**
+badge inline, and adding one fires a warning toast (the add still happens —
+keep it for casual play or remove later).
 
 ### Right — four tabs
 

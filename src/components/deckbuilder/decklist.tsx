@@ -13,6 +13,7 @@ import {
   type DeckCommander,
 } from "@/lib/decks/types";
 import {
+  ANY_NUMBER_ALLOWED_CAPS,
   ANY_NUMBER_ALLOWED_NAMES,
   BASIC_LAND_NAMES,
 } from "@/lib/curated/any-number-allowed";
@@ -62,7 +63,14 @@ export function Decklist() {
   const singletonViolations = mainCards.filter((c) => {
     if (c.deckCardRow.quantity <= 1) return false;
     if (BASIC_LAND_NAMES.has(c.card.name)) return false;
-    if (ANY_NUMBER_ALLOWED_NAMES.has(c.card.name)) return false;
+    if (ANY_NUMBER_ALLOWED_NAMES.has(c.card.name)) {
+      // Most named-card exceptions are unlimited; a few (Nazgûl, Seven
+      // Dwarves) cap at a specific count. Flag a violation only if the
+      // deck exceeds that cap.
+      const cap = ANY_NUMBER_ALLOWED_CAPS.get(c.card.name);
+      if (cap != null && c.deckCardRow.quantity > cap) return true;
+      return false;
+    }
     return true;
   });
 

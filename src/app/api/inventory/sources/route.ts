@@ -15,6 +15,12 @@ export async function GET() {
     return NextResponse.json({ sources: rows.map((r) => r.purchased_from) });
   } catch (err) {
     console.error("[api/inventory sources]", err);
-    return NextResponse.json({ sources: [] }, { status: 500 });
+    return NextResponse.json(
+      {
+        sources: [],
+        error: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
   }
 }

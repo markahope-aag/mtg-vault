@@ -67,7 +67,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "The filter bar searches by name, set, type, location, and color, with toggles for Foils only and disposed cards. Click a column header to sort; sorting by value uses each card's finish-aware price. The list loads 200 cards at a time — Load more pulls the rest, and a 'Showing N of M' line keeps you oriented.",
+        text: "The filter bar searches by name, set, type, location, and color, with toggles for Foils only, Banned only (cards no longer legal in Commander), and disposed cards. Click a column header to sort; sorting by value uses each card's finish-aware price. The list loads 200 cards at a time — Load more pulls the rest, and a 'Showing N of M' line keeps you oriented.",
       },
       {
         type: "p",
@@ -110,7 +110,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "Opening a deck shows a three-pane workspace (needs a window at least 1024px wide). The left pane searches any card in the database — not just cards you own — with filters for color identity, type, and owned-only (Cmd+/ toggles owned-only). Click a result or press Enter to add it. The middle pane is the decklist, grouped by type with ownership indicators; Backspace removes the selected row.",
+        text: "Opening a deck shows a three-pane workspace (needs a window at least 1024px wide; narrower viewports get a tabbed Decklist / Search / Detail layout). The left pane searches any card in the database — not just cards you own — with filters for color identity, type, and owned-only (Cmd+/ toggles owned-only). Click a result or press Enter to add it. The middle pane is the decklist, grouped by type with ownership indicators; Backspace removes the selected row. Cards flagged 'Banned' show a red badge inline, and adding a banned card fires a warning toast — the add still happens, you can keep it for casual play and remove later.",
       },
       {
         type: "p",

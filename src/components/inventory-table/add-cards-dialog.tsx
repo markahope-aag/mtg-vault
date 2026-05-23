@@ -98,11 +98,35 @@ export function AddCardsDialog({
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => defaultForm(card));
   const [submitting, setSubmitting] = useState(false);
+  const [sources, setSources] = useState<string[]>([]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setForm(defaultForm(card));
   }, [open, card]);
+
+  // Load prior "Purchased from" values once when the dialog opens, so the
+  // input datalist autocompletes vendors / trade partners the user enters
+  // repeatedly (Card Kingdom, TCGPlayer, ChannelFireball, named friends).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/inventory/sources")
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+        return data;
+      })
+      .then((d) => {
+        if (!cancelled) setSources(d.sources ?? []);
+      })
+      .catch(() => {
+        /* fallback: input still works without suggestions */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const printing = useMemo(
     () => card?.printings.find((p) => p.id === form.printingId) ?? null,
@@ -302,7 +326,16 @@ export function AddCardsDialog({
                 value={form.purchasedFrom}
                 onChange={(e) => update("purchasedFrom", e.target.value)}
                 placeholder="Card Kingdom, LGS, trade with X, …"
+                list="purchased-from-sources"
+                autoComplete="off"
               />
+              {sources.length > 0 && (
+                <datalist id="purchased-from-sources">
+                  {sources.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              )}
             </Field>
 
             <div className="grid grid-cols-2 items-end gap-4">
