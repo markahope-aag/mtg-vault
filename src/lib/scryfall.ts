@@ -73,7 +73,7 @@ type ScryfallCardFace = {
   oracle_text?: string;
 };
 
-type ScryfallBulkRow = {
+export type ScryfallBulkRow = {
   id: string;
   oracle_id?: string;
   name: string;
@@ -104,6 +104,96 @@ type ScryfallBulkRow = {
   promo_types?: string[];
   scryfall_uri?: string;
 };
+
+export type ScryfallRowTransform =
+  | { skip: "non-english" }
+  | { skip: "no-oracle-id" }
+  | {
+      skip: null;
+      card: typeof cards.$inferInsert;
+      printing: typeof printings.$inferInsert;
+      price: typeof priceHistory.$inferInsert | null;
+    };
+
+/**
+ * Pure transformation: one Scryfall bulk row → the database rows we want to
+ * upsert. Extracted from the streaming loop so the row mapping (column
+ * renames, type coercions, default fallbacks, legality boolean) is
+ * unit-testable without spinning up a parser or DB.
+ *
+ * Skip reasons:
+ * - non-english: we only persist English printings; localized faces would
+ *   need a separate translation column the schema doesn't have.
+ * - no-oracle-id: token cards and other Scryfall edge entries have no oracle
+ *   identity; the printings table requires one.
+ *
+ * isExtraTurn / isMassLandDenial / isTutor / isGameChanger are deliberately
+ * NOT set here — bracket-flags.ts runs canonical post-passes against the
+ * fully-upserted data so there's one source of truth for those flags.
+ */
+export function transformScryfallRow(
+  row: ScryfallBulkRow,
+  today: string,
+): ScryfallRowTransform {
+  if (row.lang !== "en") return { skip: "non-english" };
+  if (!row.oracle_id) return { skip: "no-oracle-id" };
+
+  const card: typeof cards.$inferInsert = {
+    oracleId: row.oracle_id,
+    name: row.name,
+    manaCost: row.mana_cost ?? null,
+    cmc: row.cmc != null ? String(row.cmc) : null,
+    typeLine: row.type_line ?? "",
+    oracleText: row.oracle_text ?? null,
+    power: row.power ?? null,
+    toughness: row.toughness ?? null,
+    loyalty: row.loyalty ?? null,
+    colors: row.colors ?? null,
+    colorIdentity: row.color_identity ?? null,
+    keywords: row.keywords ?? null,
+    layout: row.layout ?? null,
+    cardFaces: row.card_faces ?? null,
+    edhrecRank: row.edhrec_rank ?? null,
+    isCommanderLegal: row.legalities?.commander === "legal",
+    legalities: row.legalities ?? null,
+    isReservedList: !!row.reserved,
+  };
+
+  const printing: typeof printings.$inferInsert = {
+    id: row.id,
+    oracleId: row.oracle_id,
+    setCode: row.set,
+    setName: row.set_name,
+    collectorNumber: row.collector_number,
+    rarity: row.rarity ?? null,
+    imageUris: row.image_uris ?? null,
+    cardFaces: row.card_faces ?? null,
+    releasedAt: row.released_at ? new Date(row.released_at) : null,
+    usd: row.prices?.usd ?? null,
+    usdFoil: row.prices?.usd_foil ?? null,
+    usdEtched: row.prices?.usd_etched ?? null,
+    eur: row.prices?.eur ?? null,
+    tix: row.prices?.tix ?? null,
+    finishes: row.finishes ?? null,
+    promoTypes: row.promo_types ?? null,
+    scryfallUri: row.scryfall_uri ?? null,
+  };
+
+  // Only emit a price-history row when there's something to track —
+  // many tokens, planar cards, etc. have no prices at all and we'd
+  // otherwise insert a row of all-NULLs every sync.
+  const price: typeof priceHistory.$inferInsert | null =
+    row.prices && (row.prices.usd != null || row.prices.usd_foil != null)
+      ? {
+          printingId: row.id,
+          date: today,
+          usd: row.prices.usd ?? null,
+          usdFoil: row.prices.usd_foil ?? null,
+        }
+      : null;
+
+  return { skip: null, card, printing, price };
+}
 
 export async function syncScryfall(opts: { source: "local" | "cron" }) {
   console.log(`[scryfall] starting (source=${opts.source})`);
@@ -174,71 +264,14 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
 
   for await (const chunk of parser) {
     const c = chunk.value as ScryfallBulkRow;
-
-    if (c.lang !== "en") {
+    const result = transformScryfallRow(c, today);
+    if (result.skip != null) {
       skipped++;
       continue;
     }
-    if (!c.oracle_id) {
-      skipped++;
-      continue;
-    }
-
-    const typeLine = c.type_line ?? "";
-
-    // isExtraTurn / isMassLandDenial / isTutor / isGameChanger are all set in
-    // post-passes by bracket-flags.ts after the bulk insert. Keep them at the
-    // schema default (false) during the upsert so there's one source of truth
-    // for those rules.
-    cardsBatch.set(c.oracle_id, {
-      oracleId: c.oracle_id,
-      name: c.name,
-      manaCost: c.mana_cost ?? null,
-      cmc: c.cmc != null ? String(c.cmc) : null,
-      typeLine,
-      oracleText: c.oracle_text ?? null,
-      power: c.power ?? null,
-      toughness: c.toughness ?? null,
-      loyalty: c.loyalty ?? null,
-      colors: c.colors ?? null,
-      colorIdentity: c.color_identity ?? null,
-      keywords: c.keywords ?? null,
-      layout: c.layout ?? null,
-      cardFaces: c.card_faces ?? null,
-      edhrecRank: c.edhrec_rank ?? null,
-      isCommanderLegal: c.legalities?.commander === "legal",
-      legalities: c.legalities ?? null,
-      isReservedList: !!c.reserved,
-    });
-
-    printingsBatch.push({
-      id: c.id,
-      oracleId: c.oracle_id,
-      setCode: c.set,
-      setName: c.set_name,
-      collectorNumber: c.collector_number,
-      rarity: c.rarity ?? null,
-      imageUris: c.image_uris ?? null,
-      cardFaces: c.card_faces ?? null,
-      releasedAt: c.released_at ? new Date(c.released_at) : null,
-      usd: c.prices?.usd ?? null,
-      usdFoil: c.prices?.usd_foil ?? null,
-      usdEtched: c.prices?.usd_etched ?? null,
-      eur: c.prices?.eur ?? null,
-      tix: c.prices?.tix ?? null,
-      finishes: c.finishes ?? null,
-      promoTypes: c.promo_types ?? null,
-      scryfallUri: c.scryfall_uri ?? null,
-    });
-
-    if (c.prices && (c.prices.usd != null || c.prices.usd_foil != null)) {
-      priceBatch.push({
-        printingId: c.id,
-        date: today,
-        usd: c.prices.usd ?? null,
-        usdFoil: c.prices.usd_foil ?? null,
-      });
-    }
+    cardsBatch.set(result.card.oracleId, result.card);
+    printingsBatch.push(result.printing);
+    if (result.price) priceBatch.push(result.price);
 
     count++;
     if (cardsBatch.size >= BATCH_SIZE || printingsBatch.length >= BATCH_SIZE) {
