@@ -14,6 +14,7 @@ import { ColorIdentityPips } from "@/components/mana-cost";
 import { BracketBadge } from "@/components/bracket-badge";
 import type { DeckDetail } from "@/lib/decks/types";
 import { EditDeckDialog } from "@/components/decks/edit-deck-dialog";
+import { BackLink } from "@/components/back-link";
 import { cn } from "@/lib/utils";
 
 export function DeckbuilderHeader({
@@ -117,6 +118,8 @@ export function DeckbuilderHeader({
   return (
     <div className="sticky top-0 z-30 border-b border-border-subtle bg-surface-base/90 backdrop-blur">
       <div className="flex items-center gap-3 px-4 py-2">
+        <BackLink href="/decks" label="Decks" className="shrink-0" />
+        <span className="h-4 w-px bg-border-subtle" />
         {commanderImg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

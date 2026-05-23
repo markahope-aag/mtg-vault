@@ -46,6 +46,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManaCost } from "@/components/mana-cost";
 import { CardImage } from "@/components/card-detail/card-image";
 import { PrintingsTable } from "@/components/card-detail/printings-table";
+import { BackLink } from "@/components/back-link";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
 import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
@@ -213,6 +214,9 @@ export default async function CardDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <div className="mb-4">
+        <BackLink />
+      </div>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
         {/* LEFT: image + static metadata */}
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
