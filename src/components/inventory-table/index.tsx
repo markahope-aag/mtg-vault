@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Layers,
+  ScanLine,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -45,6 +46,7 @@ import { cn } from "@/lib/utils";
 import { EditRowDialog } from "./edit-row-dialog";
 import { DisposeDialog } from "./dispose-dialog";
 import { AddCardsPicker } from "./add-cards-picker";
+import { ScanCardDialog } from "./scan-card-dialog";
 import { CreateDeckFromSelectionDialog } from "./create-deck-dialog";
 
 type SortField =
@@ -122,6 +124,7 @@ export function InventoryTable({
   );
   const [disposeOpen, setDisposeOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
 
   const nameTimerRef = useRef<number | null>(null);
@@ -496,6 +499,14 @@ export function InventoryTable({
           >
             <ArrowUpFromLine className="size-3.5" /> Import CSV
           </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5"
+            onClick={() => setScanOpen(true)}
+          >
+            <ScanLine className="size-3.5" /> Scan
+          </Button>
           <Button
             size="sm"
             className="h-7 gap-1.5"
@@ -898,6 +909,13 @@ export function InventoryTable({
         onAdded={() => void refetch()}
         onOpenChange={(v) => {
           setAddOpen(v);
+          if (!v) refetch();
+        }}
+      />
+      <ScanCardDialog
+        open={scanOpen}
+        onOpenChange={(v) => {
+          setScanOpen(v);
           if (!v) refetch();
         }}
       />
