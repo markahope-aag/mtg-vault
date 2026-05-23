@@ -96,7 +96,7 @@ async function searchLocal(
       COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
     FROM cards c
     LEFT JOIN LATERAL (
-      SELECT id, image_uris
+      SELECT id, image_uris, card_faces
       FROM printings
       WHERE oracle_id = c.oracle_id
         AND (promo_types IS NULL OR array_length(promo_types, 1) IS NULL)
