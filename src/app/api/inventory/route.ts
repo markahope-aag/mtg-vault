@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
     set: readFilter(params, "set"),
     ownedOnly: readBoolFilter(params, "ownedOnly"),
     foilOnly: readBoolFilter(params, "foilOnly"),
+    bannedOnly: readBoolFilter(params, "bannedOnly"),
     location: readFilter(params, "location"),
     importBatchId: readFilter(params, "importBatchId"),
     includeDisposed: readBoolFilter(params, "includeDisposed"),

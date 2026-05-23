@@ -145,9 +145,15 @@ export function DeckbuilderShell({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ printingId, category, delta }),
         });
+        const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const detail = await res.json().catch(() => ({}));
-          throw new Error(detail.error ?? `HTTP ${res.status}`);
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        // Surface a banned-card warning if the server flagged this card. The
+        // add still happens — the user can remove it; this is just a heads-up
+        // so a banned card doesn't sneak in unnoticed.
+        if (body.bannedWarning) {
+          toast.warning(body.bannedWarning);
         }
         await Promise.all([refreshDeck(), refreshAvailability([oracleId])]);
       } catch (err) {

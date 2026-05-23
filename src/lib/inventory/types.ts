@@ -26,6 +26,7 @@ export type InventoryRowWithCard = {
   typeLine: string | null;
   colorIdentity: string[] | null;
   cmc: string | null;
+  isCommanderLegal: boolean | null;
 
   // Joined from printings
   setCode: string;

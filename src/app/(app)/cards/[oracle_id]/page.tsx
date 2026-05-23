@@ -77,6 +77,7 @@ async function fetchOwnedRows(
       i.disposed_to, i.disposed_price, i.disposed_at,
       i.created_at, i.updated_at,
       c.oracle_id, c.name, c.mana_cost, c.type_line, c.color_identity, c.cmc,
+      c.is_commander_legal,
       p.set_code, p.set_name, p.collector_number, p.rarity,
       p.usd, p.usd_foil, p.usd_etched,
       COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
@@ -113,6 +114,7 @@ async function fetchOwnedRows(
     typeLine: (r.type_line as string | null) ?? null,
     colorIdentity: (r.color_identity as string[] | null) ?? null,
     cmc: (r.cmc as string | null) ?? null,
+    isCommanderLegal: (r.is_commander_legal as boolean | null) ?? null,
     setCode: r.set_code as string,
     setName: r.set_name as string,
     collectorNumber: r.collector_number as string,

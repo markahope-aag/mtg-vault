@@ -31,6 +31,7 @@ export type ListFilters = {
   set?: string;
   ownedOnly?: boolean;
   foilOnly?: boolean;
+  bannedOnly?: boolean;
   location?: string;
   includeDisposed?: boolean;
   importBatchId?: string;
@@ -60,6 +61,7 @@ function buildWhere(filters: ListFilters): SQL {
     clauses.push(sql`p.set_code ILIKE ${filters.set.trim().toLowerCase()}`);
   }
   if (filters.foilOnly) clauses.push(sql`i.foil = true`);
+  if (filters.bannedOnly) clauses.push(sql`c.is_commander_legal = false`);
   if (filters.location && filters.location.trim()) {
     clauses.push(sql`i.location = ${filters.location.trim()}`);
   }
@@ -88,6 +90,7 @@ export async function listInventory(
       i.disposed_to, i.disposed_price, i.disposed_at,
       i.created_at, i.updated_at,
       c.oracle_id, c.name, c.mana_cost, c.type_line, c.color_identity, c.cmc,
+      c.is_commander_legal,
       p.set_code, p.set_name, p.collector_number, p.rarity,
       p.usd, p.usd_foil, p.usd_etched,
       COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
@@ -126,6 +129,7 @@ export async function listInventory(
     type_line: string | null;
     color_identity: string[] | null;
     cmc: string | null;
+    is_commander_legal: boolean | null;
     set_code: string;
     set_name: string;
     collector_number: string;
@@ -191,6 +195,7 @@ export async function listInventory(
     manaCost: r.mana_cost,
     typeLine: r.type_line,
     colorIdentity: r.color_identity,
+    isCommanderLegal: r.is_commander_legal,
     cmc: r.cmc,
     setCode: r.set_code,
     setName: r.set_name,

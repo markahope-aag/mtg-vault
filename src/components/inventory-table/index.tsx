@@ -107,6 +107,7 @@ export function InventoryTable({
   const [setFilter, setSetFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [foilsOnly, setFoilsOnly] = useState(false);
+  const [bannedOnly, setBannedOnly] = useState(false);
 
   const [locations, setLocations] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -150,6 +151,7 @@ export function InventoryTable({
       if (setFilter.trim()) p.set("filter[set]", setFilter.trim());
       if (locationFilter) p.set("filter[location]", locationFilter);
       if (foilsOnly) p.set("filter[foilOnly]", "true");
+      if (bannedOnly) p.set("filter[bannedOnly]", "true");
       if (includeDisposed) p.set("filter[includeDisposed]", "true");
       return p;
     },
@@ -160,6 +162,7 @@ export function InventoryTable({
       setFilter,
       locationFilter,
       foilsOnly,
+      bannedOnly,
       includeDisposed,
       sortField,
       sortDir,
@@ -224,6 +227,7 @@ export function InventoryTable({
       setFilter,
       locationFilter,
       foilsOnly,
+      bannedOnly,
       includeDisposed,
       sortField,
       sortDir,
@@ -260,6 +264,7 @@ export function InventoryTable({
     setSetFilter("");
     setLocationFilter("");
     setFoilsOnly(false);
+    setBannedOnly(false);
   }, []);
 
   const toggleSort = useCallback(
@@ -341,6 +346,7 @@ export function InventoryTable({
         typeLine: string | null;
         setCode: string;
         rarity: string | null;
+        isCommanderLegal: boolean | null;
         rows: InventoryRowWithCard[];
         totalValue: number;
         locationsCount: Map<string, number>;
@@ -361,6 +367,7 @@ export function InventoryTable({
           typeLine: r.typeLine,
           setCode: r.setCode,
           rarity: r.rarity,
+          isCommanderLegal: r.isCommanderLegal,
           rows: [],
           totalValue: 0,
           locationsCount: new Map(),
@@ -387,7 +394,8 @@ export function InventoryTable({
     !!typeFilter ||
     !!setFilter ||
     !!locationFilter ||
-    foilsOnly;
+    foilsOnly ||
+    bannedOnly;
 
   // Selected inventory rows → deck cards. Dedupe by printing; Commander is
   // singleton so non-basics cap at quantity 1, basic lands keep the count.
@@ -540,6 +548,9 @@ export function InventoryTable({
             <ToggleLabel checked={foilsOnly} onChange={setFoilsOnly}>
               Foils only
             </ToggleLabel>
+            <ToggleLabel checked={bannedOnly} onChange={setBannedOnly}>
+              Banned only
+            </ToggleLabel>
             <ToggleLabel
               checked={false}
               disabled
@@ -636,6 +647,12 @@ export function InventoryTable({
               <ActiveChip
                 label="foil only"
                 onClear={() => setFoilsOnly(false)}
+              />
+            )}
+            {bannedOnly && (
+              <ActiveChip
+                label="banned only"
+                onClear={() => setBannedOnly(false)}
               />
             )}
           </div>
@@ -1067,6 +1084,7 @@ function GroupRowRenderer({
     typeLine: string | null;
     setCode: string;
     rarity: string | null;
+    isCommanderLegal: boolean | null;
     rows: InventoryRowWithCard[];
     totalValue: number;
     locationsCount: Map<string, number>;
@@ -1130,6 +1148,11 @@ function GroupRowRenderer({
               {group.name}
             </Link>
             <ManaCost cost={group.manaCost} size="xs" />
+            {group.isCommanderLegal === false && (
+              <span className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]">
+                Banned
+              </span>
+            )}
           </div>
         </td>
         <td className="px-2 py-1.5 font-mono text-[10px] uppercase tracking-wide text-text-muted">
@@ -1260,6 +1283,11 @@ function GroupChildRow({
           <span className="rounded-sm border border-border-subtle bg-surface-base px-1 font-mono text-[9px] uppercase tracking-wide text-text-secondary">
             {row.condition}
           </span>
+          {row.isCommanderLegal === false && (
+            <span className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]">
+              Banned
+            </span>
+          )}
           {disposed && (
             <span className="rounded-sm border border-border-strong bg-surface-inset px-1 font-mono text-[9px] uppercase tracking-[0.18em] text-text-muted">
               Disposed
@@ -1382,6 +1410,11 @@ function PhysicalRowRenderer({
             {row.name}
           </Link>
           <ManaCost cost={row.manaCost} size="xs" />
+          {row.isCommanderLegal === false && (
+            <span className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]">
+              Banned
+            </span>
+          )}
           {disposed && (
             <span className="rounded-sm border border-border-strong bg-surface-inset px-1 font-mono text-[9px] uppercase tracking-[0.18em] text-text-muted">
               Disposed

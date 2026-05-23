@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { deckCards, decks } from "@/db/schema";
+import { cards, deckCards, decks, printings } from "@/db/schema";
 import { upsertDeckCardSchema } from "@/lib/decks/schemas";
 
 export const dynamic = "force-dynamic";
@@ -141,6 +141,27 @@ export async function POST(
       return NextResponse.json({ error: "Deck not found" }, { status: 404 });
     }
 
+    // Banned-card warning — surfaced in the response so the client can show a
+    // toast. Only matters when the operation is an add (delta > 0 or set > 0).
+    let bannedWarning: string | null = null;
+    const isAdding =
+      (set != null && set > 0) || (delta != null && delta > 0);
+    if (isAdding) {
+      const legality = await db
+        .select({
+          isCommanderLegal: cards.isCommanderLegal,
+          name: cards.name,
+        })
+        .from(printings)
+        .innerJoin(cards, eq(cards.oracleId, printings.oracleId))
+        .where(eq(printings.id, printingId))
+        .limit(1);
+      const lookup = legality[0];
+      if (lookup && lookup.isCommanderLegal === false) {
+        bannedWarning = `${lookup.name} is banned in Commander.`;
+      }
+    }
+
     // Find existing slot
     const existing = await db
       .select()
@@ -176,7 +197,7 @@ export async function POST(
         .update(decks)
         .set({ updatedAt: sql`now()` })
         .where(eq(decks.id, id));
-      return NextResponse.json({ row: null, deleted: true });
+      return NextResponse.json({ row: null, deleted: true, bannedWarning });
     }
 
     if (current) {
@@ -195,7 +216,7 @@ export async function POST(
         .update(decks)
         .set({ updatedAt: sql`now()` })
         .where(eq(decks.id, id));
-      return NextResponse.json({ row: updated });
+      return NextResponse.json({ row: updated, bannedWarning });
     }
 
     const [inserted] = await db
@@ -211,7 +232,10 @@ export async function POST(
       .update(decks)
       .set({ updatedAt: sql`now()` })
       .where(eq(decks.id, id));
-    return NextResponse.json({ row: inserted }, { status: 201 });
+    return NextResponse.json(
+      { row: inserted, bannedWarning },
+      { status: 201 },
+    );
   } catch (err) {
     console.error("[api/decks cards POST]", err);
     return NextResponse.json(
