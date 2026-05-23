@@ -49,6 +49,7 @@ import { PrintingsTable } from "@/components/card-detail/printings-table";
 import { BackLink } from "@/components/back-link";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
 import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
+import { LegalityBadges } from "@/components/card-detail/legality-badges";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
 
 type Printing = typeof printings.$inferSelect;
@@ -332,6 +333,19 @@ export default async function CardDetailPage({
                     </span>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {card.legalities && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Format legality</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LegalityBadges
+                  legalities={card.legalities as Record<string, string>}
+                />
               </CardContent>
             </Card>
           )}

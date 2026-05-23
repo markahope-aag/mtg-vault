@@ -1,11 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  isAllowedEmail,
+  isAuthRoutePath,
+  parseAllowedEmails,
+  shouldBypassAuth,
+} from "@/lib/auth/allowlist";
 
 export async function proxy(req: NextRequest) {
   let res = NextResponse.next({ request: req });
 
   const path = req.nextUrl.pathname;
-  if (path.startsWith("/api/cron")) return res;
+  if (shouldBypassAuth(path)) return res;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,17 +38,10 @@ export async function proxy(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const allowList = (process.env.ALLOWED_EMAIL ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  const userEmail = user?.email?.toLowerCase() ?? null;
-  const isAllowed = userEmail !== null && allowList.includes(userEmail);
+  const allowList = parseAllowedEmails(process.env.ALLOWED_EMAIL);
+  const isAllowed = isAllowedEmail(user?.email, allowList);
 
-  const isAuthRoute =
-    path.startsWith("/login") || path.startsWith("/auth/");
-
-  if (isAuthRoute) {
+  if (isAuthRoutePath(path)) {
     if (isAllowed) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }

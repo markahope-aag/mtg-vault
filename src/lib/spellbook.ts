@@ -34,7 +34,8 @@ export type SpellbookResult = {
 };
 
 // Spellbook returns letter-coded brackets. Map to our 1-5 scale.
-function mapBracketTag(tag: string): 1 | 2 | 3 | 4 | 5 | null {
+/** @internal Exported for unit tests. */
+export function mapBracketTag(tag: string): 1 | 2 | 3 | 4 | 5 | null {
   switch (tag) {
     case "E":
       return 1;
@@ -69,7 +70,8 @@ type RawCombo = {
   pieces?: Array<{ oracleId?: string; name?: string }>;
 };
 
-function extractPieces(combo: RawCombo): SpellbookCombo["pieces"] {
+/** @internal Exported for unit tests. */
+export function extractPieces(combo: RawCombo): SpellbookCombo["pieces"] {
   const out: SpellbookCombo["pieces"] = [];
   const seen = new Set<string>();
   const push = (oracleId: string | null, name: string | null | undefined) => {

@@ -207,6 +207,7 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
       cardFaces: c.card_faces ?? null,
       edhrecRank: c.edhrec_rank ?? null,
       isCommanderLegal: c.legalities?.commander === "legal",
+      legalities: c.legalities ?? null,
       isReservedList: !!c.reserved,
     });
 

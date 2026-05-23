@@ -35,6 +35,11 @@ export const cards = pgTable(
     cardFaces: jsonb("card_faces"),
     edhrecRank: integer("edhrec_rank"),
     isCommanderLegal: boolean("is_commander_legal").default(true),
+    // Per-format legality map from Scryfall (e.g. { standard: "legal",
+    // modern: "legal", commander: "banned", … }). Source of truth for
+    // surfacing format badges on the card detail page; isCommanderLegal
+    // is kept as a denormalized boolean for cheap hot-path filters.
+    legalities: jsonb("legalities").$type<Record<string, string>>(),
     isReservedList: boolean("is_reserved_list").default(false),
     isGameChanger: boolean("is_game_changer").default(false),
     isExtraTurn: boolean("is_extra_turn").default(false),
