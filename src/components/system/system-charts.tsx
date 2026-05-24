@@ -114,7 +114,7 @@ export function SystemCharts({
         {rarityData.length === 0 ? (
           <p className="empty-terminal mt-12 text-center">no inventory</p>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <PieChart>
               <Pie
                 data={rarityData}
@@ -151,7 +151,7 @@ export function SystemCharts({
         {acqData.length === 0 ? (
           <p className="empty-terminal mt-12 text-center">no data</p>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={acqData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
               <XAxis
@@ -186,7 +186,7 @@ export function SystemCharts({
         {bracketData.every((b) => b.n === 0) ? (
           <p className="empty-terminal mt-12 text-center">no brackets set</p>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={bracketData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
               <XAxis

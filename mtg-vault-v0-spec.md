@@ -30,7 +30,7 @@ A personal Magic: The Gathering inventory and Commander deckbuilding tool. Deskt
 
 ### Still out of scope
 
-Multi-user (deferred — `proxy.ts` allowlist works for the single-user case), non-Commander-format deckbuilding (legality badges exist on card pages, but the deckbuilder is Commander-only), local Spellbook combo DB sync.
+Multi-user (deferred — `proxy.ts` allowlist works for the single-user case), non-Commander-format deckbuilding (legality badges exist on card pages, but the deckbuilder is Commander-only), local Spellbook combo DB sync. See §15 for v1 additions (PWA, vision scanner, Rogue generator, trade ledger, market intelligence).
 
 ---
 
@@ -384,17 +384,50 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 ## 15. v1 — shipped
 
-- PWA shell — `manifest.webmanifest`, service worker with offline-safe cache for shell + Scryfall images + `/api/*`.
-- Single-card vision scanner — camera capture on Inventory → Claude Haiku identifies → hands off to AddCardsDialog.
-- Synergy view — co-occurrence-in-your-decks signal rendered on card detail pages (chosen over scraping EDHrec).
-- Non-Commander format legality — `cards.legalities` jsonb populated by sync; badges on card detail.
-- Trade tracker — `/trades` history + log/detail; `trades` table + `inventory.trade_id` tags both directions.
+### 15.1 First wave (PWA + scanner + legality + synergy)
+
+- **PWA shell** — `manifest.webmanifest` (served public, exempt from auth proxy) + service worker (`public/sw.js`) that cache-firsts Next static chunks and Scryfall images, network-firsts `/api/*` with offline cache fallback, and intentionally **does not** intercept HTML navigations. `CACHE_VERSION` bumps force eviction on next load (v1 → v2 evicted the original auth-gated shell pre-cache which caused white-screen blanks).
+- **Single-card vision scanner** — camera capture on Inventory → Claude Haiku identifies → hands off to AddCardsDialog with prefilled fields. Needs `ANTHROPIC_API_KEY`.
+- **Synergy view** — co-occurrence-in-your-decks signal rendered on card detail pages (chosen over scraping EDHrec).
+- **Non-Commander format legality** — `cards.legalities` jsonb populated by Scryfall sync; format badges on card detail.
+
+### 15.2 Rogue Deck Builder (3 phases)
+
+- **Phase A — Reconcile engine.** Pure functions in `src/lib/rogue/` that compare a proposal's card list against inventory + other deck commitments. Output: keepable, must-acquire, conflicts-with-other-deck.
+- **Phase B — Standard generator.** Multi-pass build that scores against the commander, target bracket, and standard slot targets (Ramp/Removal/Draw/Wincons/etc.). Lower-variance; good first pass.
+- **Phase C — Rogue generator.** High-variance build with adversarial critique: verbalized-sampling pattern produces 5 theses + a power thesis + a chosen one; build runs; then 4 independent critique LLM calls (critic, premortem, trade, synthesis) with role-separation discipline. Synthesis schema explicitly allows a `likely_flawed` verdict so the system can say "this thesis doesn't hold up."
+- **Surfacing.** `/decks` has Active / Builder tabs. `/decks/new/generate` is the entry form with **inventory scope** (`unassigned` / `all_owned` / `ignore`). Proposals persist in `deck_proposals` (with `card_list` jsonb) until saved as decks; saved proposals carry analysis forward as the deck's Strategy.
+
+### 15.3 Trade ledger (Phase A)
+
+- **Schema (migration 0017).** `transactions` (`kind ∈ {purchase, sale, trade}`, `occurred_at`, `counterparty`, `channel`, cash legs in/out/fees, notes) + `transaction_lines` (one row per card line, `direction ∈ {in, out}`, `inventory_id` link, `allocated_value_usd`). `inventory.transaction_id` FK added.
+- **Allocation engine.** Pure functions in `src/lib/ledger/allocate.ts`: `allocateCost()` distributes cash across inbound lines proportional to market value, parking rounding cents on the largest line so totals match exactly. `realizedPnL()` computes proceeds − the line's original cost basis. 14 unit tests pinning the math.
+- **/trades replaced** the legacy partner-only form. Single ledger UI handles purchases, sales, and trades. Migration 0018 dropped the old `trades` table + `inventory.trade_id` (both empty).
+- **Right rail** summarizes Lifetime totals (by year), By counterparty (frequency + net up/down), and Market drift (cost-basis vs current market).
+
+### 15.4 Market intelligence (Phases B + C)
+
+- **Valuation (B4).** `src/lib/market/valuation.ts` — appreciatedCards (≥25% / ≥$1 gain), topMovers (7-day delta on owned cards), underwaterCards (≥10% loss). All foil-aware via `printings.usd_foil` / `usd_etched`. No external creds required.
+- **Source interface (B1).** `src/lib/market/source.ts` defines `MarketSource`, `MarketListing`, the registry, and shared title heuristics (`flagsFromTitle`, `normalizeCondition`, `detectFoilInTitle` — non-foil check must precede the foil check because `\bfoil\b` matches inside `non-foil`).
+- **eBay adapter (B2).** Browse API only — **never** scrape eBay. Self-disables without `EBAY_APP_ID` / `EBAY_CERT_ID` / `EBAY_OAUTH_TOKEN`. `hasSoldData = false` since Marketplace Insights is approved-access-only.
+- **Want list + shortfall (B3).** Manual `wants` table union deck-need shortfall, aggregated globally.
+- **Bargain detector (B3).** Pure `detectBargains()` in `src/lib/market/bargains.ts` with 11 tests. Percent-OR-dollar threshold, shipping inclusion, max-price ceiling, confidence floor, default exclusion of `possible_lot` / `graded` / `language_nonen` / `playtest_proxy`. Sweep orchestrator (`bargain-sweep.ts`) uses 90-day `price_history` median baseline with `printings.usd` fallback.
+- **Scraper adapters (Phase C).** `src/lib/market/sources/scraper/`:
+  - `runtime.ts` — token-bucket rate limiter (per-minute + per-day), exponential backoff retry, 30s timeout, two fetch modes (plain fetch + Bright Data Web Unlocker). Failures return `{ok:false}`; adapters return `[]` and log — **never throw, never fake data**.
+  - `denylist.ts` — hostile-marketplace refusal at construction time: TCGPlayer (+ subdomains), Cardmarket, ebay.com / ebay.co.uk, mtgstocks. eBay error points at the Browse API adapter. 6 tests.
+  - `base.ts` — `ScraperSource` abstract class. Constructor asserts denylist + configures limiter; abstract `buildSearchUrl` + `parseListings` (MUST NOT throw).
+  - `templates/shopify.ts` — first template. Uses `/search/suggest.json` (JSON, no HTML parsing). Most LGS run Shopify.
+  - `loader.ts` — reads `market_sources` rows, instantiates a `ScraperSource` per row via `TEMPLATES[parser_template]`, registers with the singleton registry. Skips hostile-marketplace rows with a warning. `AVAILABLE_PARSER_TEMPLATES` exported for the admin dropdown.
+- **Schema (migration 0019, 0020).** `market_listings` cache + `wants` (B); `market_sources` config (C: `source_key`, `display_name`, `base_url`, `parser_template`, `enabled`, `robots_acknowledged`, `terms_notes`, per-minute/per-day rate limits, `use_web_unlocker`, diagnostics).
+- **/admin/market-sources.** CRUD + per-source **Test fetch** (probes Sol Ring through the adapter, writes `last_test_at` / `last_test_ok` / `last_test_message`). `enabled` requires `robots_acknowledged` (admin-API + ScraperSource constructor both enforce). Denylist enforced at the API boundary.
+- **/market.** SourcesPanel + BargainsPanel (sweep button + ranked results with shipping/baseline/flags/source attribution) + Appreciated / Movers / Underwater sections.
 
 ### Not started
 
 - Multi-user (`user_id` columns + RLS policies) — deferred indefinitely; allowlist works for the single-user case.
 - Non-Commander-format deckbuilding (legality is surfaced, but the deckbuilder still assumes Commander rules).
 - Local Spellbook combo DB sync — the dead tables were dropped in `0013`; bring it back only if Spellbook adds a usable diff feed.
+- eBay sold-data baseline — needs Marketplace Insights approved access; until then the 90-day `price_history` median baseline is the trailing reference.
 
 ---
 

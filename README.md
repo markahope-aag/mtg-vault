@@ -8,11 +8,16 @@ Desktop-first web app. Single user. Built on Next.js 16 + Supabase + Drizzle, de
 
 - **Inventory** — track every physical card you own: location, condition, cost basis, current market value, disposal history
 - **Deckbuilder** — build Commander decks against your inventory with own/need diffs and availability tracking
+- **AI deck generator** — Standard or Rogue generators with inventory scope (unassigned / all owned / disregard); Rogue runs 4-pass adversarial critique
 - **Bracket engine** — compute the official Commander Bracket (1–5) with structured reasons and "remove these to drop a bracket" diffs
 - **Value tracking** — collection and per-deck value, daily snapshots, value-over-time charts
 - **CSV import** — ManaBox, Moxfield, Archidekt, and TCGPlayer with preview, resolve, and undo
+- **Vision scanner** — camera capture on Inventory + Claude vision card identification
+- **Trades & ledger** — unified transactions (purchase/sale/trade) with proportional cost-basis allocation and realized P&L
+- **Market intelligence** — appreciated/movers/underwater views, want list, multi-source bargain sweeps (eBay Browse API + DB-defined Shopify LGS scrapers)
 - **AI strategy** — Claude-powered deck analysis (archetype, gameplan, inventory improvements, acquire list)
 - **Coach** — heuristic slot checker (ramp, removal, draw, etc.) scaled to target bracket
+- **PWA** — installable on phone/desktop with offline-readable inventory/decks
 
 ## Documentation
 
@@ -25,7 +30,7 @@ Desktop-first web app. Single user. Built on Next.js 16 + Supabase + Drizzle, de
 
 ## Status
 
-**v0 complete and in active use.** All core spec goals are implemented, plus AI strategy, coach pane, import undo, canonical locations, and admin bracket-flag tooling.
+**v0 complete; v1 shipped and in active use.** Core v0 (inventory, deckbuilder, bracket, value tracking) plus v1 phases: PWA, vision scanner, non-Commander legality badges, Rogue deck generator (3 phases), transactions ledger (Phase A), market intelligence (Phases B–C, including scraper adapters). See [mtg-vault-v0-spec.md](./mtg-vault-v0-spec.md) §15 for the phase log.
 
 ## Quick start
 
@@ -52,7 +57,11 @@ Create `.env.local` (never commit):
 | `DIRECT_URL` | Recommended | Direct connection for `drizzle-kit migrate` |
 | `ALLOWED_EMAIL` | Yes | Comma-separated email allowlist |
 | `CRON_SECRET` | Yes (prod) | Bearer token for `/api/cron/*` routes |
-| `ANTHROPIC_API_KEY` | Optional | Enables Strategy tab AI analysis |
+| `ANTHROPIC_API_KEY` | Optional | Enables Strategy tab, deck generator, and vision scanner |
+| `EBAY_APP_ID` | Optional | eBay Browse API adapter (Market → Bargains) |
+| `EBAY_CERT_ID` | Optional | eBay developer cert (paired with `EBAY_APP_ID`) |
+| `EBAY_OAUTH_TOKEN` | Optional | eBay client-credentials token; adapter is disabled if any of the three are missing |
+| `BRIGHTDATA_API_TOKEN` | Optional | Bright Data Web Unlocker for scraper sources that need anti-bot bypass |
 
 The app uses Drizzle over a direct Postgres connection — not the Supabase JS client for data access. RLS is enabled with no policies so PostgREST/anon cannot read user tables; Drizzle connects as the table owner and bypasses RLS.
 
@@ -64,7 +73,7 @@ pnpm db:migrate    # apply migrations from drizzle/
 pnpm db:seed       # full Scryfall bulk sync (long-running; ~500MB download)
 ```
 
-Migrations live in `drizzle/` (16 applied). Schema source of truth: `src/db/schema.ts`.
+Migrations live in `drizzle/` (21 applied). Schema source of truth: `src/db/schema.ts`.
 
 ### Scripts
 
@@ -110,6 +119,9 @@ src/
 │   ├── scryfall.ts            # Bulk sync + search helpers
 │   ├── importers/             # CSV parsers (ManaBox, Moxfield, Archidekt, TCGPlayer)
 │   ├── ai/strategy.ts         # Claude deck analysis
+│   ├── rogue/                 # Deck generator (standard + rogue) + reconcile engine
+│   ├── ledger/                # Transactions, cost-basis allocation, P&L
+│   ├── market/                # Source interface, eBay adapter, scraper adapters, bargains
 │   └── supabase/              # Auth clients
 └── proxy.ts                   # Auth + email allowlist (Next.js 16 proxy convention)
 ```

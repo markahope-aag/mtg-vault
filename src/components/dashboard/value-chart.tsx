@@ -78,7 +78,7 @@ export function ValueChart({ snapshots }: { snapshots: DailySnapshot[] }) {
         </div>
       </div>
       <div className="h-64 w-full">
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <AreaChart
             data={data}
             margin={{ top: 8, right: 8, left: 0, bottom: 0 }}

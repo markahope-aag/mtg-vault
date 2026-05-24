@@ -112,7 +112,7 @@ export function PriceHistoryChart({
         )}
       </div>
       <div className="h-48 w-full">
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <LineChart data={points} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeOpacity={0.1} vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />

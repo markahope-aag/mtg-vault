@@ -18,11 +18,11 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The top navigation has six sections: Dashboard, Inventory, Decks, Import, System, and Help. The app is dark by default — the sun/moon button in the top-right toggles light mode.",
+        text: "The top navigation has eight sections: Dashboard, Inventory, Decks, Trades, Market, Import, System, and Help. The app is dark by default — the sun/moon button in the top-right toggles light mode.",
       },
       {
         type: "p",
-        text: "Press Cmd+K (or Ctrl+K) anywhere to open the card search palette. Card detail pages and the deckbuilder show a back link in the top-left so you don't have to use the browser back button. This Help page mirrors the USER-GUIDE in the repo.",
+        text: "Press Cmd+K (or Ctrl+K) anywhere to open the card search palette. Card detail pages, the deckbuilder, and the admin/market-sources page show a back link in the top-left so you don't have to use the browser back button. This Help page mirrors the USER-GUIDE in the repo.",
       },
     ],
   },
@@ -128,7 +128,29 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         type: "p",
-        text: "The Decks page shows every deck as a tile with its commander, bracket, card count, and value. New deck creates one — you can assign a commander now or later.",
+        text: "The Decks page has two tabs. Active shows every saved deck as a tile with commander, bracket, card count, and value — New deck creates one (commander optional). Builder shows every generated proposal that hasn't been saved yet; live generations pulse. Open a proposal to inspect, reconcile, or save it (saving moves it to Active).",
+      },
+      {
+        type: "p",
+        text: "The header also has a Generate button — see the next section.",
+      },
+    ],
+  },
+  {
+    id: "deckbuilder-generate",
+    title: "Generate a deck (AI builder)",
+    blocks: [
+      {
+        type: "p",
+        text: "Generate opens the AI builder. Pick a commander, target bracket, and flavor hints, then choose a kind and an inventory scope. Standard is a multi-pass build scoring cards against the gameplan and standard slots — lower variance, good first pass. Rogue is a high-variance build with adversarial critique: it drafts several theses, picks one (you can override), then runs four independent critique passes and gives you a confidence verdict. Rogue is the right pick when you want a surprising pet-card pile.",
+      },
+      {
+        type: "p",
+        text: "Inventory scope controls which of your cards the generator can use. Only unassigned (default) uses cards not committed to another deck. All owned uses anything you own — the reconciler later flags conflicts with other decks. Disregard inventory builds against the full card pool; treat it as a shopping list.",
+      },
+      {
+        type: "p",
+        text: "Generated builds land in the Builder tab. Open one to reconcile against inventory, save as a deck (moves it to Active and carries the generator's analysis forward as the deck's Strategy), or delete. Re-generating never affects saved decks.",
       },
     ],
   },
@@ -218,19 +240,63 @@ export const HELP_SECTIONS: HelpSection[] = [
   },
   {
     id: "trades",
-    title: "Trades",
+    title: "Trades & ledger",
     blocks: [
       {
         type: "p",
-        text: "The Trades page logs card-for-card trades with another player and keeps a running tally per partner. Click Log trade to open the form: header (partner name, date, optional notes), then Cards going out (searches your inventory) and Cards coming in (searches every card). Each row carries a value; a live net total sits at the bottom.",
+        text: "The Trades page is a chronological transactions ledger. Every purchase, sale, or trade is a single transaction with cards on one or both sides, allocated cost basis, and a running realized P&L. The legacy partner-only form is gone — purchases and sales now live here too.",
       },
       {
         type: "p",
-        text: "Submitting in a single transaction marks each outgoing inventory row disposed with disposed_to = 'Trade: {partner}', creates a new inventory row per incoming card with purchased_from = 'Trade: {partner}', and ties both sides to the same trade so the event can be reconstructed later.",
+        text: "Click New to log a transaction. Pick a Kind (Purchase, Sale, or Trade) and the form reshapes: Purchase has cards in + cash out; Sale has cards out + cash in; Trade has both sides with optional cash legs (handy for $5 to even out a difference). Add a date, counterparty (LGS, eBay seller, trade partner), channel, and notes. Then search to add lines — going out searches your inventory, coming in searches any card.",
       },
       {
         type: "p",
-        text: "The history list shows ↓ out / ↑ in / net per row. A Lifetime card sums all-time totals; a Partners card sorts everyone you've traded with by frequency and shows whether you're net up or down with each. Click a row to see the full ledger.",
+        text: "The Allocation preview at the bottom is the key insight: cash going out is distributed across incoming lines proportional to each card's market value, and that allocated value becomes the new inventory row's cost basis. Rounding cents park on the largest line so allocations always sum exactly to the cash total. For sales, each outgoing line is credited with its share of cash in, and realized gain = sale proceeds − the line's original cost basis.",
+      },
+      {
+        type: "p",
+        text: "The ledger view shows every transaction with kind pill, counterparty, date, in/out counts, cash legs, and net value. The right rail summarizes Lifetime totals (in/out/realized + by-year breakdown), By counterparty (who you've transacted with most and net up/down per person), and Market drift (how cost-basis valuations compare to current market). Click any row to see the full transaction detail with line-by-line cost-basis math and realized gain on sales.",
+      },
+    ],
+  },
+  {
+    id: "market",
+    title: "Market",
+    blocks: [
+      {
+        type: "p",
+        text: "The Market page is valuation + bargain hunting. The Sources strip at the top lists active market sources. The eBay adapter is built in and self-enables when EBAY_APP_ID, EBAY_CERT_ID, and EBAY_OAUTH_TOKEN are set. Additional sources (any Shopify-based LGS) live in the database and are managed via the Manage scrapers link.",
+      },
+      {
+        type: "p",
+        text: "The Bargains panel has a Run sweep button. Each sweep pulls your want list (manual + deck-need shortfall), queries every enabled source for each want, and compares listings against a baseline — sold median when available, else 90-day price-history median, else printings.usd. Listings priced below baseline are ranked by absolute savings.",
+      },
+      {
+        type: "p",
+        text: "Each bargain row shows source, total cost (price + shipping), baseline comparison, and any flags the title heuristics caught: possible lot, graded, non-English, playtest/proxy. Flagged listings are excluded by default. Source stats below show how many listings each source returned so you can spot a broken adapter.",
+      },
+      {
+        type: "p",
+        text: "Three valuation sections sit below Bargains, all computed locally from your inventory and the price-history snapshots — no external credentials required. Appreciated cards (≥25% / ≥$1 above what you paid; sell signal). Biggest movers this week (largest 7-day price delta on owned cards; needs at least a week of snapshots). Underwater (≥10% below cost basis; hold view, not panic). All foil-aware.",
+      },
+    ],
+  },
+  {
+    id: "market-sources",
+    title: "Market sources (admin)",
+    blocks: [
+      {
+        type: "p",
+        text: "/admin/market-sources is where you wire up scraper sources beyond eBay. Each row is one scrape target; parsing is handled by a parser template in code (currently Shopify). Adding a source requires source key (slug), display name, base URL, parser template, per-minute/per-day rate limits, terms notes, and a robots/terms acknowledgment checkbox that must be ticked before the source can be enabled.",
+      },
+      {
+        type: "p",
+        text: "After saving, the row starts disabled. Click Test fetch to run a Sol Ring probe — the result is stored on the row (last_test_at, last_test_ok, last_test_message). Once a test returns listings, flip Enabled to include the source in bargain sweeps. Bright Data Web Unlocker is an opt-in toggle for targets behind anti-bot; needs BRIGHTDATA_API_TOKEN.",
+      },
+      {
+        type: "p",
+        text: "A hostile-marketplace denylist refuses adapters for TCGPlayer, Cardmarket, ebay.com, and mtgstocks at the API boundary and again in code. eBay goes through the official Browse API instead (it's built in). The denylist is deliberate — scraping those sites violates their terms, and bad arbitrage data is worse than none. Scrapes that error return empty + log; they never fake data.",
       },
     ],
   },

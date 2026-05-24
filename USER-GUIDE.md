@@ -13,7 +13,10 @@ A personal Magic: The Gathering collection tracker and Commander deckbuilder.
 - [Card pages](#card-pages)
 - [Decks](#decks)
 - [The deckbuilder](#the-deckbuilder)
-- [Trades](#trades)
+- [Generate a deck (AI builder)](#generate-a-deck-ai-builder)
+- [Trades & ledger](#trades--ledger)
+- [Market](#market)
+- [Market sources (admin)](#market-sources-admin)
 - [Importing a CSV](#importing-a-csv)
 - [System status](#system-status)
 - [Locations](#locations)
@@ -24,14 +27,14 @@ A personal Magic: The Gathering collection tracker and Commander deckbuilder.
 
 ## Getting around
 
-The top navigation has seven sections: **Dashboard**, **Inventory**,
-**Decks**, **Trades**, **Import**, **System**, and **Help**. On phones
-those links collapse into a hamburger menu in the top-right. The app is
-dark by default; the sun/moon button toggles light mode.
+The top navigation has eight sections: **Dashboard**, **Inventory**,
+**Decks**, **Trades**, **Market**, **Import**, **System**, and **Help**.
+On phones those links collapse into a hamburger menu in the top-right. The
+app is dark by default; the sun/moon button toggles light mode.
 
 Press **⌘K** (Ctrl+K) anywhere to open the card search palette. Card detail
-pages and the deckbuilder show a back link in the top-left so you don't have
-to use the browser back button.
+pages, the deckbuilder, and the admin/market-sources page show a back link
+in the top-left so you don't have to use the browser back button.
 
 The in-app **Help** page mirrors this guide.
 
@@ -151,9 +154,18 @@ Clicking a card name opens its detail page:
 
 ## Decks
 
-The **Decks** page shows every deck as a tile with its commander, bracket,
-card count, and value. **New deck** creates one — you can assign a commander
-now or later.
+The **Decks** page has two tabs:
+
+- **Active** — every saved deck as a tile with its commander, bracket, card
+  count, and value. **New deck** creates one — you can assign a commander
+  now or later.
+- **Builder** — every generated proposal that hasn't been saved as a deck
+  yet. Live generations show a pulsing count. Open a proposal to inspect
+  it, reconcile it against inventory, or save it (saving moves it to the
+  Active tab and exits Builder).
+
+The header has a **Generate** button that opens the AI builder — see
+[Generate a deck](#generate-a-deck-ai-builder) below.
 
 ---
 
@@ -231,41 +243,246 @@ The shortcut bar at the bottom of the deckbuilder lists the same keys.
 
 ---
 
-## Trades
+## Generate a deck (AI builder)
 
-The **Trades** page logs card-for-card trades with another player and keeps
-a running tally per partner.
+The **Generate** button on the Decks page opens the AI deckbuilder.
+Pick a commander, target bracket, and a few flavor hints, then choose:
 
-### Logging a trade
+### Generator kind
 
-Click **Log trade**. The form has three parts:
+- **Standard** — a multi-pass build that scores cards against the
+  commander's gameplan, your bracket target, and the standard
+  Ramp/Removal/Draw/Wincons slots. Lower-variance output. Good first
+  pass.
+- **Rogue** — a high-variance build with adversarial critique. The
+  generator drafts several distinct theses, picks one (you can
+  override), builds it, then runs four independent critique passes
+  (critic, premortem, trade, synthesis). The synthesis tab gives you a
+  confidence verdict — sometimes the answer is "this thesis doesn't
+  hold up, try again." Rogue is the right choice when you want a
+  pet-card pile that surprises you.
 
-1. **Header** — partner name, date, optional notes.
-2. **Cards going out** — search **your inventory** and pick the cards
-   you're giving away. Each row gets an editable value (defaults to the
-   card's current market price).
-3. **Cards coming in** — search **any card** and pick the printings you're
-   receiving. Each row has condition, foil toggle, location, and value.
+### Inventory scope
 
-A live net total sits at the bottom (in − out). Submitting in a single
-transaction:
+Three choices governing which of your cards the generator can pull
+from:
 
-- marks each outgoing inventory row **disposed** with `disposed_to = "Trade:
-  {partner}"`,
-- creates a new inventory row per incoming card with `purchased_from =
-  "Trade: {partner}"`,
-- ties both sides to the same `trade_id` so the trade can be reconstructed
-  later.
+- **Only unassigned** (default) — uses cards you own that aren't
+  already committed to another deck. Safest; nothing else of yours
+  breaks.
+- **All owned** — uses any card you own, even those in another deck.
+  The reconciler later flags which other decks would be cannibalized.
+- **Disregard inventory** — builds against the entire card pool; treat
+  it as a shopping list. The Acquire tab on the resulting deck shows
+  what the build would cost.
 
-### Trade history
+### After generation
 
-The Trades page lists every past trade with **↓ out**, **↑ in**, and **net**
-per row. A **Lifetime** card sums all-time totals; a **Partners** card
-sorts everyone you've traded with by frequency and shows whether you're
-net up or down with each.
+Generated builds land in the **Builder** tab on /decks. Open one to
+inspect it; from there you can:
 
-Click a row to see the full ledger — each card on both sides as clickable
-tiles, with the date and any notes you logged.
+- **Reconcile** against inventory — slot in your own physical cards
+  where possible, flag conflicts when a card is already in another
+  deck. You decide what to keep.
+- **Save as deck** — promotes the proposal to a real deck (moves it to
+  Active). The generator's analysis carries forward as the deck's
+  Strategy result.
+- **Delete** — discards the proposal.
+
+You can re-generate any time without affecting saved decks.
+
+---
+
+## Trades & ledger
+
+The **Trades** page is a chronological transactions ledger. Every
+**purchase**, **sale**, or **trade** is a single transaction with one or
+more cards on each side, allocated cost basis, and a running realized
+P&L. The old "log a trade with a partner" form was replaced by this
+unified ledger; purchases and sales now live here too.
+
+### Logging a transaction
+
+Click **New** (top-right). The form opens with three fixed parts plus a
+live allocation preview.
+
+1. **Kind** — pick **Purchase**, **Sale**, or **Trade**. The form
+   reshapes based on the choice:
+   - **Purchase:** only cards coming **in** + cash going out.
+   - **Sale:** only cards going **out** + cash coming in.
+   - **Trade:** cards on both sides; cash legs are optional (handy when
+     a trade has $5 to even out a difference).
+2. **Header** — date, counterparty (LGS name, eBay seller handle,
+   trade partner — whatever you'll search for later), optional channel
+   (eBay / LGS / trade night) and notes.
+3. **Lines** — search to add cards. **Going out** searches **your
+   inventory** (the physical rows that will be marked disposed).
+   **Coming in** searches **any card** in the database. Each incoming
+   row picks a condition, foil/etched flags, and a location.
+
+The **Allocation preview** at the bottom is the key insight: when you
+enter cash going out, the form distributes that cash across incoming
+lines proportionally to each card's market value. That allocated value
+becomes the new inventory row's **cost basis**. Rounding cents are
+parked on the largest line so the allocation always sums exactly to the
+cash total.
+
+For sales, each outgoing line is credited with its share of cash in,
+and realized gain = sale proceeds − the line's original cost basis.
+
+### Ledger view
+
+The Trades page shows every transaction with kind pill, counterparty,
+date, in/out counts, cash legs, and net value. The right rail
+summarizes:
+
+- **Lifetime** — total cash in/out, total realized P&L, breakdowns by
+  year.
+- **By counterparty** — who you've transacted with most, and whether
+  you're net up or down with each.
+- **Market drift** — a quick read on how your cost-basis valuations
+  compare to current market.
+
+Clicking a row opens the full transaction detail: every line as a
+clickable card tile, allocated values, the cost-basis math, and any
+notes you logged. Sales show the realized gain on the outgoing line.
+
+### Why the ledger model
+
+A purchase and a sale are both special cases of a trade where one side
+is pure cash. By unifying them, the cost basis on every inventory row
+flows from a real transaction line — not a guess — and the dashboard's
+**unrealized** / **realized** gain numbers stay consistent.
+
+---
+
+## Market
+
+The **Market** page is valuation + bargain hunting in one. Three blocks:
+
+### Sources
+
+A strip listing every active **market source**. The eBay adapter is
+built in and self-enables when `EBAY_APP_ID`, `EBAY_CERT_ID`, and
+`EBAY_OAUTH_TOKEN` are set in `.env.local`. Additional sources (any
+Shopify-based LGS) live in the database and are managed via the
+**Manage scrapers** link → [Market sources](#market-sources-admin).
+
+A source shows as **Enabled** (returning data), **Configure to enable**
+(missing creds or robots-ack), or absent if you haven't added it. At
+least one enabled source is required for Bargains to do anything.
+
+### Bargains
+
+A panel with a **Run sweep** button. Each sweep:
+
+1. Pulls your **want list** (manual entries + deck-need shortfall —
+   see below).
+2. For every want, queries every enabled source for active listings.
+3. Compares each listing's price (plus shipping if reported) against a
+   baseline:
+   - sold-median when a source has that data (eBay Marketplace
+     Insights, once you have access — currently approved-access-only),
+   - else 90-day median from your local `price_history` snapshots,
+   - else `printings.usd` from Scryfall.
+4. Returns listings priced below baseline, ranked by absolute
+   savings.
+
+Each bargain row shows the card name, listing title, source, total
+cost (price + shipping), baseline comparison, savings (USD + %), and
+any **flags** the title heuristics caught — *possible lot*, *graded*,
+*non-English*, *playtest/proxy*. Flagged listings are excluded by
+default; you can loosen that on a per-want basis when you mean to bid
+on a lot.
+
+Listings link out to the source so you can act. Source stats below the
+list show "we queried N sources and got X / Y / Z listings" so you can
+spot a misbehaving adapter.
+
+### Want list
+
+Wants drive bargain sweeps. Two contributors:
+
+- **Manual** — add a card with an optional target quantity and a
+  ceiling price (`max_price_usd`). Sweeps skip listings above your
+  ceiling.
+- **Deck shortfall** — every Acquire-rollup card across all decks
+  contributes. Aggregated globally: if you own 1 Sol Ring and two
+  decks each want 1, the want list shows need = 1, not 2.
+
+### Valuation views
+
+Three sections below Bargains, computed against your inventory and the
+local price snapshots. No external credentials required.
+
+- **Appreciated cards** — owned cards currently worth ≥25% / ≥$1 more
+  than what you paid. Sell signals if you're willing to part with them.
+- **Biggest movers this week** — owned cards with the largest 7-day
+  price delta from `price_history`. Needs at least a week of snapshots
+  to populate — new accounts may show empty.
+- **Underwater** — owned cards where current market is ≥10% below
+  what you paid. Hold view; useful for cost-basis thinking, not panic.
+
+All three are foil-aware: foiled cards use `usd_foil`, etched use
+`usd_etched`.
+
+---
+
+## Market sources (admin)
+
+`/admin/market-sources` (linked from the Market page's Sources strip)
+is where you wire up additional scraper sources beyond eBay. Each row
+is one **scrape target** with parsing handled by a **parser template**
+in code.
+
+### Adding a source
+
+Click **Add source** and fill in:
+
+- **Source key** — lowercase slug used in URLs and cache keys
+  (e.g. `example-lgs`).
+- **Display name** — what shows on the Market page.
+- **Base URL** — the homepage of the LGS. `https://example-lgs.com`,
+  not the search URL.
+- **Parser template** — currently **Shopify** (uses the standard
+  `/search/suggest.json` endpoint). Most LGS webstores run Shopify and
+  return clean JSON, so no HTML scraping is needed.
+- **Rate limits** — per minute / per day token-bucket caps. Defaults
+  (5 / 200) are polite. Raise carefully.
+- **Terms notes** — free text where you record what you found in the
+  site's robots.txt and terms of service.
+- **Robots/terms acknowledged** — required before the source can be
+  enabled. You're confirming you've reviewed the target's robots.txt
+  and ToS and that scraping is permitted for personal use.
+- **Use Bright Data Web Unlocker** — only enable if the target is
+  behind anti-bot (Cloudflare etc.). Requires `BRIGHTDATA_API_TOKEN`.
+  Most friendly LGS targets work with plain fetch.
+
+After saving, the row defaults to **Disabled**. Click **Test fetch** to
+run a Sol Ring probe through the adapter — the result is stored on the
+row (`last_test_at`, `last_test_ok`, `last_test_message`). Once a test
+returns listings, flip **Enabled** to wire it into the sweep.
+
+### Hostile-marketplace denylist
+
+Adapter creation refuses these targets at the API boundary and again
+in code:
+
+- **TCGPlayer** and subdomains
+- **Cardmarket**
+- **eBay** (the site) — use the official Browse API adapter instead;
+  it's built in and self-configures from env vars
+- **mtgstocks**
+
+The denylist is a deliberate choice. Scraping any of these violates
+their terms, and bad arbitrage data is worse than none.
+
+### How adapters fail
+
+A scrape that errors (timeout, captcha, parse failure) returns an
+empty list with an entry in the source-stats footer — **never** fake
+data. The token-bucket rate limiter blocks runaway loops. Per-source
+failures don't block sibling sources from running.
 
 ---
 
