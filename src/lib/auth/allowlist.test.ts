@@ -43,4 +43,11 @@ describe("route helpers", () => {
     expect(shouldBypassAuth("/api/cron/daily-snapshot")).toBe(true);
     expect(shouldBypassAuth("/api/decks")).toBe(false);
   });
+
+  it("bypasses PWA manifest and service worker", () => {
+    // The browser fetches /manifest.webmanifest without credentials, so
+    // auth-gating it returns the /login HTML and breaks PWA install.
+    expect(shouldBypassAuth("/manifest.webmanifest")).toBe(true);
+    expect(shouldBypassAuth("/sw.js")).toBe(true);
+  });
 });

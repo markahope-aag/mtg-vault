@@ -1,29 +1,26 @@
 // MTG Vault service worker. Strategy:
-// - App shell + Next static chunks → cache-first (immutable).
+// - Next static chunks → cache-first (immutable per hash).
 // - Scryfall card images → cache-first (immutable per URL).
-// - HTML navigation requests → network-first, fall back to last good page.
-// - /api/* → network-first, fall back to a cached response so previously-
-//   loaded data (inventory, decks) stays readable when offline.
-// - Everything else → network with a graceful fallback.
+// - HTML navigation requests → NETWORK ONLY. Do not cache server-rendered
+//   pages — auth state and live data invalidate them constantly, and a
+//   stale cached blank page is worse than a network failure (user gets a
+//   white-screen with no recovery path). The Next router handles its own
+//   client-side caching for fast nav.
+// - /api/* → network-first with a brief cache fallback for offline reads
+//   (inventory/decks remain glanceable while offline).
+// - Everything else → network with no SW intervention.
 //
 // Bump CACHE_VERSION to force clients to evict stale entries on next load.
 
-const CACHE_VERSION = "v1";
-const SHELL_CACHE = `mtgv-shell-${CACHE_VERSION}`;
+const CACHE_VERSION = "v2";
+const STATIC_CACHE = `mtgv-static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `mtgv-images-${CACHE_VERSION}`;
 const API_CACHE = `mtgv-api-${CACHE_VERSION}`;
 
-const SHELL_PATHS = ["/", "/dashboard", "/inventory", "/decks", "/manifest.webmanifest"];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((c) =>
-      c.addAll(SHELL_PATHS).catch(() => {
-        // Pre-cache is best-effort — some routes 307 to /login when
-        // unauthenticated and that's fine, we'll cache them on first real hit.
-      }),
-    ),
-  );
+self.addEventListener("install", () => {
+  // No pre-cache. Auth-gated routes can't be safely pre-cached without
+  // knowing the user's session state inside the SW thread. Static chunks
+  // are picked up on first real hit.
   self.skipWaiting();
 });
 
@@ -36,7 +33,7 @@ self.addEventListener("activate", (event) => {
           .filter(
             (k) =>
               k.startsWith("mtgv-") &&
-              ![SHELL_CACHE, IMAGE_CACHE, API_CACHE].includes(k),
+              ![STATIC_CACHE, IMAGE_CACHE, API_CACHE].includes(k),
           )
           .map((k) => caches.delete(k)),
       );
@@ -66,7 +63,7 @@ self.addEventListener("fetch", (event) => {
 
   // 2) Next static chunks — cache-first, immutable per hash.
   if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirst(req, SHELL_CACHE));
+    event.respondWith(cacheFirst(req, STATIC_CACHE));
     return;
   }
 
@@ -76,13 +73,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4) HTML navigations — network-first; fall back to last good shell entry.
-  if (req.mode === "navigate" || req.destination === "document") {
-    event.respondWith(networkFirst(req, SHELL_CACHE));
+  // 4) Manifest and SW — let the browser handle natively (proxy bypass
+  //    already exempts them).
+  if (url.pathname === "/manifest.webmanifest" || url.pathname === "/sw.js") {
     return;
   }
 
-  // 5) Everything else — network, no cache (avoid storing one-shot fetches).
+  // 5) HTML navigations and everything else — do NOT intercept. Auth
+  //    redirects, fresh server-rendered data, and Next's own caching
+  //    are best left to the browser + Next runtime. Caching SSR'd pages
+  //    in the SW caused white-screen blanks when a stale empty response
+  //    got served instead of the fresh one.
 });
 
 async function cacheFirst(req, cacheName) {
