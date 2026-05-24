@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Layers,
+  Loader2,
   ScanLine,
   MoreHorizontal,
   Pencil,
@@ -598,8 +599,30 @@ export function InventoryTable({
       </section>
 
       {/* ──── Table ──── */}
-      <section className="overflow-x-auto rounded-md border border-border-subtle bg-surface-raised">
-        {rows.length === 0 && !loading ? (
+      <section
+        className={cn(
+          "relative overflow-x-auto rounded-md border border-border-subtle bg-surface-raised transition-opacity duration-150",
+          // Dim stale rows so it's obvious the table is being replaced.
+          // Pointer-events stay off the overlay; the inner table is also
+          // suppressed during a refetch so a user can't act on stale data.
+          loading && rows.length > 0 && "opacity-60",
+        )}
+        aria-busy={loading || undefined}
+      >
+        {loading && rows.length > 0 && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center pt-12">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-overlay px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted shadow-md shadow-black/20">
+              <Loader2 className="size-3 animate-spin" />
+              Refreshing
+            </span>
+          </div>
+        )}
+        {rows.length === 0 && loading ? (
+          <div className="flex items-center justify-center gap-2 px-4 py-12 font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+            <Loader2 className="size-3 animate-spin" />
+            Loading inventory…
+          </div>
+        ) : rows.length === 0 && !loading ? (
           <EmptyState hasFilters={hasAnyFilter} />
         ) : grouped && groups ? (
           <table className="w-full text-[13px]">
