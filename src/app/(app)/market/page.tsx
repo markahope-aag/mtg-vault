@@ -4,28 +4,32 @@ import {
   topMovers,
   underwaterCards,
 } from "@/lib/market/valuation";
-import { marketSources } from "@/lib/market/registry";
+import { marketSources, ensureSourcesLoaded } from "@/lib/market/registry";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImgWithFallback } from "@/components/img-with-fallback";
+import { BargainsPanel } from "@/components/market/bargains-panel";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketPage() {
+  // Pull in DB-defined scraper adapters so they show up in SourcesPanel
+  // alongside the in-code eBay adapter. Idempotent + cheap.
+  await ensureSourcesLoaded();
+
   const [appreciated, movers, underwater] = await Promise.all([
     appreciatedCards({ minGainPct: 25, minGainUsd: 1, limit: 25 }),
     topMovers({ days: 7, limit: 15, direction: "either" }),
     underwaterCards({ minLossPct: 10, limit: 25 }),
   ]);
 
-  // Source status — surfaced so the user knows whether the bargain
-  // detector (Phase B3) has anything to query against.
   const sources = marketSources.all().map((s) => ({
     id: s.id,
     displayName: s.displayName,
     enabled: s.enabled,
     hasSoldData: s.hasSoldData,
   }));
+  const hasEnabledSources = sources.some((s) => s.enabled);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -34,12 +38,16 @@ export default async function MarketPage() {
         <p className="mt-1 text-sm text-text-muted">
           Valuation intelligence + bargain detection. The valuation views
           below run on your inventory and our price history — no external
-          credentials required. Bargain detection needs an eBay developer
-          app (see Sources panel).
+          credentials required. Bargain detection needs at least one
+          enabled source (eBay API or a Shopify LGS).
         </p>
       </header>
 
       <SourcesPanel sources={sources} />
+
+      <div className="mt-6">
+        <BargainsPanel hasEnabledSources={hasEnabledSources} />
+      </div>
 
       <section className="mt-8 space-y-6">
         <AppreciatedSection rows={appreciated} />
@@ -72,8 +80,14 @@ function SourcesPanel({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-          Sources
+        <CardTitle className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+          <span>Sources</span>
+          <Link
+            href="/admin/market-sources"
+            className="font-sans text-[11px] normal-case tracking-normal text-[var(--brand)] hover:underline"
+          >
+            Manage scrapers →
+          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 p-3 text-xs">
