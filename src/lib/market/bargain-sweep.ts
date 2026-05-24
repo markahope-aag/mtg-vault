@@ -10,7 +10,7 @@
  */
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { marketSources } from "./registry";
+import { ensureSourcesLoaded, marketSources } from "./registry";
 import { detectBargains, type Bargain } from "./bargains";
 import { fetchWantList, type WantEntry } from "./wantlist";
 import type { MarketListing } from "./source";
@@ -35,6 +35,9 @@ export async function sweepBargains(opts: {
   /** Override the per-source listing fetch cap for testing. */
   perWantLimit?: number;
 } = {}): Promise<BargainSweepResult> {
+  // Make sure scraper adapters from market_sources are registered
+  // before we iterate the registry. Idempotent.
+  await ensureSourcesLoaded();
   const wants = (await fetchWantList()).slice(0, opts.wantLimit ?? 50);
   if (wants.length === 0) {
     return {

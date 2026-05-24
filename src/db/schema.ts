@@ -352,3 +352,88 @@ export const transactionLines = pgTable(
     inventoryIdx: index("transaction_lines_inventory_id_idx").on(t.inventoryId),
   }),
 );
+
+// ─── MARKET (Phase B: cached listings + want list) ──────────────
+
+export const marketListings = pgTable(
+  "market_listings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceId: text("source_id").notNull(),
+    sourceListingId: text("source_listing_id").notNull(),
+    oracleId: uuid("oracle_id"),
+    rawTitle: text("raw_title").notNull(),
+    setCode: text("set_code"),
+    condition: text("condition"),
+    foil: boolean("foil"),
+    priceUsd: decimal("price_usd", { precision: 10, scale: 2 }).notNull(),
+    shippingUsd: decimal("shipping_usd", { precision: 10, scale: 2 }),
+    isSold: boolean("is_sold").default(false).notNull(),
+    soldAt: timestamp("sold_at"),
+    url: text("url").notNull(),
+    confidence: decimal("confidence", { precision: 3, scale: 2 })
+      .default("1.0")
+      .notNull(),
+    flags: text("flags").array(),
+    fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at"),
+  },
+  (t) => ({
+    oracleIdx: index("market_listings_oracle_idx").on(t.oracleId),
+    fetchedIdx: index("market_listings_fetched_idx").on(t.fetchedAt),
+    soldIdx: index("market_listings_sold_idx").on(t.isSold, t.soldAt),
+  }),
+);
+
+// Manual want list. Aggregated with deck-need shortfalls at query time —
+// this table holds only entries the user added directly.
+export const wants = pgTable(
+  "wants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    oracleId: uuid("oracle_id").notNull(),
+    targetQuantity: integer("target_quantity").default(1).notNull(),
+    maxPriceUsd: decimal("max_price_usd", { precision: 10, scale: 2 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    oracleIdx: index("wants_oracle_idx").on(t.oracleId),
+  }),
+);
+
+// ─── MARKET SOURCES (Phase C: scraper adapter configs) ──────────
+
+// Per-source scraper config. Adapter PARSERS live in code (selected via
+// parserTemplate); TARGETS live here so the user can wire up an LGS
+// without touching the codebase. A hostile-marketplace denylist enforced
+// in lib/market/sources/scraper/denylist.ts refuses to register adapters
+// for TCGPlayer / Cardmarket / ebay.com.
+export const marketSourcesTable = pgTable(
+  "market_sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceKey: text("source_key").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    baseUrl: text("base_url").notNull(),
+    parserTemplate: text("parser_template").notNull(),
+    enabled: boolean("enabled").default(false).notNull(),
+    robotsAcknowledged: boolean("robots_acknowledged")
+      .default(false)
+      .notNull(),
+    termsNotes: text("terms_notes"),
+    rateLimitPerMinute: integer("rate_limit_per_minute")
+      .default(5)
+      .notNull(),
+    rateLimitPerDay: integer("rate_limit_per_day").default(200).notNull(),
+    useWebUnlocker: boolean("use_web_unlocker").default(false).notNull(),
+    lastRunAt: timestamp("last_run_at"),
+    lastTestAt: timestamp("last_test_at"),
+    lastTestOk: boolean("last_test_ok"),
+    lastTestMessage: text("last_test_message"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    enabledIdx: index("market_sources_enabled_idx").on(t.enabled),
+  }),
+);
