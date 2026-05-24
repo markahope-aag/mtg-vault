@@ -45,7 +45,7 @@ Multi-user (deferred — `proxy.ts` allowlist works for the single-user case), n
 | Auth | Supabase Auth (magic link) | Comma-separated `ALLOWED_EMAIL` allowlist |
 | Tables | Custom (`inventory-table/index.tsx`) | Hand-rolled grouped/physical view with client-side state; no virtualization |
 | Client state | `fetch` + `useState`/`useEffect` | Each pane owns its own fetches and error toasts; no global query cache |
-| Forms | react-hook-form + Zod | API + dialog validation |
+| Forms | Bare React + Zod | API + dialog validation (`react-hook-form` was dropped — `useState` + manual `safeParse` is enough at this scale) |
 | Charts | Recharts | Dashboard + price history |
 | AI | Anthropic SDK | Strategy tab only; optional |
 | Cron | Vercel Cron + GitHub Actions | See §6 |
