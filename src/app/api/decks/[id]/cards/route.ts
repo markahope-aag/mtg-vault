@@ -1,18 +1,14 @@
 import { and, eq, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { cards, deckCards, decks, printings } from "@/db/schema";
-import { upsertDeckCardSchema } from "@/lib/decks/schemas";
-
+import {
+  moveDeckCardSchema,
+  upsertDeckCardSchema,
+} from "@/lib/decks/schemas";
 import { serverError } from "@/lib/api-errors";
-export const dynamic = "force-dynamic";
 
-const moveSchema = z.object({
-  printingId: z.string().uuid(),
-  fromCategory: z.string().trim().min(1).max(30),
-  toCategory: z.string().trim().min(1).max(30),
-});
+export const dynamic = "force-dynamic";
 
 export async function PATCH(
   req: NextRequest,
@@ -25,7 +21,7 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = moveSchema.safeParse(body);
+  const parsed = moveDeckCardSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },

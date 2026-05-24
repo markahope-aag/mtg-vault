@@ -1,9 +1,9 @@
 import { eq, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { transactions } from "@/db/schema";
 import { realizedPnL } from "@/lib/ledger/allocate";
+import { updateTransactionSchema } from "@/lib/ledger/schemas";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
@@ -134,23 +134,6 @@ export async function GET(
 
 // ─── PATCH header ──────────────────────────────────────────────
 
-// Limited to header-level edits — counterparty, notes, channel, cash, fees,
-// occurredAt. Editing lines means deleting and recreating the transaction;
-// keeping that out of v1 since it'd need to reverse + reapply inventory
-// side-effects.
-const patchSchema = z.object({
-  counterparty: z.string().trim().max(200).optional().nullable(),
-  channel: z
-    .enum(["lgs", "online_marketplace", "private", "pack", "other"])
-    .optional()
-    .nullable(),
-  cashOutUsd: z.number().nonnegative().optional().nullable(),
-  cashInUsd: z.number().nonnegative().optional().nullable(),
-  feesUsd: z.number().nonnegative().optional().nullable(),
-  notes: z.string().trim().max(2000).optional().nullable(),
-  occurredAt: z.string().datetime().optional(),
-});
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -162,7 +145,7 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = patchSchema.safeParse(body);
+  const parsed = updateTransactionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },

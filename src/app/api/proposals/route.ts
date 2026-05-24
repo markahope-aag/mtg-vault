@@ -1,25 +1,15 @@
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { deckProposals } from "@/db/schema";
 import { generateDeck } from "@/lib/rogue/generate";
+import { generateProposalSchema } from "@/lib/rogue/schemas";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 // Five LLM round-trips worst case (pick + generate + 3 repairs + analyze).
 // 300s is generous; on Vercel Pro this is the max.
 export const maxDuration = 300;
-
-const bodySchema = z.object({
-  kind: z.enum(["standard", "rogue"]).default("standard"),
-  commanderOracleId: z.string().uuid().optional(),
-  archetypeBrief: z.string().trim().max(2000).optional(),
-  targetBracket: z.number().int().min(1).max(5).nullable().optional(),
-  inventoryScope: z
-    .enum(["unassigned", "all_owned", "ignore"])
-    .optional(),
-});
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -28,7 +18,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = bodySchema.safeParse(body);
+  const parsed = generateProposalSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },

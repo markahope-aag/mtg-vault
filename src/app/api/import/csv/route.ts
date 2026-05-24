@@ -9,6 +9,7 @@ import { parseManabox } from "@/lib/importers/manabox";
 import { parseMoxfield } from "@/lib/importers/moxfield";
 import { parseArchidekt } from "@/lib/importers/archidekt";
 import { parseTcgplayer } from "@/lib/importers/tcgplayer";
+import { CONDITIONS } from "@/lib/inventory/schemas";
 import { serverError } from "@/lib/api-errors";
 import {
   resolvePrinting,
@@ -177,7 +178,7 @@ const commitSchema = z.object({
         quantity: z.number().int().min(1).max(999),
         foil: z.boolean().default(false),
         etched: z.boolean().default(false),
-        condition: z.enum(["NM", "LP", "MP", "HP", "DMG"]).default("NM"),
+        condition: z.enum(CONDITIONS).default("NM"),
         language: z.string().default("en"),
         acquiredPrice: z.number().optional().nullable(),
         acquiredAt: z.string().datetime().optional().nullable(),

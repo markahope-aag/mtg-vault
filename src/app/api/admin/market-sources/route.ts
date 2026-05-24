@@ -1,30 +1,15 @@
 import { sql, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { marketSourcesTable } from "@/db/schema";
 import { isHostileMarketplace } from "@/lib/market/sources/scraper/denylist";
+import {
+  createMarketSourceSchema,
+  updateMarketSourceSchema,
+} from "@/lib/market/schemas";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
-
-const createSchema = z.object({
-  sourceKey: z
-    .string()
-    .trim()
-    .min(2)
-    .max(50)
-    .regex(/^[a-z0-9_-]+$/, "lowercase letters/digits/_- only"),
-  displayName: z.string().trim().min(1).max(120),
-  baseUrl: z.string().url(),
-  parserTemplate: z.enum(["shopify"]),
-  enabled: z.boolean().default(false),
-  robotsAcknowledged: z.boolean().default(false),
-  termsNotes: z.string().trim().max(2000).optional().nullable(),
-  rateLimitPerMinute: z.number().int().min(1).max(60).default(5),
-  rateLimitPerDay: z.number().int().min(1).max(10000).default(200),
-  useWebUnlocker: z.boolean().default(false),
-});
 
 export async function GET() {
   try {
@@ -54,7 +39,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = createSchema.safeParse(body);
+  const parsed = createMarketSourceSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },
@@ -113,16 +98,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-const patchSchema = z.object({
-  id: z.string().uuid(),
-  enabled: z.boolean().optional(),
-  robotsAcknowledged: z.boolean().optional(),
-  termsNotes: z.string().trim().max(2000).optional().nullable(),
-  rateLimitPerMinute: z.number().int().min(1).max(60).optional(),
-  rateLimitPerDay: z.number().int().min(1).max(10000).optional(),
-  useWebUnlocker: z.boolean().optional(),
-});
-
 export async function PATCH(req: NextRequest) {
   let body: unknown;
   try {
@@ -130,7 +105,7 @@ export async function PATCH(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = patchSchema.safeParse(body);
+  const parsed = updateMarketSourceSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },
