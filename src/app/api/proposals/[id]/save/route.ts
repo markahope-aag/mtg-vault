@@ -1,15 +1,11 @@
 import { eq, sql, inArray } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { deckCards, deckProposals, decks } from "@/db/schema";
+import { saveProposalSchema } from "@/lib/rogue/schemas";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
-
-const bodySchema = z.object({
-  name: z.string().trim().min(1).max(200),
-});
 
 type ProposalCard = {
   oracleId: string;
@@ -41,7 +37,7 @@ export async function POST(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = bodySchema.safeParse(body);
+  const parsed = saveProposalSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },

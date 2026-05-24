@@ -1,15 +1,11 @@
 import { sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { locations } from "@/db/schema";
-
+import { createLocationSchema } from "@/lib/locations/schemas";
 import { serverError } from "@/lib/api-errors";
-export const dynamic = "force-dynamic";
 
-const createSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-});
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   // Include a usage count so the management UI can warn the user how many
@@ -34,7 +30,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const parsed = createSchema.safeParse(body);
+  const parsed = createLocationSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten() },

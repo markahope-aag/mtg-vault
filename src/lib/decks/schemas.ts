@@ -44,6 +44,14 @@ export const upsertDeckCardSchema = z
     message: "Provide either delta or set",
   });
 
+// PATCH /api/decks/[id]/cards — moves a deck card between categories
+// (main / sideboard / considering / etc) without changing quantity.
+export const moveDeckCardSchema = z.object({
+  printingId: z.string().uuid(),
+  fromCategory: z.string().trim().min(1).max(30),
+  toCategory: z.string().trim().min(1).max(30),
+});
+
 export const DECK_ARCHETYPE_SUGGESTIONS = [
   "Aristocrats",
   "Voltron",
