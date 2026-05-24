@@ -2,15 +2,15 @@ import { sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { detectScryfallSyntax } from "@/lib/scryfall-operators";
+import {
+  scryfallDelay,
+  scryfallFetch,
+  ScryfallError,
+} from "@/lib/scryfall-client";
 import { sqlArray } from "@/lib/sql";
 
 export const dynamic = "force-dynamic";
 
-const SCRYFALL_HEADERS = {
-  "User-Agent": "MTG-Vault/0.1 (personal use)",
-  Accept: "application/json",
-};
-const SCRYFALL_DELAY_MS = 100;
 const MAX_LIMIT = 50;
 
 export type SearchResult = {
@@ -136,14 +136,19 @@ async function searchScryfall(
   url.searchParams.set("unique", "cards");
   url.searchParams.set("order", "name");
 
-  // Single page is plenty for the palette.
-  await new Promise((r) => setTimeout(r, SCRYFALL_DELAY_MS));
-  const res = await fetch(url.toString(), { headers: SCRYFALL_HEADERS });
-  if (res.status === 404) return [];
-  if (!res.ok) {
-    throw new Error(`Scryfall ${res.status} ${res.statusText}`);
+  // Single page is plenty for the palette. 404 from Scryfall means
+  // "no cards match the query" — surface that as an empty list rather
+  // than a server error.
+  await scryfallDelay();
+  let data: { data: ScryfallRow[] };
+  try {
+    data = (await (await scryfallFetch(url)).json()) as {
+      data: ScryfallRow[];
+    };
+  } catch (err) {
+    if (err instanceof ScryfallError && err.status === 404) return [];
+    throw err;
   }
-  const data = (await res.json()) as { data: ScryfallRow[] };
   return data.data.slice(0, limit).map((card) => ({
     oracleId: card.oracle_id ?? card.id,
     name: card.name,

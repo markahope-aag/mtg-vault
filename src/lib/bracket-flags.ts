@@ -2,23 +2,8 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { syncState } from "@/db/schema";
 import { MASS_LAND_DENIAL_NAMES } from "@/lib/curated/mld";
+import { scryfallFetch, scryfallDelay } from "@/lib/scryfall-client";
 import { sqlArray } from "@/lib/sql";
-
-const SCRYFALL_HEADERS = {
-  "User-Agent": "MTG-Vault/0.1 (personal use)",
-  Accept: "application/json",
-};
-const SCRYFALL_DELAY_MS = 100;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function fetchScryfall(url: string): Promise<Response> {
-  const res = await fetch(url, { headers: SCRYFALL_HEADERS });
-  if (!res.ok) {
-    throw new Error(`Scryfall ${res.status} ${res.statusText}: ${url}`);
-  }
-  return res;
-}
 
 
 // ─── 1. Extra-turn flag ──────────────────────────────────────────
@@ -76,7 +61,7 @@ export async function updateTutorFlags(): Promise<number> {
   const oracleIds = new Set<string>();
 
   while (nextUrl) {
-    const data = (await fetchScryfall(nextUrl).then((r) => r.json())) as {
+    const data = (await scryfallFetch(nextUrl).then((r) => r.json())) as {
       data: Array<{ oracle_id?: string }>;
       has_more: boolean;
       next_page?: string;
@@ -85,7 +70,7 @@ export async function updateTutorFlags(): Promise<number> {
       if (c.oracle_id) oracleIds.add(c.oracle_id);
     }
     nextUrl = data.has_more && data.next_page ? data.next_page : null;
-    if (nextUrl) await sleep(SCRYFALL_DELAY_MS);
+    if (nextUrl) await scryfallDelay();
   }
 
   if (oracleIds.size === 0) return 0;
@@ -106,7 +91,7 @@ export async function updateGameChangerFlags(): Promise<number> {
   const oracleIds = new Set<string>();
 
   while (nextUrl) {
-    const data = (await fetchScryfall(nextUrl).then((r) => r.json())) as {
+    const data = (await scryfallFetch(nextUrl).then((r) => r.json())) as {
       data: Array<{ oracle_id?: string }>;
       has_more: boolean;
       next_page?: string;
@@ -115,7 +100,7 @@ export async function updateGameChangerFlags(): Promise<number> {
       if (c.oracle_id) oracleIds.add(c.oracle_id);
     }
     nextUrl = data.has_more && data.next_page ? data.next_page : null;
-    if (nextUrl) await sleep(SCRYFALL_DELAY_MS);
+    if (nextUrl) await scryfallDelay();
   }
 
   await db.execute(sql`UPDATE cards SET is_game_changer = FALSE`);
