@@ -1,13 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNextPath } from "@/lib/auth/redirect";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const otpType = url.searchParams.get("type") as EmailOtpType | null;
-  const next = url.searchParams.get("next") ?? "/dashboard";
 
   // Honour x-forwarded-host so cookies are scoped to the public domain
   // (e.g. mtgvault.app), not Vercel's internal hostname.
@@ -16,6 +16,12 @@ export async function GET(req: NextRequest) {
   const publicOrigin = forwardedHost
     ? `${forwardedProto}://${forwardedHost}`
     : url.origin;
+
+  // `next` is attacker-controlled (it's a query param on the magic
+  // link). safeNextPath guards against open-redirect vectors like
+  // //evil.com, /\evil.com, evil.com (no slash → host concatenation),
+  // and javascript:/data: schemes by falling back to /dashboard.
+  const next = safeNextPath(url.searchParams.get("next"), publicOrigin);
 
   if (!code && !tokenHash) {
     return NextResponse.redirect(`${publicOrigin}/login?error=no_code`);
