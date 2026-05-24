@@ -3,46 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowDown,
   ArrowDownToLine,
-  ArrowUp,
-  ArrowUpDown,
   ArrowUpFromLine,
-  ChevronDown,
-  ChevronRight,
-  Layers,
   Loader2,
-  ScanLine,
-  MoreHorizontal,
-  Pencil,
   Plus,
-  Search,
-  Trash2,
-  Undo2,
-  X,
+  ScanLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import { confirmToast } from "@/lib/confirm-toast";
-import { ImgWithFallback } from "@/components/img-with-fallback";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ManaCost } from "@/components/mana-cost";
-import { SetSymbol } from "@/components/set-symbol";
 import type { InventoryRowWithCard } from "@/lib/inventory/types";
-import { currentValueOf } from "@/lib/inventory/types";
 import { cn } from "@/lib/utils";
 import { EditRowDialog } from "./edit-row-dialog";
 import { DisposeDialog } from "./dispose-dialog";
@@ -58,30 +28,29 @@ import {
   toggleSort as toggleSortFn,
   type SortField,
 } from "./logic";
+import { EmptyState, ViewToggle } from "./parts";
+import { FilterBar } from "./filter-bar";
+import { BulkActionBar } from "./bulk-action-bar";
+import { GroupedView, PhysicalView } from "./views";
 
 type Totals = { totalCount: number; totalValueUsd: number };
 
-const COLORS = ["W", "U", "B", "R", "G", "C"] as const;
-const TYPE_OPTIONS = [
-  "Creature",
-  "Instant",
-  "Sorcery",
-  "Artifact",
-  "Enchantment",
-  "Planeswalker",
-  "Land",
-  "Battle",
-];
-
-const COLOR_TOKEN: Record<string, string> = {
-  W: "var(--color-mtg-white)",
-  U: "var(--color-mtg-blue)",
-  B: "var(--color-mtg-black)",
-  R: "var(--color-mtg-red)",
-  G: "var(--color-mtg-green)",
-  C: "var(--color-mtg-colorless)",
-};
-
+/**
+ * Orchestrator for the Inventory page. Owns:
+ *  - Query state (filters + sort + pagination cursor)
+ *  - Server data (rows, totals, locations)
+ *  - Selection + expansion state
+ *  - Dialog open state for the five inventory dialogs
+ *
+ * Presentation is delegated to:
+ *  - filter-bar.tsx — the search + filter chips strip
+ *  - views.tsx — the GroupedView and PhysicalView tables + row renderers
+ *  - bulk-action-bar.tsx — the floating Create-deck / Dispose / Clear bar
+ *  - parts.tsx — ViewToggle, EmptyState, SortHeader, Thumb, ToggleLabel, ActiveChip
+ *
+ * Logic-without-React helpers live in logic.ts and are unit-tested
+ * separately (logic.test.ts).
+ */
 export function InventoryTable({
   initialRows,
   initialNextCursor,
@@ -276,6 +245,11 @@ export function InventoryTable({
     setBannedOnly(false);
   }, []);
 
+  const onNameClear = useCallback(() => {
+    setNameFilter("");
+    setDebouncedName("");
+  }, []);
+
   const toggleSort = useCallback(
     (field: SortField) => {
       const next = toggleSortFn({ field: sortField, dir: sortDir }, field);
@@ -331,6 +305,11 @@ export function InventoryTable({
     },
     [refetch],
   );
+
+  const onDisposeFromRow = useCallback((r: InventoryRowWithCard) => {
+    setDisposingRows([r]);
+    setDisposeOpen(true);
+  }, []);
 
   const groups = useMemo(
     () => (grouped ? groupRowsByOracleAndFoil(rows) : null),
@@ -430,173 +409,29 @@ export function InventoryTable({
       </header>
 
       {/* ──── Filter bar ──── */}
-      <section className="rounded-md border border-border-subtle bg-surface-inset/60">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2">
-          <div className="relative min-w-[240px] flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-text-muted" />
-            <input
-              value={nameFilter}
-              onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Search by name…"
-              className="h-7 w-full rounded-sm border border-border-subtle bg-surface-base pl-7 pr-2 text-[12px] text-text-primary placeholder:text-text-muted outline-none focus:border-brand"
-            />
-          </div>
-          <input
-            value={setFilter}
-            onChange={(e) => setSetFilter(e.target.value)}
-            placeholder="SET"
-            className="h-7 w-20 rounded-sm border border-border-subtle bg-surface-base px-2 font-mono text-[11px] uppercase tracking-wide text-text-primary placeholder:text-text-muted outline-none focus:border-brand"
-          />
-          <Select
-            value={typeFilter || "__all"}
-            onValueChange={(v) =>
-              setTypeFilter(!v || v === "__all" ? "" : v)
-            }
-          >
-            <SelectTrigger className="h-7! w-32 rounded-sm! border-border-subtle bg-surface-base text-[11px]!">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">All types</SelectItem>
-              {TYPE_OPTIONS.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={locationFilter || "__all"}
-            onValueChange={(v) =>
-              setLocationFilter(!v || v === "__all" ? "" : v)
-            }
-          >
-            <SelectTrigger className="h-7! w-40 rounded-sm! border-border-subtle bg-surface-base text-[11px]!">
-              <SelectValue placeholder="Location" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">All locations</SelectItem>
-              {locations.map((l) => (
-                <SelectItem key={l} value={l}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="ml-auto flex items-center gap-3 font-mono text-[10px] uppercase tracking-wide">
-            <ToggleLabel checked={foilsOnly} onChange={setFoilsOnly}>
-              Foils only
-            </ToggleLabel>
-            <ToggleLabel checked={bannedOnly} onChange={setBannedOnly}>
-              Banned only
-            </ToggleLabel>
-            <ToggleLabel
-              checked={false}
-              disabled
-              onChange={() => {}}
-              title="Wires up when decks have inventory bindings"
-            >
-              Available
-            </ToggleLabel>
-            <ToggleLabel checked={includeDisposed} onChange={setIncludeDisposed}>
-              + Disposed
-            </ToggleLabel>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 px-3 py-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-            Colors
-          </span>
-          {COLORS.map((c) => {
-            const isActive = colorFilter.has(c);
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => toggleColor(c)}
-                className={cn(
-                  "inline-flex size-5 items-center justify-center rounded-full border font-mono text-[9px] font-semibold transition-colors",
-                  isActive
-                    ? "text-background"
-                    : "border-border-subtle bg-surface-raised text-text-muted hover:border-border-strong",
-                )}
-                style={
-                  isActive
-                    ? {
-                        background: COLOR_TOKEN[c],
-                        borderColor: COLOR_TOKEN[c],
-                      }
-                    : undefined
-                }
-                aria-pressed={isActive}
-                aria-label={`Toggle ${c} color`}
-              >
-                {c}
-              </button>
-            );
-          })}
-          {hasAnyFilter && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-text-muted transition-colors hover:text-text-primary"
-            >
-              <X className="size-3" /> Clear filters
-            </button>
-          )}
-        </div>
-        {hasAnyFilter && (
-          <div className="flex flex-wrap items-center gap-1 border-t border-border-subtle px-3 py-1.5">
-            {debouncedName && (
-              <ActiveChip
-                label={`name "${debouncedName}"`}
-                onClear={() => {
-                  setNameFilter("");
-                  setDebouncedName("");
-                }}
-              />
-            )}
-            {setFilter && (
-              <ActiveChip
-                label={`set ${setFilter.toUpperCase()}`}
-                onClear={() => setSetFilter("")}
-              />
-            )}
-            {typeFilter && (
-              <ActiveChip
-                label={`type ${typeFilter}`}
-                onClear={() => setTypeFilter("")}
-              />
-            )}
-            {locationFilter && (
-              <ActiveChip
-                label={`@ ${locationFilter}`}
-                onClear={() => setLocationFilter("")}
-              />
-            )}
-            {[...colorFilter].map((c) => (
-              <ActiveChip
-                key={c}
-                label={c}
-                tint={COLOR_TOKEN[c]}
-                onClear={() => toggleColor(c)}
-              />
-            ))}
-            {foilsOnly && (
-              <ActiveChip
-                label="foil only"
-                onClear={() => setFoilsOnly(false)}
-              />
-            )}
-            {bannedOnly && (
-              <ActiveChip
-                label="banned only"
-                onClear={() => setBannedOnly(false)}
-              />
-            )}
-          </div>
-        )}
-      </section>
+      <FilterBar
+        nameFilter={nameFilter}
+        debouncedName={debouncedName}
+        onNameChange={handleNameChange}
+        onNameClear={onNameClear}
+        setFilter={setFilter}
+        onSetChange={setSetFilter}
+        typeFilter={typeFilter}
+        onTypeChange={setTypeFilter}
+        locationFilter={locationFilter}
+        onLocationChange={setLocationFilter}
+        locations={locations}
+        colorFilter={colorFilter}
+        onToggleColor={toggleColor}
+        foilsOnly={foilsOnly}
+        onFoilsOnlyChange={setFoilsOnly}
+        bannedOnly={bannedOnly}
+        onBannedOnlyChange={setBannedOnly}
+        includeDisposed={includeDisposed}
+        onIncludeDisposedChange={setIncludeDisposed}
+        hasAnyFilter={hasAnyFilter}
+        onClearAll={clearFilters}
+      />
 
       {/* ──── Table ──── */}
       <section
@@ -625,140 +460,33 @@ export function InventoryTable({
         ) : rows.length === 0 && !loading ? (
           <EmptyState hasFilters={hasAnyFilter} />
         ) : grouped && groups ? (
-          <table className="w-full text-[13px]">
-            <thead className="border-b border-border-subtle bg-surface-inset/60">
-              <tr className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
-                <th className="w-8 px-2 py-1.5"></th>
-                <th className="w-12 px-2 py-1.5"></th>
-                <SortHeader
-                  field="name"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="px-2 py-1.5 text-left"
-                >
-                  Card
-                </SortHeader>
-                <th className="px-2 py-1.5 text-left">Type</th>
-                <th className="w-20 px-2 py-1.5 text-left">Sets</th>
-                <th className="w-12 px-2 py-1.5 text-left">Finish</th>
-                <th className="w-16 px-2 py-1.5 text-right">Qty</th>
-                <SortHeader
-                  field="usd"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="w-24 px-2 py-1.5 text-right"
-                >
-                  Value
-                </SortHeader>
-                <SortHeader
-                  field="location"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="px-2 py-1.5 text-left"
-                >
-                  Locations
-                </SortHeader>
-                <th className="w-8 px-2 py-1.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <GroupRowRenderer
-                  key={g.key}
-                  group={g}
-                  isOpen={expanded.has(g.key)}
-                  onToggleExpand={() => toggleExpanded(g.key)}
-                  selected={selected}
-                  onToggleSelected={toggleSelected}
-                  onEdit={setEditingRow}
-                  onDispose={(r) => {
-                    setDisposingRows([r]);
-                    setDisposeOpen(true);
-                  }}
-                  onDelete={onDelete}
-                  onRestore={onRestore}
-                />
-              ))}
-            </tbody>
-          </table>
+          <GroupedView
+            groups={groups}
+            expanded={expanded}
+            selected={selected}
+            onToggleExpand={toggleExpanded}
+            onToggleSelected={toggleSelected}
+            sortField={sortField}
+            sortDir={sortDir}
+            onToggleSort={toggleSort}
+            onEdit={setEditingRow}
+            onDispose={onDisposeFromRow}
+            onDelete={onDelete}
+            onRestore={onRestore}
+          />
         ) : (
-          <table className="w-full text-[13px]">
-            <thead className="border-b border-border-subtle bg-surface-inset/60">
-              <tr className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
-                <th className="w-8 px-2 py-1.5"></th>
-                <th className="w-12 px-2 py-1.5"></th>
-                <SortHeader
-                  field="name"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="px-2 py-1.5 text-left"
-                >
-                  Card
-                </SortHeader>
-                <th className="w-16 px-2 py-1.5 text-left">Set</th>
-                <th className="w-14 px-2 py-1.5 text-left">#</th>
-                <th className="w-12 px-2 py-1.5 text-left">Finish</th>
-                <SortHeader
-                  field="condition"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="w-14 px-2 py-1.5 text-left"
-                >
-                  Cond
-                </SortHeader>
-                <SortHeader
-                  field="location"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="px-2 py-1.5 text-left"
-                >
-                  Location
-                </SortHeader>
-                <SortHeader
-                  field="usd"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="w-20 px-2 py-1.5 text-right"
-                >
-                  USD
-                </SortHeader>
-                <SortHeader
-                  field="acquiredAt"
-                  current={sortField}
-                  dir={sortDir}
-                  onSort={toggleSort}
-                  className="w-20 px-2 py-1.5 text-right"
-                >
-                  Paid
-                </SortHeader>
-                <th className="w-8 px-2 py-1.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <PhysicalRowRenderer
-                  key={r.id}
-                  row={r}
-                  selected={selected.has(r.id)}
-                  onToggleSelected={() => toggleSelected(r.id)}
-                  onEdit={() => setEditingRow(r)}
-                  onDispose={() => {
-                    setDisposingRows([r]);
-                    setDisposeOpen(true);
-                  }}
-                  onDelete={() => onDelete(r.id)}
-                  onRestore={() => onRestore(r.id)}
-                />
-              ))}
-            </tbody>
-          </table>
+          <PhysicalView
+            rows={rows}
+            selected={selected}
+            onToggleSelected={toggleSelected}
+            sortField={sortField}
+            sortDir={sortDir}
+            onToggleSort={toggleSort}
+            onEdit={setEditingRow}
+            onDispose={onDisposeFromRow}
+            onDelete={onDelete}
+            onRestore={onRestore}
+          />
         )}
       </section>
 
@@ -782,47 +510,16 @@ export function InventoryTable({
         </div>
       )}
 
-      {/* ──── Bulk actions bar ──── */}
-      {selected.size > 0 && (
-        <div className="pointer-events-none fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-md border border-border-strong bg-surface-overlay px-4 py-2 shadow-lg shadow-black/30">
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-muted">
-              Selected
-            </span>
-            <span className="num font-semibold text-text-primary">
-              {selected.size}
-            </span>
-            <span className="h-4 w-px bg-border-subtle" />
-            <Button
-              size="sm"
-              className="h-7 gap-1.5 font-mono text-[11px] uppercase tracking-wide"
-              onClick={() => setCreateDeckOpen(true)}
-            >
-              <Layers className="size-3.5" /> Create deck
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 font-mono text-[11px] uppercase tracking-wide"
-              onClick={() => {
-                const targets = rows.filter((r) => selected.has(r.id));
-                setDisposingRows(targets);
-                setDisposeOpen(true);
-              }}
-            >
-              Dispose
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 font-mono text-[11px] uppercase tracking-wide text-text-muted hover:text-text-primary"
-              onClick={() => setSelected(new Set())}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkActionBar
+        selectedCount={selected.size}
+        onCreateDeck={() => setCreateDeckOpen(true)}
+        onDispose={() => {
+          const targets = rows.filter((r) => selected.has(r.id));
+          setDisposingRows(targets);
+          setDisposeOpen(true);
+        }}
+        onClear={() => setSelected(new Set())}
+      />
 
       <EditRowDialog
         row={editingRow}
@@ -860,616 +557,5 @@ export function InventoryTable({
         onCreated={() => setSelected(new Set())}
       />
     </div>
-  );
-}
-
-// ─── Sub-components ───────────────────────────────────────────────
-
-function ViewToggle({
-  grouped,
-  onChange,
-}: {
-  grouped: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <div
-      role="group"
-      className="inline-flex overflow-hidden rounded-md border border-border-subtle"
-    >
-      <button
-        type="button"
-        onClick={() => onChange(true)}
-        className={cn(
-          "h-7 px-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
-          grouped
-            ? "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]"
-            : "bg-surface-raised text-text-muted hover:text-text-primary",
-        )}
-        aria-pressed={grouped}
-      >
-        Grouped
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(false)}
-        className={cn(
-          "h-7 border-l border-border-subtle px-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
-          !grouped
-            ? "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]"
-            : "bg-surface-raised text-text-muted hover:text-text-primary",
-        )}
-        aria-pressed={!grouped}
-      >
-        Physical
-      </button>
-    </div>
-  );
-}
-
-function ToggleLabel({
-  checked,
-  disabled,
-  onChange,
-  children,
-  title,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (next: boolean) => void;
-  children: React.ReactNode;
-  title?: string;
-}) {
-  return (
-    <label
-      title={title}
-      className={cn(
-        "inline-flex cursor-pointer select-none items-center gap-1.5 text-text-secondary",
-        disabled && "cursor-not-allowed opacity-50",
-      )}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="size-3 cursor-pointer accent-[var(--color-brand)]"
-      />
-      {children}
-    </label>
-  );
-}
-
-function ActiveChip({
-  label,
-  onClear,
-  tint,
-}: {
-  label: string;
-  onClear: () => void;
-  tint?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClear}
-      className="group/chip inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
-    >
-      {tint && (
-        <span
-          className="size-1.5 rounded-full"
-          style={{ background: tint }}
-        />
-      )}
-      {label}
-      <X className="size-2.5 opacity-60 group-hover/chip:opacity-100" />
-    </button>
-  );
-}
-
-function EmptyState({ hasFilters }: { hasFilters: boolean }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      <p className="empty-terminal">
-        {hasFilters ? "no matches" : "no inventory recorded"}
-      </p>
-      {hasFilters ? (
-        <p className="text-sm text-text-secondary">
-          No rows match the current filters.
-        </p>
-      ) : (
-        <p className="text-sm text-text-secondary">
-          Press{" "}
-          <kbd className="rounded-sm border border-border-subtle bg-surface-inset px-1 font-mono text-[10px]">
-            ⌘K
-          </kbd>{" "}
-          to search and add your first card, or import a CSV.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function SortHeader({
-  field,
-  current,
-  dir,
-  onSort,
-  className,
-  children,
-}: {
-  field: SortField;
-  current: SortField;
-  dir: "asc" | "desc";
-  onSort: (f: SortField) => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const isActive = current === field;
-  const Icon = !isActive ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
-  return (
-    <th className={className}>
-      <button
-        type="button"
-        onClick={() => onSort(field)}
-        className={cn(
-          "inline-flex items-center gap-1 transition-colors",
-          isActive
-            ? "text-[var(--color-brand-strong)]"
-            : "text-text-muted hover:text-text-secondary",
-        )}
-      >
-        {children}
-        <Icon
-          className={cn(
-            "size-3",
-            isActive ? "opacity-100" : "opacity-40",
-          )}
-        />
-      </button>
-    </th>
-  );
-}
-
-function GroupRowRenderer({
-  group,
-  isOpen,
-  onToggleExpand,
-  selected,
-  onToggleSelected,
-  onEdit,
-  onDispose,
-  onDelete,
-  onRestore,
-}: {
-  group: {
-    key: string;
-    oracleId: string;
-    foil: boolean;
-    name: string;
-    imageUri: string | null;
-    manaCost: string | null;
-    typeLine: string | null;
-    setCode: string;
-    rarity: string | null;
-    isCommanderLegal: boolean | null;
-    rows: InventoryRowWithCard[];
-    totalValue: number;
-    locationsCount: Map<string, number>;
-    anyDisposed: boolean;
-  };
-  isOpen: boolean;
-  onToggleExpand: () => void;
-  selected: Set<string>;
-  onToggleSelected: (id: string) => void;
-  onEdit: (row: InventoryRowWithCard) => void;
-  onDispose: (row: InventoryRowWithCard) => void;
-  onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
-}) {
-  const locs = [...group.locationsCount.entries()].sort((a, b) => b[1] - a[1]);
-
-  // Distinct printings in this group — a group spans one card+finish but may
-  // hold copies from several sets. The set symbol is the only way to tell
-  // printings apart at a glance.
-  const setEntries = (() => {
-    const map = new Map<string, { setCode: string; rarity: string | null; count: number }>();
-    for (const r of group.rows) {
-      const existing = map.get(r.setCode);
-      if (existing) existing.count += 1;
-      else map.set(r.setCode, { setCode: r.setCode, rarity: r.rarity, count: 1 });
-    }
-    return [...map.values()].sort((a, b) => b.count - a.count);
-  })();
-
-  return (
-    <>
-      <tr
-        className={cn(
-          "border-b border-border-subtle transition-colors",
-          isOpen ? "bg-surface-inset/40" : "hover:bg-surface-inset/40",
-        )}
-      >
-        <td className="px-2 py-1.5">
-          <button
-            type="button"
-            onClick={onToggleExpand}
-            className="text-text-muted transition-colors hover:text-text-primary"
-            aria-label={isOpen ? "Collapse" : "Expand"}
-          >
-            {isOpen ? (
-              <ChevronDown className="size-3.5" />
-            ) : (
-              <ChevronRight className="size-3.5" />
-            )}
-          </button>
-        </td>
-        <td className="px-2 py-1.5">
-          <Thumb src={group.imageUri} alt={group.name} />
-        </td>
-        <td className="px-2 py-1.5">
-          <div className="flex items-center gap-1.5">
-            <Link
-              href={`/cards/${group.oracleId}`}
-              className="font-medium text-text-primary hover:underline"
-            >
-              {group.name}
-            </Link>
-            <ManaCost cost={group.manaCost} size="xs" />
-            {group.isCommanderLegal === false && (
-              <span className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]">
-                Banned
-              </span>
-            )}
-          </div>
-        </td>
-        <td className="px-2 py-1.5 font-mono text-[10px] uppercase tracking-wide text-text-muted">
-          {group.typeLine?.split("—")[0]?.trim() ?? "—"}
-        </td>
-        <td className="px-2 py-1.5">
-          <span className="inline-flex items-center gap-1">
-            {setEntries.slice(0, 4).map((s) => (
-              <span
-                key={s.setCode}
-                className="inline-flex items-center"
-                title={
-                  setEntries.length > 1
-                    ? `${s.setCode.toUpperCase()} ×${s.count}`
-                    : s.setCode.toUpperCase()
-                }
-              >
-                <SetSymbol setCode={s.setCode} rarity={s.rarity} size="sm" />
-              </span>
-            ))}
-            {setEntries.length > 4 && (
-              <span className="font-mono text-[10px] text-text-muted">
-                +{setEntries.length - 4}
-              </span>
-            )}
-          </span>
-        </td>
-        <td className="px-2 py-1.5">
-          {group.foil ? (
-            <span className="rounded-sm border border-[var(--color-mtg-multicolor)]/40 bg-[var(--color-mtg-multicolor)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--color-mtg-multicolor)]">
-              Foil
-            </span>
-          ) : (
-            <span className="font-mono text-[10px] text-text-muted">—</span>
-          )}
-        </td>
-        <td className="px-2 py-1.5 text-right">
-          <span className="num font-semibold text-text-primary">
-            ×{group.rows.length}
-          </span>
-        </td>
-        <td className="px-2 py-1.5 text-right">
-          <span className="num text-text-primary">
-            ${group.totalValue.toFixed(2)}
-          </span>
-        </td>
-        <td className="px-2 py-1.5 font-mono text-[11px] text-text-muted">
-          {locs.length === 0
-            ? "—"
-            : locs
-                .slice(0, 3)
-                .map(([loc, n]) => `${loc} (${n})`)
-                .join(" · ")}
-          {locs.length > 3 && ` +${locs.length - 3}`}
-        </td>
-        <td className="px-2 py-1.5"></td>
-      </tr>
-      {isOpen &&
-        group.rows.map((r) => (
-          <GroupChildRow
-            key={r.id}
-            row={r}
-            selected={selected.has(r.id)}
-            onToggleSelected={() => onToggleSelected(r.id)}
-            onEdit={() => onEdit(r)}
-            onDispose={() => onDispose(r)}
-            onDelete={() => onDelete(r.id)}
-            onRestore={() => onRestore(r.id)}
-          />
-        ))}
-    </>
-  );
-}
-
-/**
- * One physical copy shown under an expanded group. Its cells line up with
- * the grouped table's 10-column header (checkbox · indicator · Card · Type ·
- * Sets · Finish · Qty · Value · Locations · actions) — the per-copy paid
- * price is folded into the Value cell so there's no orphaned column.
- */
-function GroupChildRow({
-  row,
-  selected,
-  onToggleSelected,
-  onEdit,
-  onDispose,
-  onDelete,
-  onRestore,
-}: {
-  row: InventoryRowWithCard;
-  selected: boolean;
-  onToggleSelected: () => void;
-  onEdit: () => void;
-  onDispose: () => void;
-  onDelete: () => void;
-  onRestore: () => void;
-}) {
-  const disposed = !!row.disposedAt;
-  const paid = row.acquiredPrice ? Number(row.acquiredPrice) : null;
-  return (
-    <tr
-      className={cn(
-        "group/row border-b border-border-subtle bg-surface-inset/30 transition-colors hover:bg-surface-inset/60",
-        disposed && "opacity-55",
-      )}
-    >
-      <td className="px-2 py-1">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelected}
-          className="size-3.5 cursor-pointer accent-[var(--color-brand)]"
-          aria-label={`Select ${row.name}`}
-        />
-      </td>
-      <td className="px-2 py-1">
-        <span
-          className="ml-2 inline-block h-6 w-1 rounded-full bg-border-subtle"
-          aria-hidden
-        />
-      </td>
-      <td className="px-2 py-1">
-        <span className="inline-flex flex-wrap items-center gap-1.5">
-          <span className="text-text-secondary">{row.setName}</span>
-          <span className="font-mono text-[10px] tabular-nums text-text-muted">
-            #{row.collectorNumber}
-          </span>
-          <span className="rounded-sm border border-border-subtle bg-surface-base px-1 font-mono text-[9px] uppercase tracking-wide text-text-secondary">
-            {row.condition}
-          </span>
-          {row.isCommanderLegal === false && (
-            <span className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]">
-              Banned
-            </span>
-          )}
-          {disposed && (
-            <span className="rounded-sm border border-border-strong bg-surface-inset px-1 font-mono text-[9px] uppercase tracking-[0.18em] text-text-muted">
-              Disposed
-            </span>
-          )}
-        </span>
-      </td>
-      <td className="px-2 py-1"></td>
-      <td className="px-2 py-1">
-        <span className="inline-flex items-center gap-1.5">
-          <SetSymbol setCode={row.setCode} rarity={row.rarity} size="sm" />
-          <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary">
-            {row.setCode}
-          </span>
-        </span>
-      </td>
-      <td className="px-2 py-1">
-        {row.foil ? (
-          <span className="rounded-sm border border-[var(--color-mtg-multicolor)]/40 bg-[var(--color-mtg-multicolor)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--color-mtg-multicolor)]">
-            Foil
-          </span>
-        ) : (
-          <span className="font-mono text-[10px] text-text-muted">—</span>
-        )}
-      </td>
-      <td className="px-2 py-1 text-right">
-        <span className="num text-text-muted">×1</span>
-      </td>
-      <td className="px-2 py-1 text-right">
-        <span className="num text-text-primary">
-          ${currentValueOf(row).toFixed(2)}
-        </span>
-        {paid != null && (
-          <span className="num block text-[10px] text-text-muted">
-            paid ${paid.toFixed(2)}
-          </span>
-        )}
-      </td>
-      <td className="px-2 py-1 font-mono text-[11px] text-text-muted">
-        {row.location ?? <span className="text-text-muted">—</span>}
-      </td>
-      <td className="px-2 py-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-surface-inset hover:text-text-primary data-[state=open]:bg-surface-inset data-[state=open]:text-text-primary"
-            aria-label="Row actions"
-          >
-            <MoreHorizontal className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEdit}>
-              <Pencil className="size-3.5" /> Edit
-            </DropdownMenuItem>
-            {disposed ? (
-              <DropdownMenuItem onSelect={onRestore}>
-                <Undo2 className="size-3.5" /> Restore
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onSelect={onDispose}>
-                <Trash2 className="size-3.5" /> Mark disposed
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={onDelete}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-3.5" /> Delete row
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </td>
-    </tr>
-  );
-}
-
-function PhysicalRowRenderer({
-  row,
-  selected,
-  onToggleSelected,
-  onEdit,
-  onDispose,
-  onDelete,
-  onRestore,
-}: {
-  row: InventoryRowWithCard;
-  selected: boolean;
-  onToggleSelected: () => void;
-  onEdit: () => void;
-  onDispose: () => void;
-  onDelete: () => void;
-  onRestore: () => void;
-}) {
-  const disposed = !!row.disposedAt;
-  return (
-    <tr
-      className={cn(
-        "group/row border-b border-border-subtle transition-colors hover:bg-surface-inset/40",
-        disposed && "opacity-55",
-      )}
-    >
-      <td className="px-2 py-1">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelected}
-          className="size-3.5 cursor-pointer accent-[var(--color-brand)]"
-          aria-label={`Select ${row.name}`}
-        />
-      </td>
-      <td className="px-2 py-1">
-        <Thumb src={row.imageUri} alt={row.name} />
-      </td>
-      <td className="px-2 py-1">
-        <div className="flex items-center gap-1.5">
-          <Link
-            href={`/cards/${row.oracleId}`}
-            className="font-medium text-text-primary hover:underline"
-          >
-            {row.name}
-          </Link>
-          <ManaCost cost={row.manaCost} size="xs" />
-          {row.isCommanderLegal === false && (
-            <span className="rounded-sm border border-[var(--value-negative)]/40 bg-[var(--value-negative)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--value-negative)]">
-              Banned
-            </span>
-          )}
-          {disposed && (
-            <span className="rounded-sm border border-border-strong bg-surface-inset px-1 font-mono text-[9px] uppercase tracking-[0.18em] text-text-muted">
-              Disposed
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="px-2 py-1">
-        <span className="inline-flex items-center gap-1.5">
-          <SetSymbol setCode={row.setCode} rarity={row.rarity} size="sm" />
-          <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary">
-            {row.setCode}
-          </span>
-        </span>
-      </td>
-      <td className="px-2 py-1 font-mono text-[11px] tabular-nums text-text-muted">
-        {row.collectorNumber}
-      </td>
-      <td className="px-2 py-1">
-        {row.foil ? (
-          <span className="rounded-sm border border-[var(--color-mtg-multicolor)]/40 bg-[var(--color-mtg-multicolor)]/15 px-1 font-mono text-[9px] uppercase tracking-wide text-[var(--color-mtg-multicolor)]">
-            Foil
-          </span>
-        ) : (
-          <span className="font-mono text-[10px] text-text-muted">—</span>
-        )}
-      </td>
-      <td className="px-2 py-1 font-mono text-[11px] text-text-secondary">
-        {row.condition}
-      </td>
-      <td className="px-2 py-1 font-mono text-[11px] text-text-secondary">
-        {row.location ?? <span className="text-text-muted">—</span>}
-      </td>
-      <td className="px-2 py-1 text-right">
-        <span className="num text-text-primary">
-          ${currentValueOf(row).toFixed(2)}
-        </span>
-      </td>
-      <td className="px-2 py-1 text-right">
-        <span className="num text-text-muted">
-          {row.acquiredPrice ? `$${Number(row.acquiredPrice).toFixed(2)}` : "—"}
-        </span>
-      </td>
-      <td className="px-2 py-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex size-6 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-surface-inset hover:text-text-primary data-[state=open]:bg-surface-inset data-[state=open]:text-text-primary"
-            aria-label="Row actions"
-          >
-            <MoreHorizontal className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEdit}>
-              <Pencil className="size-3.5" /> Edit
-            </DropdownMenuItem>
-            {disposed ? (
-              <DropdownMenuItem onSelect={onRestore}>
-                <Undo2 className="size-3.5" /> Restore
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onSelect={onDispose}>
-                <Trash2 className="size-3.5" /> Mark disposed
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={onDelete}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-3.5" /> Delete row
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </td>
-    </tr>
-  );
-}
-
-function Thumb({ src, alt }: { src: string | null; alt: string }) {
-  return (
-    <ImgWithFallback
-      src={src}
-      alt={alt}
-      className="size-9 rounded-sm object-cover ring-1 ring-border-subtle"
-      fallbackClassName="flex size-9 items-center justify-center rounded-sm bg-surface-inset text-text-muted ring-1 ring-border-subtle"
-      fallbackIconClassName="size-3.5"
-      loading="lazy"
-    />
   );
 }
