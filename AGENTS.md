@@ -49,6 +49,19 @@ Both layers use Drizzle (`db.execute(sql\`…\`)` or the typed builder) over the
 - **Bracket combos:** live Commander Spellbook API — the `combos` / `combo_pieces` tables were dropped in migration `0013`
 - **API errors:** use `serverError(tag, err, message)` from `src/lib/api-errors.ts`. Log full err server-side, return a generic message to the client. Never `err.message` in 500 responses.
 
+## Auth model
+
+The auth boundary lives **entirely** in `src/proxy.ts`. Every request matching the matcher passes through `getUser()` + email-allowlist check before reaching a route handler. There is no per-handler `auth.getUser()` call — adding one would multiply Supabase round-trips across 46+ routes for no security gain in a single-user allowlist app.
+
+This means **the proxy matcher is load-bearing**. Two contract tests pin it:
+
+- `src/proxy.test.ts` — unit tests for the proxy's branches (allowlist, signout, login redirect, cron passthrough).
+- `src/app/api/auth-gate.test.ts` — enumerates every `route.ts` under `src/app/api/` at test time and asserts each non-cron route 307s to `/login` for unauthenticated callers. Also asserts `/manifest.webmanifest` and `/sw.js` bypass (PWA contract).
+
+If you add a `config.matcher` exclusion to fix a static-asset issue, run `pnpm test src/app/api/auth-gate.test.ts` — it'll fail loudly if the exclusion widens too far and catches a real route.
+
+`shouldBypassAuth` in `src/lib/auth/allowlist.ts` is the second knob: only `/api/cron/*`, `/manifest.webmanifest`, and `/sw.js` should ever be bypassed. New entries here need a matching test case.
+
 ## Before committing
 
 Run `pnpm lint`, `pnpm test`, and `pnpm build`.

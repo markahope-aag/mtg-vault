@@ -134,7 +134,19 @@ There are no `user_id` columns — the app assumes one writer. Multi-user would 
 
 ## Testing
 
-Vitest unit tests cover bracket engine pure logic (`src/lib/bracket-engine-logic.ts`) and CSV importers (`src/lib/importers/`).
+Vitest unit tests across 31 files / 359 tests. Coverage spans:
+
+- **Auth & proxy** — allowlist, cron bearer auth, Next 16 `proxy.ts` matcher behavior.
+- **Bracket engine** — pure slot logic, full bracket calculation, flag refresh, Game Changer + Spellbook integration.
+- **Decks** — queries, schemas, slot classification, deck validation.
+- **Inventory** — queries (filters, sort, pagination), Zod schemas, table grouping/selection logic.
+- **Importers** — format detection, ManaBox/Moxfield/Archidekt/TCGPlayer parsers, printing resolver.
+- **Ledger** — cost-basis allocation math (purchases, sales, trades, rounding-drift).
+- **Market** — bargain detection thresholds, source registry, scraper denylist.
+- **Rogue generator** — proposal validation, inventory reconciliation.
+- **API routes** — round-trip happy-path + 400/404/500 surfaces via mocked DB; auth-gate contract test enumerates every `route.ts` and asserts unauthenticated callers 307 to `/login`.
+- **Components** — InventoryTable + a handful of rendering smoke tests.
+- **Utilities** — `sql` array interpolation, `cn`, Scryfall row transform.
 
 ```powershell
 pnpm test           # run once
