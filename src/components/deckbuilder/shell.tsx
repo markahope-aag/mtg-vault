@@ -100,34 +100,62 @@ export function DeckbuilderShell({
     setSearchFocusFn(() => fn);
   }, []);
 
-  // Refresh availability + deck state for one oracle id after a mutation.
+  // Refresh availability + deck state for one or more oracle ids after a
+  // mutation. These run AFTER the mutation has already succeeded server-side,
+  // so a failure here means "your change saved but I couldn't pull fresh
+  // state" — the rendered UI is now stale. Surface that loudly with a
+  // Reload action so the user can recover instead of acting on bad data.
   const refreshAvailability = useCallback(
-    async (oracleIds: string[]) => {
-      if (oracleIds.length === 0) return;
+    async (oracleIds: string[]): Promise<boolean> => {
+      if (oracleIds.length === 0) return true;
       try {
         const res = await fetch(`/api/decks/${deck.deck.id}/availability`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ oracleIds }),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
         const data = (await res.json()) as { availability: AvailabilityMap };
         setAvailability((prev) => ({ ...prev, ...data.availability }));
-      } catch {
-        /* swallow */
+        return true;
+      } catch (err) {
+        console.warn("[deckbuilder] availability refresh failed", err);
+        toast.warning("Availability data may be stale", {
+          description:
+            "Saved fine, but couldn't refresh ownership counts. Reload to be sure.",
+          action: {
+            label: "Reload",
+            onClick: () => window.location.reload(),
+          },
+        });
+        return false;
       }
     },
     [deck.deck.id],
   );
 
-  const refreshDeck = useCallback(async () => {
+  const refreshDeck = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch(`/api/decks/${deck.deck.id}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = (await res.json()) as DeckDetail;
       setDeck(data);
-    } catch {
-      /* swallow */
+      return true;
+    } catch (err) {
+      console.warn("[deckbuilder] deck refresh failed", err);
+      toast.warning("Deck view may be out of date", {
+        description:
+          "Your change saved, but the decklist couldn't refresh. Reload to confirm.",
+        action: {
+          label: "Reload",
+          onClick: () => window.location.reload(),
+        },
+      });
+      return false;
     }
   }, [deck.deck.id]);
 

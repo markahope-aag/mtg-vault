@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -119,57 +120,81 @@ export function TransactionForm() {
         return;
       }
 
-      setSubmitting(true);
-      try {
-        const lines = [
-          ...outRows.map((r) => ({
-            direction: "out" as const,
-            printingId: r.printingId,
-            inventoryId: r.id,
-            allocatedValueOverride: r.value
-              ? Number.parseFloat(r.value)
-              : null,
-          })),
-          ...inRows.map((r) => ({
-            direction: "in" as const,
-            printingId: r.printingId,
-            foil: r.foil,
-            etched: r.etched,
-            condition: r.condition,
-            language: r.language,
-            location: r.location || null,
-            allocatedValueOverride: r.value
-              ? Number.parseFloat(r.value)
-              : null,
-          })),
-        ];
-        const res = await fetch("/api/transactions", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            kind,
-            occurredAt: new Date(occurredAt).toISOString(),
-            counterparty: counterparty.trim() || null,
-            channel,
-            cashOutUsd: cashOut ? Number.parseFloat(cashOut) : null,
-            cashInUsd: cashIn ? Number.parseFloat(cashIn) : null,
-            feesUsd: fees ? Number.parseFloat(fees) : null,
-            notes: notes.trim() || null,
-            lines,
-          }),
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-        toast.success(`Logged ${kind}`);
-        router.push(`/trades/${body.id}`);
-        router.refresh();
-      } catch (err) {
-        toast.error(
-          `Couldn't log: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      } finally {
-        setSubmitting(false);
+      // The actual submit — extracted so we can run it directly for a
+      // pure purchase (no disposal risk) or behind a confirm for sales
+      // and trades that will dispose physical inventory rows.
+      const commit = async () => {
+        setSubmitting(true);
+        try {
+          const lines = [
+            ...outRows.map((r) => ({
+              direction: "out" as const,
+              printingId: r.printingId,
+              inventoryId: r.id,
+              allocatedValueOverride: r.value
+                ? Number.parseFloat(r.value)
+                : null,
+            })),
+            ...inRows.map((r) => ({
+              direction: "in" as const,
+              printingId: r.printingId,
+              foil: r.foil,
+              etched: r.etched,
+              condition: r.condition,
+              language: r.language,
+              location: r.location || null,
+              allocatedValueOverride: r.value
+                ? Number.parseFloat(r.value)
+                : null,
+            })),
+          ];
+          const res = await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              kind,
+              occurredAt: new Date(occurredAt).toISOString(),
+              counterparty: counterparty.trim() || null,
+              channel,
+              cashOutUsd: cashOut ? Number.parseFloat(cashOut) : null,
+              cashInUsd: cashIn ? Number.parseFloat(cashIn) : null,
+              feesUsd: fees ? Number.parseFloat(fees) : null,
+              notes: notes.trim() || null,
+              lines,
+            }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+          toast.success(`Logged ${kind}`);
+          router.push(`/trades/${body.id}`);
+          router.refresh();
+        } catch (err) {
+          toast.error(
+            `Couldn't log: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      // Purchases don't dispose anything — submit straight through.
+      if (outRows.length === 0) {
+        await commit();
+        return;
       }
+
+      // Sales + trades dispose physical inventory rows. Confirm before
+      // committing, since the dispose isn't a one-click undo (you'd
+      // restore each row from the ledger detail page).
+      const cardLabel = outRows.length === 1 ? "card" : "cards";
+      const verb = kind === "sale" ? "sell" : "trade away";
+      confirmToast(`Confirm ${kind}?`, {
+        description: `This will mark ${outRows.length} physical ${cardLabel} disposed (${verb}d). You can restore individual rows from the transaction detail page if needed.`,
+        confirmLabel: `Yes, ${verb}`,
+        onConfirm: () => {
+          void commit();
+        },
+      });
     },
     [
       kind,

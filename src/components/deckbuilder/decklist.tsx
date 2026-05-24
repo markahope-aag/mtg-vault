@@ -350,6 +350,17 @@ function Row({
     inCi.size > 0 &&
     (card.card.colorIdentity ?? []).some((c) => !inCi.has(c));
 
+  // Row controls (category select + remove) are visually quiet on
+  // hover-capable devices, but must be reachable on:
+  //   - touch (no hover) — always visible there
+  //   - keyboard — visible when any control in the row has focus
+  //
+  // The `[@media(hover:none)]:opacity-100` variant is Tailwind v4 arbitrary
+  // media; combined with `group-focus-within/row:opacity-100` it covers
+  // every interaction mode without making the row noisy for mouse users.
+  const controlReveal =
+    "opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
+
   return (
     <li
       className={cn(
@@ -407,7 +418,10 @@ function Row({
         value={card.deckCardRow.category}
         onChange={(e) => onMove(e.target.value)}
         onClick={(e) => e.stopPropagation()}
-        className="rounded-sm border border-transparent bg-transparent font-mono text-[10px] uppercase tracking-wide text-text-muted opacity-0 transition-opacity hover:border-border-subtle focus:opacity-100 group-hover/row:opacity-100"
+        className={cn(
+          "rounded-sm border border-transparent bg-transparent font-mono text-[10px] uppercase tracking-wide text-text-muted hover:border-border-subtle",
+          controlReveal,
+        )}
         aria-label="Move to category"
       >
         {CATEGORY_ORDER.map((c) => (
@@ -419,7 +433,12 @@ function Row({
       <button
         type="button"
         onClick={onRemove}
-        className="text-text-muted opacity-0 transition-opacity hover:text-[var(--color-value-negative)] group-hover/row:opacity-100"
+        className={cn(
+          // Larger hit area on touch (44px is the iOS minimum); on
+          // hover-capable devices the icon alone is fine.
+          "inline-flex items-center justify-center text-text-muted hover:text-[var(--color-value-negative)] focus-visible:text-[var(--color-value-negative)] [@media(hover:none)]:size-9",
+          controlReveal,
+        )}
         aria-label={`Remove ${card.card.name}`}
       >
         <Trash2 className="size-3" />

@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { ImgWithFallback } from "@/components/img-with-fallback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -390,7 +391,13 @@ function StepUpload({
         <CardTitle className="text-base">Upload a CSV</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div
+        {/* The drop zone is a real button so it's focusable + activatable
+            by keyboard (Enter / Space → click → file picker). Drag/drop
+            handlers still live on the button element; the hidden <input>
+            is the actual file picker that fires when the button is
+            clicked or activated by keyboard. */}
+        <button
+          type="button"
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);
@@ -403,11 +410,16 @@ function StepUpload({
             if (f) setFile(f);
           }}
           onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-12 text-center text-sm transition-colors ${
+          aria-label={
+            file
+              ? `Selected ${file.name}. Press to choose a different CSV.`
+              : "Drop a CSV here or press to choose one. Supported: ManaBox, Moxfield, Archidekt, TCGPlayer."
+          }
+          className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-12 text-center text-sm transition-colors outline-none focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring/40 ${
             dragging ? "border-foreground bg-muted" : "border-border"
           }`}
         >
-          <Upload className="size-8 text-muted-foreground" />
+          <Upload className="size-8 text-muted-foreground" aria-hidden />
           {file ? (
             <p className="font-medium">{file.name}</p>
           ) : (
@@ -418,14 +430,16 @@ function StepUpload({
               </p>
             </>
           )}
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        </div>
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          aria-hidden
+          tabIndex={-1}
+        />
         <p className="text-xs text-muted-foreground">
           Files are capped at 5MB / 25,000 rows. The CSV is parsed but nothing
           is written until you confirm.
@@ -486,7 +500,7 @@ function StepConfigure({
           </span>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Stat label="Total rows" value={preview.totalRows} />
             <Stat
               label="Matched"
@@ -1002,7 +1016,27 @@ function StepConfirm({
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="size-4" /> Back
           </Button>
-          <Button onClick={onSubmit} disabled={submitting}>
+          <Button
+            onClick={() => {
+              // replace_location mass-disposes whatever's currently at
+              // the target location before inserting. Confirm before
+              // running it — batch Undo recovers the import but only
+              // until the batch is overwritten by another import.
+              if (mode === "replace_location") {
+                confirmToast(
+                  `Replace contents of "${defaultLocation}"?`,
+                  {
+                    description: `Every active inventory row at "${defaultLocation}" will be marked disposed, then ${physical} new card${physical === 1 ? "" : "s"} will be imported. Recoverable from Import history → Undo.`,
+                    confirmLabel: "Yes, replace",
+                    onConfirm: onSubmit,
+                  },
+                );
+              } else {
+                onSubmit();
+              }
+            }}
+            disabled={submitting}
+          >
             {submitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" /> Importing…
