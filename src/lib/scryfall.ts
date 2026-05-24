@@ -8,23 +8,12 @@ import {
   updateMldFlags,
   updateTutorFlags,
 } from "@/lib/bracket-flags";
+import { scryfallFetch } from "@/lib/scryfall-client";
 
-const SCRYFALL_HEADERS = {
-  "User-Agent": "MTG-Vault/0.1 (personal use)",
-  Accept: "application/json",
-};
 const BULK_META = "https://api.scryfall.com/bulk-data";
 const BATCH_SIZE = 500;
 const LOG_INTERVAL = 10_000;
 const SYNC_KEY = "scryfall_default_cards";
-
-async function fetchScryfall(url: string): Promise<Response> {
-  const res = await fetch(url, { headers: SCRYFALL_HEADERS });
-  if (!res.ok) {
-    throw new Error(`Scryfall ${res.status} ${res.statusText}: ${url}`);
-  }
-  return res;
-}
 
 // Build a SET clause for ON CONFLICT DO UPDATE that copies every column from
 // the proposed-insert row (`excluded.<col>`) except the ones in `exclude`.
@@ -198,7 +187,7 @@ export function transformScryfallRow(
 export async function syncScryfall(opts: { source: "local" | "cron" }) {
   console.log(`[scryfall] starting (source=${opts.source})`);
 
-  const meta = (await fetchScryfall(BULK_META).then((r) => r.json())) as {
+  const meta = (await scryfallFetch(BULK_META).then((r) => r.json())) as {
     data: Array<{ type: string; download_uri: string; updated_at: string }>;
   };
   const defaultCards = meta.data.find((d) => d.type === "default_cards");
@@ -214,7 +203,7 @@ export async function syncScryfall(opts: { source: "local" | "cron" }) {
   }
 
   console.log(`[scryfall] downloading ${defaultCards.download_uri}`);
-  const res = await fetchScryfall(defaultCards.download_uri);
+  const res = await scryfallFetch(defaultCards.download_uri);
   if (!res.body) throw new Error("Empty response body for bulk download");
 
   const today = new Date().toISOString().slice(0, 10);
