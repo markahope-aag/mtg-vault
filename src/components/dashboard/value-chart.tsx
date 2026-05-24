@@ -26,13 +26,30 @@ export function ValueChart({ snapshots }: { snapshots: DailySnapshot[] }) {
   const range = RANGES[rangeIdx];
   const [nowMs] = useState(() => Date.now());
 
+  // Numeric ts on each point so the XAxis can run on a continuous time
+  // scale — otherwise XAxis defaults to discrete "category" mode and
+  // fits to the data extent, which makes 30d / 90d / 1y all look
+  // identical when snapshots span fewer days than the longest range.
   const data = useMemo(() => {
-    if (range.days == null) return snapshots;
-    const cutoffMs = nowMs - range.days * 86_400_000;
-    return snapshots.filter(
-      (s) => new Date(s.date).getTime() >= cutoffMs,
-    );
+    const cutoffMs =
+      range.days != null ? nowMs - range.days * 86_400_000 : null;
+    const filtered =
+      cutoffMs != null
+        ? snapshots.filter((s) => new Date(s.date).getTime() >= cutoffMs)
+        : snapshots;
+    return filtered.map((s) => ({ ...s, ts: new Date(s.date).getTime() }));
   }, [snapshots, range.days, nowMs]);
+
+  // X-axis domain. For a fixed range (30d / 90d / 1y) span the entire
+  // selected window so picking a longer range visibly widens the
+  // axis even when data is shorter. For "All", fit to the data.
+  const xDomain = useMemo<[number, number] | undefined>(() => {
+    if (range.days != null) {
+      return [nowMs - range.days * 86_400_000, nowMs];
+    }
+    if (data.length === 0) return undefined;
+    return [data[0].ts, data[data.length - 1].ts];
+  }, [range.days, nowMs, data]);
 
   if (snapshots.length < 2) {
     return (
@@ -104,7 +121,16 @@ export function ValueChart({ snapshots }: { snapshots: DailySnapshot[] }) {
               vertical={false}
             />
             <XAxis
-              dataKey="date"
+              dataKey="ts"
+              type="number"
+              scale="time"
+              domain={xDomain ?? ["dataMin", "dataMax"]}
+              tickFormatter={(ms: number) =>
+                new Date(ms).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })
+              }
               tick={{
                 fontSize: 10,
                 fontFamily: "var(--font-mono)",
@@ -153,6 +179,15 @@ export function ValueChart({ snapshots }: { snapshots: DailySnapshot[] }) {
                 typeof value === "number"
                   ? `$${value.toFixed(2)}`
                   : String(value)
+              }
+              labelFormatter={(ms) =>
+                typeof ms === "number"
+                  ? new Date(ms).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : String(ms)
               }
             />
             <Area
