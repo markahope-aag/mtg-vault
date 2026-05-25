@@ -522,7 +522,7 @@ function client(): Anthropic {
   return new Anthropic({ apiKey });
 }
 
-function extractTool<T>(
+export function extractTool<T>(
   response: Anthropic.Message,
   toolName: string,
 ): T {
