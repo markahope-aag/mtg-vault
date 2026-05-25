@@ -2,8 +2,9 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { MASS_LAND_DENIAL_NAMES } from "@/lib/curated/mld";
-
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { serverError } from "@/lib/api-errors";
+
 export const dynamic = "force-dynamic";
 
 type CardSummary = {
@@ -16,6 +17,8 @@ type CardSummary = {
 const AUDIT_LIMIT = 50;
 
 export async function GET() {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
   try {
     const [
       extraTurnSuspicious,

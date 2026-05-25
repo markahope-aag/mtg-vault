@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   estimateBracket,
   SpellbookUnavailableError,
@@ -7,6 +8,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
+
   const oracleCsv = req.nextUrl.searchParams.get("oracleIds") ?? "";
   const commanderCsv = req.nextUrl.searchParams.get("commanderIds") ?? "";
   const mainOracleIds = oracleCsv.split(",").map((s) => s.trim()).filter(Boolean);
