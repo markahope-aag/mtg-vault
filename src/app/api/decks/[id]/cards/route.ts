@@ -33,71 +33,87 @@ export async function PATCH(
     return NextResponse.json({ ok: true, unchanged: true });
   }
   try {
-    const existing = await db
-      .select()
-      .from(deckCards)
-      .where(
-        and(
-          eq(deckCards.deckId, id),
-          eq(deckCards.printingId, printingId),
-          eq(deckCards.category, fromCategory),
-        ),
-      )
-      .limit(1);
-    if (existing.length === 0) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    const source = existing[0];
+    // The merge path below (source category has a row + target
+    // category also has a row of the same printing) is two writes:
+    // UPDATE target.quantity += source.quantity, then DELETE source.
+    // If the DELETE fails after the UPDATE commits, the source row
+    // stays AND the target now has doubled quantity — duplicate
+    // count, silent data drift. Wrap the whole move (including the
+    // pre-read of source/target inside the same snapshot, plus the
+    // deck.updatedAt bump) in a single transaction so partial
+    // failures roll back as a unit.
+    const result = await db.transaction(async (tx) => {
+      const existing = await tx
+        .select()
+        .from(deckCards)
+        .where(
+          and(
+            eq(deckCards.deckId, id),
+            eq(deckCards.printingId, printingId),
+            eq(deckCards.category, fromCategory),
+          ),
+        )
+        .limit(1);
+      if (existing.length === 0) {
+        return { notFound: true as const };
+      }
+      const source = existing[0];
 
-    // If a row already exists at toCategory, merge quantities.
-    const target = await db
-      .select()
-      .from(deckCards)
-      .where(
-        and(
-          eq(deckCards.deckId, id),
-          eq(deckCards.printingId, printingId),
-          eq(deckCards.category, toCategory),
-        ),
-      )
-      .limit(1);
-
-    if (target.length > 0) {
-      await db
-        .update(deckCards)
-        .set({ quantity: target[0].quantity + source.quantity })
+      // If a row already exists at toCategory, merge quantities.
+      const target = await tx
+        .select()
+        .from(deckCards)
         .where(
           and(
             eq(deckCards.deckId, id),
             eq(deckCards.printingId, printingId),
             eq(deckCards.category, toCategory),
           ),
-        );
-      await db
-        .delete(deckCards)
-        .where(
-          and(
-            eq(deckCards.deckId, id),
-            eq(deckCards.printingId, printingId),
-            eq(deckCards.category, fromCategory),
-          ),
-        );
-    } else {
-      await db
-        .update(deckCards)
-        .set({ category: toCategory })
-        .where(
-          and(
-            eq(deckCards.deckId, id),
-            eq(deckCards.printingId, printingId),
-            eq(deckCards.category, fromCategory),
-          ),
-        );
+        )
+        .limit(1);
+
+      if (target.length > 0) {
+        await tx
+          .update(deckCards)
+          .set({ quantity: target[0].quantity + source.quantity })
+          .where(
+            and(
+              eq(deckCards.deckId, id),
+              eq(deckCards.printingId, printingId),
+              eq(deckCards.category, toCategory),
+            ),
+          );
+        await tx
+          .delete(deckCards)
+          .where(
+            and(
+              eq(deckCards.deckId, id),
+              eq(deckCards.printingId, printingId),
+              eq(deckCards.category, fromCategory),
+            ),
+          );
+      } else {
+        await tx
+          .update(deckCards)
+          .set({ category: toCategory })
+          .where(
+            and(
+              eq(deckCards.deckId, id),
+              eq(deckCards.printingId, printingId),
+              eq(deckCards.category, fromCategory),
+            ),
+          );
+      }
+      await tx
+        .update(decks)
+        .set({ updatedAt: sql`now()` })
+        .where(eq(decks.id, id));
+      return { notFound: false as const };
+    });
+
+    if (result.notFound) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    await db
-      .update(decks)
-      .set({ updatedAt: sql`now()` })
-      .where(eq(decks.id, id));
     return NextResponse.json({ ok: true });
   } catch (err) {
     return serverError("api/decks/id/cards", err, "Couldn't update deck cards.");
