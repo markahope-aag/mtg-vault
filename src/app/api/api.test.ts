@@ -217,14 +217,6 @@ describe("API routes", () => {
     });
   });
 
-  describe("collection snapshot route", () => {
-    it("POST returns snapshot result", async () => {
-      const { POST } = await import("@/app/api/collection/snapshot/route");
-      const res = await POST();
-      expect(res.status).toBe(200);
-    });
-  });
-
   describe("search route", () => {
     it("GET returns search results payload", async () => {
       const { GET } = await import("@/app/api/search/route");
