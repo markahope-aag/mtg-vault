@@ -135,18 +135,20 @@ There are no `user_id` columns — the app assumes one writer. Multi-user would 
 
 ## Testing
 
-Vitest unit tests across 31 files / 359 tests. Coverage spans:
+Vitest unit + integration tests across 32 files / 376 tests. Coverage spans:
 
-- **Auth & proxy** — allowlist, cron bearer auth, Next 16 `proxy.ts` matcher behavior.
-- **Bracket engine** — pure slot logic, full bracket calculation, flag refresh, Game Changer + Spellbook integration.
-- **Decks** — queries, schemas, slot classification, deck validation.
-- **Inventory** — queries (filters, sort, pagination), Zod schemas, table grouping/selection logic.
-- **Importers** — format detection, ManaBox/Moxfield/Archidekt/TCGPlayer parsers, printing resolver.
-- **Ledger** — cost-basis allocation math (purchases, sales, trades, rounding-drift).
-- **Market** — bargain detection thresholds, source registry, scraper denylist.
-- **Rogue generator** — proposal validation, inventory reconciliation.
-- **API routes** — round-trip happy-path + 400/404/500 surfaces via mocked DB; auth-gate contract test enumerates every `route.ts` and asserts unauthenticated callers 307 to `/login`.
-- **Components** — InventoryTable + a handful of rendering smoke tests.
+- **Auth & proxy** — `proxy.ts` matcher behavior (allowlist branches, signout-on-deny, login redirect, cron pass-through), `parseAllowedEmails` / `parseAdminEmails` / `isAdminEmail` / `shouldBypassAuth`, `redirect.ts` open-redirect guard (10 attack vectors covered), `cron-auth.ts` constant-time bearer compare (wrong-same-length, wrong-shorter, wrong-longer, missing header, missing Bearer prefix).
+- **Auth-gate contract** — enumerates every `route.ts` under `src/app/api/` at test time; asserts each non-cron route 307s to `/login` when unauthenticated, cron routes pass through, and `/manifest.webmanifest` + `/sw.js` bypass the proxy entirely.
+- **Bracket engine** — pure slot logic, full `calculateBracket` wiring, flag refresh, Game Changer + Spellbook integration.
+- **Decks** — queries, schemas (create/update/move/upsert), slot classification, deck validation.
+- **Inventory** — queries (filters, sort, pagination), Zod schemas, table grouping / selection / sort logic.
+- **Importers** — format detection, ManaBox / Moxfield / Archidekt / TCGPlayer parsers, printing resolver.
+- **Ledger** — cost-basis allocation math (purchases, sales, trades, rounding-drift parking, realized P&L).
+- **Market** — bargain detection thresholds (percent + dollar, shipping inclusion, max-price ceiling, confidence floor, flag exclusion), source registry, scraper hostile-marketplace denylist.
+- **Rogue generator** — proposal validation, inventory reconciliation (`unassigned` / `all_owned` / `ignore` scopes).
+- **Rate limiter** — token-bucket-by-key (happy path, over-limit, key isolation, window rollover, custom window).
+- **API routes** — `api.test.ts` exercises happy + 4xx / 5xx surfaces for every route via mocked DB; admin gate is stubbed at this layer so per-route assertions focus on the route's own logic.
+- **Components** — `InventoryTable` logic + rendering smoke tests.
 - **Utilities** — `sql` array interpolation, `cn`, Scryfall row transform.
 
 ```powershell

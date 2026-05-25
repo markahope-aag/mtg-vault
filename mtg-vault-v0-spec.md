@@ -372,13 +372,20 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 | Item | Severity | Notes |
 |---|---|---|
-| Automated tests | Partial | Vitest: bracket logic, importers, slots, sql, calculateBracket wiring; API/UI still untested |
-| `combos` tables unused | Low | Live Spellbook API replaced bulk sync plan |
-| `locations` missing RLS | Low | Inconsistent with other tables |
-| Import commit not transactional | Medium | Partial failure can leave inconsistent batch state |
+| `locations` missing RLS | Low | Inconsistent with other tables. Currently moot since Drizzle runs as the table owner and bypasses RLS regardless, but the inconsistency would matter the day a Supabase JS client reads this table. |
 | Partner validation heuristic | Low | Regex `Partner` only; Background/Friends Forever deferred |
 | No color-identity enforcement on add | Low | Banned cards warn; off-color cards allowed |
 | Spellbook cache per-instance | Low | Cold starts re-hit external API |
+| Trade ledger has no undo | Medium | Import batches have Undo; transactions (purchase/sale/trade) don't. Schema can support it (`transaction_lines` link back to inventory), but the safety rules around already-touched 'in' rows haven't been built yet. |
+| Inventory table not virtualized | Medium | Custom table renders every loaded row. "Load more" caps the initial set at 200, but a fully-loaded collection (10K+ rows) chokes the DOM. Switch to `@tanstack/react-virtual` when this starts mattering. |
+
+### Resolved since v0
+
+Listed here so future audits don't re-flag them:
+
+- ~~Automated tests partial~~ — 32 files / 376 tests covering API routes (api.test.ts), proxy + auth-gate contract (proxy.test.ts, auth-gate.test.ts), bracket logic, importers, ledger allocation, market valuation/bargains, scraper denylist, rogue generator validation/reconciliation, plus component smoke tests.
+- ~~`combos` tables unused~~ — dropped in migration `0013`; live Spellbook API is the source of truth.
+- ~~Import commit not transactional~~ — wrapped in `db.transaction` since the audit pass (see `api/import/csv/route.ts:228`).
 
 ---
 
