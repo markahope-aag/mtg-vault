@@ -1,194 +1,28 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { db } from "@/db/client";
 import { cards, printings } from "@/db/schema";
 import { toIso } from "@/lib/utils";
-import { pickCardImage } from "@/lib/card-image";
-
-type UsedInDeck = {
-  deckId: string;
-  deckName: string;
-  commanderName: string | null;
-  category: string;
-  quantity: number;
-};
-
-async function fetchDecksUsing(oracleId: string): Promise<UsedInDeck[]> {
-  const rows = (await db.execute(sql`
-    SELECT d.id AS deck_id, d.name AS deck_name,
-           cmd.name AS commander_name,
-           dc.category, dc.quantity
-    FROM deck_cards dc
-    JOIN printings p ON p.id = dc.printing_id
-    JOIN decks d ON d.id = dc.deck_id
-    LEFT JOIN printings cmd_p ON cmd_p.id = d.commander_printing_id
-    LEFT JOIN cards cmd ON cmd.oracle_id = cmd_p.oracle_id
-    WHERE p.oracle_id = ${oracleId}
-    ORDER BY d.name ASC
-  `)) as unknown as Array<{
-    deck_id: string;
-    deck_name: string;
-    commander_name: string | null;
-    category: string;
-    quantity: number;
-  }>;
-  return rows.map((r) => ({
-    deckId: r.deck_id,
-    deckName: r.deck_name,
-    commanderName: r.commander_name,
-    category: r.category,
-    quantity: r.quantity,
-  }));
-}
-import { Badge } from "@/components/ui/badge";
+import {
+  fetchDecksUsing,
+  fetchOwnedRows,
+  fetchSynergies,
+} from "@/lib/cards/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ManaCost } from "@/components/mana-cost";
-import { CardImage } from "@/components/card-detail/card-image";
 import { PrintingsTable } from "@/components/card-detail/printings-table";
 import { BackLink } from "@/components/back-link";
 import { OwnershipPanel } from "@/components/card-detail/ownership-panel";
 import { PriceHistoryChart } from "@/components/card-detail/price-history-chart";
 import { LegalityBadges } from "@/components/card-detail/legality-badges";
 import { SynergyGrid } from "@/components/card-detail/synergy-grid";
-import type { InventoryRowWithCard } from "@/lib/inventory/types";
+import { CardMetaPane } from "@/components/card-detail/meta-pane";
+import { TagsCard } from "@/components/card-detail/tags-card";
+import { UsedInDecksCard } from "@/components/card-detail/used-in-decks-card";
 
 type Printing = typeof printings.$inferSelect;
 
 function isPromoLike(p: Printing): boolean {
   return Array.isArray(p.promoTypes) && p.promoTypes.length > 0;
-}
-
-type SynergyRow = {
-  oracleId: string;
-  name: string;
-  manaCost: string | null;
-  typeLine: string | null;
-  imageUri: string | null;
-  coDecks: number;
-  edhrecRank: number | null;
-  ownedCount: number;
-};
-
-// Find cards that co-occur with this card across the user's own decks.
-// "Synergy" here is operationalized as deck co-occurrence: if you've put
-// card X in the same deck as this card N times, X is N-synergy. Personal
-// data is the strongest synergy signal we have without scraping EDHrec.
-async function fetchSynergies(oracleId: string): Promise<SynergyRow[]> {
-  const rows = (await db.execute(sql`
-    WITH host_decks AS (
-      SELECT DISTINCT dc.deck_id
-      FROM deck_cards dc
-      JOIN printings p ON p.id = dc.printing_id
-      WHERE p.oracle_id = ${oracleId}
-    )
-    SELECT
-      c.oracle_id, c.name, c.mana_cost, c.type_line, c.edhrec_rank,
-      COUNT(DISTINCT dc.deck_id)::int AS co_decks,
-      (
-        SELECT COUNT(*)::int FROM inventory i
-        JOIN printings ip ON ip.id = i.printing_id
-        WHERE ip.oracle_id = c.oracle_id AND i.disposed_at IS NULL
-      ) AS owned_count,
-      (
-        SELECT COALESCE(
-          p2.image_uris ->> 'small',
-          p2.card_faces -> 0 -> 'image_uris' ->> 'small',
-          c.card_faces -> 0 -> 'image_uris' ->> 'small'
-        )
-        FROM printings p2
-        WHERE p2.oracle_id = c.oracle_id
-        ORDER BY p2.released_at DESC NULLS LAST, p2.set_code
-        LIMIT 1
-      ) AS image_uri
-    FROM deck_cards dc
-    JOIN host_decks h ON h.deck_id = dc.deck_id
-    JOIN printings p ON p.id = dc.printing_id
-    JOIN cards c ON c.oracle_id = p.oracle_id
-    WHERE c.oracle_id <> ${oracleId}
-    GROUP BY c.oracle_id, c.name, c.mana_cost, c.type_line, c.edhrec_rank, c.card_faces
-    ORDER BY co_decks DESC, c.edhrec_rank ASC NULLS LAST, c.name ASC
-    LIMIT 24
-  `)) as unknown as Array<{
-    oracle_id: string;
-    name: string;
-    mana_cost: string | null;
-    type_line: string | null;
-    edhrec_rank: number | null;
-    co_decks: number;
-    owned_count: number;
-    image_uri: string | null;
-  }>;
-  return rows.map((r) => ({
-    oracleId: r.oracle_id,
-    name: r.name,
-    manaCost: r.mana_cost,
-    typeLine: r.type_line,
-    imageUri: r.image_uri,
-    coDecks: r.co_decks,
-    edhrecRank: r.edhrec_rank,
-    ownedCount: r.owned_count,
-  }));
-}
-
-async function fetchOwnedRows(
-  oracleId: string,
-): Promise<InventoryRowWithCard[]> {
-  const rows = (await db.execute(sql`
-    SELECT
-      i.id, i.printing_id, i.foil, i.etched, i.condition, i.language,
-      i.location, i.physical_id, i.acquired_price, i.acquired_at,
-      i.purchased_from, i.grading_company, i.grade, i.notes,
-      i.disposed_to, i.disposed_price, i.disposed_at,
-      i.created_at, i.updated_at,
-      c.oracle_id, c.name, c.mana_cost, c.type_line, c.color_identity, c.cmc,
-      c.is_commander_legal,
-      p.set_code, p.set_name, p.collector_number, p.rarity,
-      p.usd, p.usd_foil, p.usd_etched,
-      COALESCE(p.image_uris ->> 'small', p.card_faces -> 0 -> 'image_uris' ->> 'small') AS image_uri
-    FROM inventory i
-    JOIN printings p ON p.id = i.printing_id
-    JOIN cards c ON c.oracle_id = p.oracle_id
-    WHERE c.oracle_id = ${oracleId}
-      AND i.disposed_at IS NULL
-    ORDER BY p.released_at DESC, i.created_at DESC
-  `)) as unknown as Array<Record<string, unknown>>;
-  return rows.map((r) => ({
-    id: r.id as string,
-    printingId: r.printing_id as string,
-    foil: r.foil as boolean,
-    etched: r.etched as boolean,
-    condition: r.condition as string,
-    language: r.language as string,
-    location: (r.location as string | null) ?? null,
-    physicalId: (r.physical_id as string | null) ?? null,
-    acquiredPrice: (r.acquired_price as string | null) ?? null,
-    acquiredAt: toIso(r.acquired_at),
-    purchasedFrom: (r.purchased_from as string | null) ?? null,
-    gradingCompany: (r.grading_company as string | null) ?? null,
-    grade: (r.grade as string | null) ?? null,
-    notes: (r.notes as string | null) ?? null,
-    disposedTo: (r.disposed_to as string | null) ?? null,
-    disposedPrice: (r.disposed_price as string | null) ?? null,
-    disposedAt: toIso(r.disposed_at),
-    createdAt: toIso(r.created_at) ?? "",
-    updatedAt: toIso(r.updated_at) ?? "",
-    oracleId: r.oracle_id as string,
-    name: r.name as string,
-    manaCost: (r.mana_cost as string | null) ?? null,
-    typeLine: (r.type_line as string | null) ?? null,
-    colorIdentity: (r.color_identity as string[] | null) ?? null,
-    cmc: (r.cmc as string | null) ?? null,
-    isCommanderLegal: (r.is_commander_legal as boolean | null) ?? null,
-    setCode: r.set_code as string,
-    setName: r.set_name as string,
-    collectorNumber: r.collector_number as string,
-    rarity: (r.rarity as string | null) ?? null,
-    usd: (r.usd as string | null) ?? null,
-    usdFoil: (r.usd_foil as string | null) ?? null,
-    usdEtched: (r.usd_etched as string | null) ?? null,
-    imageUri: (r.image_uri as string | null) ?? null,
-  }));
 }
 
 type PageProps = {
@@ -232,39 +66,6 @@ export default async function CardDetailPage({
   const selectedPrinting =
     allPrintings.find((p) => p.id === requestedPrintingId) ?? defaultPrinting;
 
-  const tags: Array<{ label: string; tone: string }> = [];
-  if (card.isCommanderLegal === false)
-    tags.push({
-      label: "Banned in Commander",
-      tone: "bg-red-100 text-red-900 ring-1 ring-red-500/30",
-    });
-  if (card.isGameChanger)
-    tags.push({ label: "Game Changer", tone: "bg-rose-100 text-rose-900" });
-  if (card.isMassLandDenial)
-    tags.push({
-      label: "Mass Land Denial",
-      tone: "bg-amber-100 text-amber-900",
-    });
-  if (card.isExtraTurn)
-    tags.push({
-      label: "Extra Turn",
-      tone: "bg-purple-100 text-purple-900",
-    });
-  if (card.isTutor)
-    tags.push({ label: "Tutor", tone: "bg-sky-100 text-sky-900" });
-  if (card.isReservedList)
-    tags.push({
-      label: "Reserved List",
-      tone: "bg-stone-200 text-stone-800",
-    });
-
-  const ptOrLoyalty =
-    card.loyalty != null
-      ? `Loyalty ${card.loyalty}`
-      : card.power != null && card.toughness != null
-        ? `${card.power}/${card.toughness}`
-        : null;
-
   const dialogCard = {
     oracleId: card.oracleId,
     name: card.name,
@@ -286,69 +87,8 @@ export default async function CardDetailPage({
         <BackLink />
       </div>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
-        {/* LEFT: image + static metadata */}
-        <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-          <CardImage
-            src={pickCardImage(
-              selectedPrinting?.imageUris as Record<string, string> | null | undefined,
-              selectedPrinting?.cardFaces as
-                | Array<{ image_uris?: Record<string, string> | null }>
-                | null
-                | undefined,
-              "normal",
-            )}
-            alt={card.name}
-          />
+        <CardMetaPane card={card} selectedPrinting={selectedPrinting} />
 
-          <div className="space-y-3">
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">
-                {card.name}
-              </h1>
-              {card.manaCost && (
-                <div className="mt-1">
-                  <ManaCost cost={card.manaCost} size="sm" />
-                </div>
-              )}
-            </div>
-
-            <p className="text-sm font-medium text-foreground">
-              {card.typeLine}
-            </p>
-
-            {card.oracleText && (
-              <div className="space-y-1.5 text-sm leading-relaxed text-foreground/90">
-                {card.oracleText.split("\n").map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
-              </div>
-            )}
-
-            {ptOrLoyalty && (
-              <p className="text-sm font-semibold">{ptOrLoyalty}</p>
-            )}
-
-            {card.colorIdentity && card.colorIdentity.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Color identity</span>
-                <ManaCost
-                  cost={card.colorIdentity.map((c) => `{${c}}`).join("")}
-                  size="xs"
-                />
-              </div>
-            )}
-
-            {selectedPrinting && (
-              <p className="text-xs text-muted-foreground">
-                {selectedPrinting.setName} ·{" "}
-                <span className="uppercase">{selectedPrinting.setCode}</span> ·
-                #{selectedPrinting.collectorNumber}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT */}
         <div className="space-y-6">
           <OwnershipPanel card={dialogCard} ownedRows={ownedRows} />
 
@@ -391,25 +131,16 @@ export default async function CardDetailPage({
             </CardContent>
           </Card>
 
-          {tags.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Tags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((t) => (
-                    <span
-                      key={t.label}
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${t.tone}`}
-                    >
-                      {t.label}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <TagsCard
+            flags={{
+              isCommanderLegal: card.isCommanderLegal,
+              isGameChanger: card.isGameChanger,
+              isMassLandDenial: card.isMassLandDenial,
+              isExtraTurn: card.isExtraTurn,
+              isTutor: card.isTutor,
+              isReservedList: card.isReservedList,
+            }}
+          />
 
           {card.legalities && (
             <Card>
@@ -440,46 +171,7 @@ export default async function CardDetailPage({
             </CardContent>
           </Card>
 
-          {usedInDecks.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Used in decks ({usedInDecks.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ul className="divide-y">
-                  {usedInDecks.map((u) => (
-                    <li key={`${u.deckId}-${u.category}`}>
-                      <Link
-                        href={`/decks/${u.deckId}`}
-                        className="flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-muted/50"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{u.deckName}</p>
-                          {u.commanderName && (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {u.commanderName}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2 text-xs">
-                          {u.category !== "main" && (
-                            <Badge variant="outline" className="capitalize">
-                              {u.category}
-                            </Badge>
-                          )}
-                          <span className="tabular-nums text-muted-foreground">
-                            ×{u.quantity}
-                          </span>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+          <UsedInDecksCard decks={usedInDecks} />
         </div>
       </div>
     </div>
