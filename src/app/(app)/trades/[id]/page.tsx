@@ -7,6 +7,7 @@ import { realizedPnL } from "@/lib/ledger/allocate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImgWithFallback } from "@/components/img-with-fallback";
 import { BackLink } from "@/components/back-link";
+import { UndoTransactionButton } from "@/components/ledger/undo-button";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -155,8 +156,14 @@ export default async function TransactionPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mb-4">
-        <BackLink href="/trades" label="Trades &amp; Purchases" />
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <BackLink href="/trades" label="Trades &amp; Ledger" />
+        <UndoTransactionButton
+          transactionId={txn.id}
+          kind={txn.kind as "purchase" | "sale" | "trade"}
+          inCount={ins.length}
+          outCount={outs.length}
+        />
       </div>
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <div>
