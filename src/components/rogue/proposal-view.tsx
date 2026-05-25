@@ -327,7 +327,15 @@ export function ProposalView({
                         <button
                           type="button"
                           onClick={() => removeCard(c.oracleId)}
-                          className="invisible inline-flex size-6 items-center justify-center rounded-md text-text-muted hover:bg-surface-inset hover:text-[var(--value-negative)] group-hover/row:visible"
+                          // Same reveal pattern as the deckbuilder
+                          // decklist: visible on hover (mouse),
+                          // focus-within / focus-visible (keyboard),
+                          // and unconditionally on touch
+                          // ([@media(hover:none)]) where there's no
+                          // hover state at all. 44x44 hit area on
+                          // touch matches the iOS minimum tap target;
+                          // mouse users keep the compact icon.
+                          className="invisible inline-flex size-6 items-center justify-center rounded-md text-text-muted hover:bg-surface-inset hover:text-[var(--value-negative)] focus-visible:visible focus-visible:text-[var(--value-negative)] group-hover/row:visible group-focus-within/row:visible [@media(hover:none)]:visible [@media(hover:none)]:size-9"
                           aria-label={`Remove ${c.name}`}
                         >
                           <Trash2 className="size-3" />
