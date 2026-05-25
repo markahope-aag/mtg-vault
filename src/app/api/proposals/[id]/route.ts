@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { deckProposals } from "@/db/schema";
@@ -7,12 +7,46 @@ import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 
+// Stale-generation window. /api/proposals POST has maxDuration=300s
+// (5 min) — anything still 'generating' past 6 min has either crashed
+// the function mid-write (e.g. transient DB blip after a successful
+// LLM call) or hit Vercel's hard timeout without the catch running.
+// Either way, the proposal is stuck spinning in the Builder UI; the
+// safe interpretation is "this failed silently" so the user can move
+// on. Self-heal on read to avoid needing a separate cron.
+const STALE_GENERATING_MS = 6 * 60_000;
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
+    // Pre-flight: if this proposal is stuck at 'generating' past the
+    // stale window, flip it to 'failed' before reading. The UPDATE
+    // matches by id + status + createdAt cutoff so it's a no-op for
+    // healthy proposals and races safely if two concurrent GETs both
+    // attempt the heal.
+    const cutoff = new Date(Date.now() - STALE_GENERATING_MS);
+    await db
+      .update(deckProposals)
+      .set({
+        status: "failed",
+        generationLog: {
+          error:
+            "Generation timed out — the server stopped responding before the proposal finished.",
+          at: new Date().toISOString(),
+          stale: true,
+        },
+      })
+      .where(
+        and(
+          eq(deckProposals.id, id),
+          eq(deckProposals.status, "generating"),
+          lt(deckProposals.createdAt, cutoff),
+        ),
+      );
+
     const rows = await db
       .select()
       .from(deckProposals)
@@ -31,6 +65,7 @@ export async function GET(
     );
   }
 }
+
 
 // The proposal is a DRAFT — the user can edit before saving as a real deck.
 // PATCH overwrites cardList (and optionally targetBracket / archetypeBrief)
