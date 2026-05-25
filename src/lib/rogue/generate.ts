@@ -60,7 +60,25 @@ export type GenerateInput = {
   archetypeBrief?: string;
   targetBracket: number | null;
   inventoryScope?: InventoryScope;
+  /** Optional progress callback. Called once at the START of each
+   *  major phase so the caller can persist live progress on the
+   *  proposal row (the Builder UI polls and surfaces it). Errors
+   *  in the callback are swallowed — progress is best-effort and
+   *  must not abort the generation. */
+  onProgress?: (phase: GenerationPhase) => Promise<void> | void;
 };
+
+/** Surfaceable phase markers, lowest-common-denominator across
+ *  standard + rogue pipelines. Mapped one-to-one with the high-level
+ *  boundaries in generateDeck(). */
+export type GenerationPhase =
+  | "pick_commander"
+  | "ideate_rogue"
+  | "generate"
+  | "validate_repair"
+  | "manabase"
+  | "analyze"
+  | "critique";
 
 export type GeneratedCard = {
   oracleId: string;
@@ -543,7 +561,7 @@ export function extractTool<T>(
   return block.input as T;
 }
 
-function bracketDescription(bracket: number | null): string {
+export function bracketDescription(bracket: number | null): string {
   switch (bracket) {
     case 1:
       return "Exhibition — casual jank, no Game Changers, no Mass Land Denial, minimal extra turns.";
@@ -1258,9 +1276,24 @@ export async function generateDeck(
   const startedAt = new Date().toISOString();
   const passes: GenerationPass[] = [];
 
+  // Best-effort progress notify. The caller wires this up to UPDATE
+  // the proposal row's generationLog with the current phase so the
+  // Builder UI can show "we're at validate_repair / 1 of 5" while
+  // generation is still in flight. Errors here are swallowed — a
+  // failed progress write must never abort the LLM pipeline.
+  const notify = async (phase: GenerationPhase) => {
+    if (!input.onProgress) return;
+    try {
+      await input.onProgress(phase);
+    } catch {
+      /* ignore */
+    }
+  };
+
   // Pass 0: pick commander if not given.
   let commanderOracleId = input.commanderOracleId ?? null;
   if (!commanderOracleId) {
+    await notify("pick_commander");
     const t0 = Date.now();
     const picked = await pickCommander(input.archetypeBrief);
     passes.push({
@@ -1293,6 +1326,7 @@ export async function generateDeck(
   };
 
   if (input.kind === "rogue") {
+    await notify("ideate_rogue");
     const tIdeate = Date.now();
     const ideation = await pass1RogueIdeate(commander, input);
     rogueIdeation = {
@@ -1308,6 +1342,7 @@ export async function generateDeck(
     // the historical behavior and the most useful for a personal tool.
     const scope: InventoryScope = input.inventoryScope ?? "unassigned";
     const ownedBias = await fetchInventoryBias(scope, commander.colorIdentity);
+    await notify("generate");
     const tGen = Date.now();
     gen = await pass1RogueGenerate(
       commander,
@@ -1329,6 +1364,7 @@ export async function generateDeck(
     // Default for standard is 'unassigned' (helpful but unobtrusive).
     const scope: InventoryScope = input.inventoryScope ?? "unassigned";
     const ownedBias = await fetchInventoryBias(scope, commander.colorIdentity);
+    await notify("generate");
     const t1 = Date.now();
     gen = await pass1Generate(commander, input, ownedBias);
     passes.push({
@@ -1342,6 +1378,7 @@ export async function generateDeck(
   const roleByName = new Map(gen.cards.map((c) => [c.name, c]));
 
   // Passes 2 + 3 loop.
+  await notify("validate_repair");
   let finalValidation = await validateDeckLoose(
     currentNames,
     commanderOracleId,
@@ -1415,6 +1452,7 @@ export async function generateDeck(
   }
 
   // Pass 4: manabase + count.
+  await notify("manabase");
   const t4 = Date.now();
   const avgCmc = await computeAvgCmc(currentNames);
   const manabase = computeManabase({
@@ -1442,6 +1480,7 @@ export async function generateDeck(
   });
 
   // Pass 5: analyze.
+  await notify("analyze");
   const t5 = Date.now();
   const allCardNames = [
     ...currentNames,
@@ -1504,6 +1543,7 @@ export async function generateDeck(
   let rogueRationale: RogueRationale | undefined;
   let critique: RogueCritique | undefined;
   if (input.kind === "rogue" && rogueIdeation) {
+    await notify("critique");
     const finalNamesForCritique = cardList.map((c) => c.name);
 
     const tCritic = Date.now();

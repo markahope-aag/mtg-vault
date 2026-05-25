@@ -55,12 +55,32 @@ export async function POST(req: NextRequest) {
     .returning({ id: deckProposals.id });
 
   try {
+    const startedAt = new Date().toISOString();
     const result = await generateDeck({
       kind: input.kind,
       commanderOracleId: input.commanderOracleId,
       archetypeBrief: input.archetypeBrief,
       targetBracket: input.targetBracket ?? null,
       inventoryScope: input.inventoryScope,
+      // Phase heartbeat. The Builder UI polls /api/proposals/[id]
+      // every second while generating; surfacing the current phase
+      // lets it show "ideating thesis…" / "validating + repairing…"
+      // instead of an opaque spinner during the 30-300s run. If the
+      // process dies mid-pipeline, the last-written phase tells the
+      // operator where it failed before the self-heal flips status
+      // to 'failed' at the 6-minute mark.
+      onProgress: async (phase) => {
+        await db
+          .update(deckProposals)
+          .set({
+            generationLog: {
+              currentPhase: phase,
+              startedAt,
+              updatedAt: new Date().toISOString(),
+            },
+          })
+          .where(eq(deckProposals.id, row.id));
+      },
     });
 
     await db
