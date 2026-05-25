@@ -65,13 +65,25 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: row.id, ok: result.ok }, { status: 201 });
   } catch (err) {
+    // Persist a SAFE failure summary on the proposal row so the
+    // Builder tab can surface "generation failed" + a timestamp. The
+    // full error (including stack trace) is logged server-side via
+    // serverError; we deliberately DO NOT store the stack on the
+    // proposal row because GET /api/proposals/[id] returns the row
+    // verbatim to any allowlisted user. Stack traces from a third-
+    // party SDK (Anthropic) can leak internal paths, prompt snippets,
+    // and partial responses — none of which belongs in the client
+    // payload.
+    console.error("[api/proposals POST] generation failed", err);
     await db
       .update(deckProposals)
       .set({
         status: "failed",
         generationLog: {
-          error: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
+          error:
+            err instanceof Error
+              ? err.message.slice(0, 500)
+              : "Generation failed.",
           at: new Date().toISOString(),
         },
       })
