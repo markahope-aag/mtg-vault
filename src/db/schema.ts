@@ -282,6 +282,13 @@ export const deckProposals = pgTable(
     savedDeckId: uuid("saved_deck_id").references(() => decks.id, {
       onDelete: "set null",
     }),
+    // Phase 3 — fork lineage. Points at the parent proposal this one
+    // was iterated from. Null for proposals generated from scratch.
+    parentProposalId: uuid("parent_proposal_id"),
+    // The modification directive the user supplied when forking
+    // ("→ Bracket 2", "swap wincon", etc.). Stored on the child for
+    // lineage display.
+    iterateInstruction: text("iterate_instruction"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({

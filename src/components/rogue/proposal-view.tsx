@@ -16,6 +16,7 @@ import {
   type RogueCritique,
   type RogueRationale,
 } from "./rogue-verdict";
+import { IteratePanel } from "./iterate-panel";
 
 type ProposalRow = {
   id: string;
@@ -30,6 +31,9 @@ type ProposalRow = {
   critique: unknown;
   generationLog: unknown;
   savedDeckId: string | null;
+  // Phase 3 — fork lineage (nullable for non-iterated proposals).
+  parentProposalId?: string | null;
+  iterateInstruction?: string | null;
 };
 
 type Card = {
@@ -247,6 +251,31 @@ export function ProposalView({
           </Button>
         </div>
       </header>
+
+      {initial.parentProposalId && (
+        <div className="rounded-md border border-border-subtle bg-surface-inset/40 px-3 py-2 text-xs">
+          <span className="font-mono uppercase text-text-muted">
+            Iterated from
+          </span>{" "}
+          <Link
+            href={`/decks/new/generate/${initial.parentProposalId}`}
+            className="text-text-primary hover:underline"
+          >
+            parent proposal
+          </Link>
+          {initial.iterateInstruction && (
+            <span className="text-text-muted">
+              {" "}
+              · &ldquo;{initial.iterateInstruction}&rdquo;
+            </span>
+          )}
+        </div>
+      )}
+
+      <IteratePanel
+        proposalId={proposalId}
+        currentTarget={initial.targetBracket}
+      />
 
       {isRogue && rogueRationale && critique && (
         <RogueVerdict rationale={rogueRationale} critique={critique} />

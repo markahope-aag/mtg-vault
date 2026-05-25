@@ -66,6 +66,27 @@ export type GenerateInput = {
    *  in the callback are swallowed — progress is best-effort and
    *  must not abort the generation. */
   onProgress?: (phase: GenerationPhase) => Promise<void> | void;
+  /** Phase 3 — fork an existing proposal with a modification. When
+   *  set, the pipeline seeds Pass 1 with the parent's decklist + the
+   *  user's instruction as a modification directive, and SKIPS the
+   *  rogue ideation pass (the thesis is inherited, not re-sampled).
+   *  Everything downstream (validate / repair / manabase / analyze /
+   *  critique) runs FRESH on the modified deck — a Bracket-2 fork of
+   *  a Bracket-3 deck is a different deck and deserves its own
+   *  honest critique. */
+  iterateFrom?: {
+    parentCardList: Array<{ name: string; role?: string; rationale?: string }>;
+    parentRogueRationale?: {
+      consensusBuild?: string;
+      chosenThesis?: { name?: string; description?: string };
+      powerThesis?: {
+        underratedClaim?: string;
+        specificMechanic?: string;
+        whyItCouldWork?: string;
+      };
+    } | null;
+    instruction: string;
+  };
 };
 
 /** Surfaceable phase markers, lowest-common-denominator across
@@ -122,6 +143,7 @@ export type RogueCritique = {
 export type GenerationPass =
   | { name: "pick_commander"; durationMs: number; output: { name: string; rationale: string } }
   | { name: "pass1_generate"; durationMs: number; output: { cards: Array<{ name: string; role: string; rationale: string }>; colorPipTarget: ColorPipTarget; notes?: string } }
+  | { name: "pass1_iterate"; durationMs: number; output: { cards: Array<{ name: string; role: string; rationale: string }>; colorPipTarget: ColorPipTarget; notes?: string; instruction: string } }
   | { name: "pass1_rogue_ideate"; durationMs: number; output: { consensusBuild: string; theses: RogueThesisProposal[]; chosenIndex: number; powerThesis: { underratedClaim: string; specificMechanic: string; whyItCouldWork: string }; unusualnessScore: number } }
   | { name: "pass2_validate"; iteration: number; durationMs: number; output: { violations: Violation[]; isClean: boolean; metrics: unknown } }
   | { name: "pass3_repair"; iteration: number; durationMs: number; output: { replacements: Array<{ remove: string; add: string; role?: string; rationale?: string }> } }
@@ -1100,6 +1122,104 @@ Submit via submit_deck.`;
   return extractTool(response, "submit_deck");
 }
 
+// Iterate (fork) variant: take a parent decklist + a modification
+// instruction, return the modified decklist. Used by both rogue and
+// standard kinds when iterateFrom is set on the input.
+//
+// The prompt frames the work as "modify this deck per the instruction"
+// rather than "build from scratch." Temperature is held at 0.6 — lower
+// than fresh generation (1.0) because the user explicitly wants
+// CONTINUITY with the parent build, modulated by ONE specific change.
+// Drifting back to a global rethink defeats the purpose of iterate.
+type IterateParentRationale = {
+  consensusBuild?: string;
+  chosenThesis?: { name?: string; description?: string };
+  powerThesis?: {
+    underratedClaim?: string;
+    specificMechanic?: string;
+    whyItCouldWork?: string;
+  };
+} | null | undefined;
+
+async function pass1Iterate(
+  commander: CommanderContext,
+  input: GenerateInput,
+  parent: {
+    cardList: Array<{ name: string; role?: string; rationale?: string }>;
+    rationale?: IterateParentRationale;
+  },
+  instruction: string,
+  ownedRarelyPlayed: InventoryBiasCard[],
+): Promise<{
+  cards: Array<{ name: string; role: string; rationale: string }>;
+  colorPipTarget: ColorPipTarget;
+  notes?: string;
+}> {
+  const ci =
+    commander.colorIdentity.length > 0
+      ? commander.colorIdentity.join("")
+      : "C (colorless)";
+
+  const parentList = parent.cardList
+    .map(
+      (c) =>
+        `- ${c.name}${c.role ? ` [${c.role}]` : ""}${c.rationale ? ` — ${c.rationale}` : ""}`,
+    )
+    .join("\n");
+
+  const ownedList = ownedRarelyPlayed
+    .slice(0, 40)
+    .map(
+      (c) =>
+        `- ${c.name}${c.manaCost ? ` ${c.manaCost}` : ""}${c.typeLine ? ` — ${c.typeLine}` : ""}`,
+    )
+    .join("\n");
+
+  const thesisBlock = parent.rationale?.chosenThesis
+    ? `THESIS (carried forward from parent build — do NOT abandon it unless the instruction explicitly says to):
+${parent.rationale.chosenThesis.name ?? "(unnamed)"}: ${parent.rationale.chosenThesis.description ?? ""}
+
+`
+    : "";
+
+  const prompt = `You are MODIFYING an existing Commander deck per a user instruction. The parent build represents work the user wants to keep — your job is one targeted change, not a global rethink.
+
+Commander: ${commander.name}
+Color identity: ${ci}
+Target bracket: ${input.targetBracket ?? "unspecified"} — ${bracketDescription(input.targetBracket)}
+
+${thesisBlock}USER INSTRUCTION:
+> ${instruction}
+
+PARENT DECKLIST (nonlands):
+${parentList}
+
+MODIFICATION RULES:
+1. The instruction dictates WHAT to change. Apply it. If the instruction is "→ Bracket 2," cut Game Changers / fast tutors / 2-card combos to fit Bracket 2's rules. If the instruction is "swap wincon," replace the finisher package but keep the support shell. If the instruction is "more aggressive," lower the curve and add proactive threats. If the instruction is "stay in my collection," prefer owned cards from the bias list.
+2. PRESERVE continuity. Cards that aren't affected by the instruction stay. The output should read as a recognizable evolution of the parent.
+3. Keep the singleton + color identity + bracket constraints (same as fresh generation).
+4. Generate exactly ${TARGET_NONLAND_COUNT} nonland cards.
+
+${ownedList ? `INVENTORY BIAS (use when consistent with the instruction):
+${ownedList}
+
+` : ""}For each card: name (exact printed), role (short tag), rationale that names what changed or why it carried over.
+
+Also submit a color pip target for mechanical manabase computation.
+
+Submit via submit_deck.`;
+
+  const response = await client().messages.create({
+    model: GEN_MODEL,
+    max_tokens: 8192,
+    temperature: 0.6,
+    tools: [GENERATE_DECK_TOOL],
+    tool_choice: { type: "tool", name: "submit_deck" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  return extractTool(response, "submit_deck");
+}
+
 // ─── Critique passes (each independent) ────────────────────────
 
 async function passCritic(
@@ -1325,7 +1445,30 @@ export async function generateDeck(
     notes?: string;
   };
 
-  if (input.kind === "rogue") {
+  if (input.iterateFrom) {
+    // Fork path: skip ideation entirely, seed from parent decklist
+    // + instruction. Works for both 'rogue' and 'standard' kinds — the
+    // distinction only mattered at ideation, and we're not ideating.
+    const scope: InventoryScope = input.inventoryScope ?? "unassigned";
+    const ownedBias = await fetchInventoryBias(scope, commander.colorIdentity);
+    await notify("generate");
+    const tIter = Date.now();
+    gen = await pass1Iterate(
+      commander,
+      input,
+      {
+        cardList: input.iterateFrom.parentCardList,
+        rationale: input.iterateFrom.parentRogueRationale,
+      },
+      input.iterateFrom.instruction,
+      ownedBias,
+    );
+    passes.push({
+      name: "pass1_iterate",
+      durationMs: Date.now() - tIter,
+      output: { ...gen, instruction: input.iterateFrom.instruction },
+    });
+  } else if (input.kind === "rogue") {
     await notify("ideate_rogue");
     const tIdeate = Date.now();
     const ideation = await pass1RogueIdeate(commander, input);

@@ -241,6 +241,13 @@ export function DeckbuilderHeader({
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
+                window.location.href = `/decks/${deck.deck.id}/command`;
+              }}
+            >
+              Command center
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
                 window.location.href = `/decks/${deck.deck.id}/reconcile`;
               }}
             >

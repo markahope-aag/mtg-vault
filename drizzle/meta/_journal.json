@@ -169,6 +169,13 @@
 			"when": 1781000000000,
 			"tag": "0023_games",
 			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1781100000000,
+			"tag": "0024_proposals_iterate",
+			"breakpoints": true
 		}
 	]
 }

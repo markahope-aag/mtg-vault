@@ -66,6 +66,9 @@ export async function POST(
             confidence: result.confidence,
             spellbookAvailable: result.spellbookAvailable,
             spellbookBracket: result.spellbookBracket,
+            // Persisted so the per-deck command center can show the cut
+            // list from cache without re-running the engine on each visit.
+            toReachBracket: result.toReachBracket,
           },
         })
         .returning();
