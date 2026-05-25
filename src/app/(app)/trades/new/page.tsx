@@ -7,7 +7,7 @@ export default function NewTransactionPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <div className="mb-4">
-        <BackLink href="/trades" label="Trades &amp; Purchases" />
+        <BackLink href="/trades" label="Trades &amp; Ledger" />
       </div>
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">
