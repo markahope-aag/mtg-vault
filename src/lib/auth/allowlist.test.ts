@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAdminEmail,
   isAllowedEmail,
   isAuthRoutePath,
+  parseAdminEmails,
   parseAllowedEmails,
   shouldBypassAuth,
 } from "./allowlist";
@@ -29,6 +31,38 @@ describe("isAllowedEmail", () => {
   it("rejects null/undefined", () => {
     expect(isAllowedEmail(null, list)).toBe(false);
     expect(isAllowedEmail(undefined, list)).toBe(false);
+  });
+});
+
+describe("parseAdminEmails / isAdminEmail", () => {
+  const allow = ["op@example.com", "partner@example.com"];
+
+  it("falls back to the allowlist when ADMIN_EMAIL is unset", () => {
+    expect(parseAdminEmails(undefined, allow)).toEqual(allow);
+    expect(parseAdminEmails("", allow)).toEqual(allow);
+  });
+
+  it("uses the explicit ADMIN_EMAIL list when set", () => {
+    expect(parseAdminEmails("op@example.com", allow)).toEqual([
+      "op@example.com",
+    ]);
+  });
+
+  it("isAdminEmail matches case-insensitively", () => {
+    const admins = parseAdminEmails("Op@Example.com", allow);
+    expect(isAdminEmail("op@example.com", admins)).toBe(true);
+    expect(isAdminEmail("OP@EXAMPLE.COM", admins)).toBe(true);
+  });
+
+  it("rejects non-admin allowlisted users when ADMIN_EMAIL is explicit", () => {
+    const admins = parseAdminEmails("op@example.com", allow);
+    expect(isAdminEmail("partner@example.com", admins)).toBe(false);
+  });
+
+  it("rejects null/undefined/missing email", () => {
+    const admins = parseAdminEmails("op@example.com", allow);
+    expect(isAdminEmail(null, admins)).toBe(false);
+    expect(isAdminEmail(undefined, admins)).toBe(false);
   });
 });
 

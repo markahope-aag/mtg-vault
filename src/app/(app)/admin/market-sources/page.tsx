@@ -3,10 +3,12 @@ import { db } from "@/db/client";
 import { AVAILABLE_PARSER_TEMPLATES } from "@/lib/market/sources/scraper/loader";
 import { MarketSourcesAdmin } from "@/components/admin/market-sources-admin";
 import { BackLink } from "@/components/back-link";
+import { requireAdminUser } from "@/lib/auth/require-admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketSourcesAdminPage() {
+  await requireAdminUser();
   const rows = (await db.execute(sql`
     SELECT id, source_key, display_name, base_url, parser_template,
            enabled, robots_acknowledged, terms_notes,

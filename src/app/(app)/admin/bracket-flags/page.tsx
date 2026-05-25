@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/db/client";
 import { syncState } from "@/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireAdminUser } from "@/lib/auth/require-admin";
 import { RefreshButton } from "./refresh-button";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +95,8 @@ async function fetchAudit(): Promise<{
 }
 
 export default async function BracketFlagsAdmin() {
+  await requireAdminUser();
+
   const [c, last, audit] = await Promise.all([
     counts(),
     lastRefreshed(),

@@ -51,7 +51,9 @@ Both layers use Drizzle (`db.execute(sql\`…\`)` or the typed builder) over the
 
 ## Auth model
 
-The auth boundary lives **entirely** in `src/proxy.ts`. Every request matching the matcher passes through `getUser()` + email-allowlist check before reaching a route handler. There is no per-handler `auth.getUser()` call — adding one would multiply Supabase round-trips across 46+ routes for no security gain in a single-user allowlist app.
+The auth boundary lives **entirely** in `src/proxy.ts`. Every request matching the matcher passes through `getUser()` + email-allowlist check before reaching a route handler. There is no per-handler `auth.getUser()` call **except** for admin entry points (see below) — adding it everywhere would multiply Supabase round-trips across 46+ routes for no security gain in a single-user allowlist app.
+
+**Admin elevation.** `/api/admin/*` routes, `/(app)/admin/*` pages, and the `refreshBracketFlagsAction` Server Action are gated by `requireAdmin()` / `requireAdminUser()` in `src/lib/auth/require-admin.ts`. Admin list is parsed from `ADMIN_EMAIL` (comma-separated), falling back to `ALLOWED_EMAIL` when unset — single-user deploys keep working out of the box, but adding a second allowlisted user no longer silently grants admin.
 
 This means **the proxy matcher is load-bearing**. Two contract tests pin it:
 

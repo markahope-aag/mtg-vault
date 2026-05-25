@@ -7,11 +7,14 @@ import {
   createMarketSourceSchema,
   updateMarketSourceSchema,
 } from "@/lib/market/schemas";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
   try {
     const rows = (await db.execute(sql`
       SELECT id, source_key, display_name, base_url, parser_template,
@@ -33,6 +36,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
+
   let body: unknown;
   try {
     body = await req.json();
@@ -99,6 +105,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
+
   let body: unknown;
   try {
     body = await req.json();
@@ -147,6 +156,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
+
   const id = req.nextUrl.searchParams.get("id");
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });

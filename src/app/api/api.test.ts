@@ -57,6 +57,14 @@ vi.mock("@/lib/ai/scan-card", () => ({
   scanCard: vi.fn().mockResolvedValue({ name: null, setCode: null }),
 }));
 
+// Admin gate is unit-tested separately (lib/auth/allowlist.test.ts +
+// proxy.test.ts). Stubbing here lets the per-route tests focus on the
+// route's own behavior rather than re-asserting the gate.
+vi.mock("@/lib/auth/require-admin", () => ({
+  requireAdmin: vi.fn().mockResolvedValue(null),
+  requireAdminUser: vi.fn().mockResolvedValue({ email: "op@example.com" }),
+}));
+
 import { scanCard } from "@/lib/ai/scan-card";
 import { fetchDeckDetail } from "@/lib/decks/queries";
 import { calculateBracket } from "@/lib/bracket-engine";

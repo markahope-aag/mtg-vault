@@ -2,12 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { refreshAllBracketFlags } from "@/lib/bracket-flags";
+import { requireAdminUser } from "@/lib/auth/require-admin";
 
 export type RefreshActionResult =
   | { ok: true; summary: Awaited<ReturnType<typeof refreshAllBracketFlags>> }
   | { ok: false; error: string };
 
 export async function refreshBracketFlagsAction(): Promise<RefreshActionResult> {
+  // Server Actions are reachable via direct POST to their host page —
+  // not through the API route handlers — so they need the admin check
+  // here too (the proxy gates the page, but a crafted POST bypassing
+  // the page render still hits this function).
+  await requireAdminUser();
   try {
     const summary = await refreshAllBracketFlags();
     revalidatePath("/admin/bracket-flags");

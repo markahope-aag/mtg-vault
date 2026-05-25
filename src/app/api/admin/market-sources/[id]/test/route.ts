@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { marketSourcesTable } from "@/db/schema";
 import { ShopifyTemplate } from "@/lib/market/sources/scraper/templates/shopify";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,9 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const forbidden = await requireAdmin();
+  if (forbidden) return forbidden;
+
   const { id } = await params;
   try {
     const rows = await db

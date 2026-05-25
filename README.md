@@ -56,6 +56,7 @@ Create `.env.local` (never commit):
 | `DATABASE_URL` | Yes | Postgres connection for Drizzle (pooler URL is fine) |
 | `DIRECT_URL` | Recommended | Direct connection for `drizzle-kit migrate` |
 | `ALLOWED_EMAIL` | Yes | Comma-separated email allowlist |
+| `ADMIN_EMAIL` | Optional | Comma-separated admin allowlist — gates `/api/admin/*` and `/(app)/admin/*`. Defaults to `ALLOWED_EMAIL` when unset, so single-user deploys keep working. Set explicitly when adding non-admin allowlisted users. |
 | `CRON_SECRET` | Yes (prod) | Bearer token for `/api/cron/*` routes |
 | `ANTHROPIC_API_KEY` | Optional | Enables Strategy tab, deck generator, and vision scanner |
 | `EBAY_APP_ID` | Optional | eBay Browse API adapter (Market → Bargains) |
