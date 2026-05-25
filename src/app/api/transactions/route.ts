@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import {
@@ -165,8 +165,18 @@ export async function POST(req: NextRequest) {
             .returning({ id: inventory.id });
           inventoryId = newRow.id;
         } else {
-          // 'out' — dispose the linked inventory row.
-          await tx
+          // 'out' — dispose the linked inventory row. Two guards on
+          // the WHERE clause:
+          //   - eq(id, line.inventoryId)    — the row the client
+          //                                   claimed to be disposing
+          //   - isNull(disposedAt)          — fail-loud if it's
+          //                                   already disposed (avoids
+          //                                   silently overwriting an
+          //                                   earlier disposal)
+          // .returning() lets us verify the row actually existed and
+          // was eligible. Empty result → throw, which rolls the whole
+          // db.transaction back (no partial commit).
+          const [updated] = await tx
             .update(inventory)
             .set({
               disposedAt: occurredAt,
@@ -175,8 +185,19 @@ export async function POST(req: NextRequest) {
               transactionId: txnRow.id,
               updatedAt: sql`now()`,
             })
-            .where(eq(inventory.id, line.inventoryId!));
-          inventoryId = line.inventoryId!;
+            .where(
+              and(
+                eq(inventory.id, line.inventoryId!),
+                isNull(inventory.disposedAt),
+              ),
+            )
+            .returning({ id: inventory.id });
+          if (!updated) {
+            throw new Error(
+              `Outgoing line references inventory row ${line.inventoryId} which is missing or already disposed`,
+            );
+          }
+          inventoryId = updated.id;
         }
 
         await tx.insert(transactionLines).values({
