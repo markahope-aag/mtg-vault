@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -20,6 +20,8 @@ const LINKS = [
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
 
   // Close the drawer on route change. usePathname returns a new value
   // synchronously when the route changes, so this fires immediately.
@@ -38,29 +40,89 @@ export function MobileNav() {
     };
   }, [open]);
 
-  // Esc to close.
+  // Esc to close + Tab-key focus trap. While the drawer is open, Tab
+  // and Shift+Tab cycle through the drawer's tabbables (close button
+  // + nav links) without escaping behind the overlay. Focus moves to
+  // the first tabbable on open and back to the trigger button on
+  // close — both standard dialog patterns the previous implementation
+  // skipped.
   useEffect(() => {
     if (!open) return;
+
+    const tabbables = (): HTMLElement[] => {
+      const root = drawerRef.current;
+      if (!root) return [];
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+    };
+
+    // Initial focus: first tabbable in the drawer (close button).
+    const initial = tabbables()[0];
+    initial?.focus();
+
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const list = tabbables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && !drawerRef.current?.contains(active)) {
+        // Focus drifted outside the drawer somehow — yank it back.
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("keydown", handler);
+    };
+  }, [open]);
+
+  // Restore focus to the trigger when the drawer closes. Skipping the
+  // initial-render case so screen readers don't get a phantom focus
+  // announcement on mount.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true;
+    } else if (wasOpenRef.current) {
+      triggerRef.current?.focus();
+      wasOpenRef.current = false;
+    }
   }, [open]);
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex size-9 items-center justify-center rounded-md text-text-primary hover:bg-surface-inset sm:hidden"
         aria-label="Open navigation"
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         <Menu className="size-5" />
       </button>
 
       {open && (
         <div
+          ref={drawerRef}
           className="fixed inset-0 z-50 sm:hidden"
           role="dialog"
           aria-modal="true"
