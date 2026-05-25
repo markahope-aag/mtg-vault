@@ -3,8 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { scanCard } from "@/lib/ai/scan-card";
-
+import { rateLimit } from "@/lib/rate-limit";
 import { serverError } from "@/lib/api-errors";
+
 export const dynamic = "force-dynamic";
 // Card scanning is well-bounded but the Anthropic call can take a few
 // seconds on slow connections. 30s ceiling so we never get truncated by
@@ -19,6 +20,16 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Runaway-loop guard. 200/min is well above any manual scanning
+  // workflow but trips fast if a UI bug fires repeatedly.
+  const limit = rateLimit("scan-card", 200);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many scans this minute. Try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

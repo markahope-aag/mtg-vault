@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { deckProposals } from "@/db/schema";
 import { generateDeck } from "@/lib/rogue/generate";
 import { generateProposalSchema } from "@/lib/rogue/schemas";
+import { rateLimit } from "@/lib/rate-limit";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,19 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  // Most expensive LLM call in the app — up to 5 Sonnet round-trips
+  // per generation, each taking 30-60s. A legitimate human paces
+  // ~2/min at most; 20/min is the runaway-loop ceiling.
+  const limit = rateLimit("proposals", 20);
+  if (!limit.ok) {
+    return NextResponse.json(
+      {
+        error: "Too many generations this minute. Try again shortly.",
+      },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
