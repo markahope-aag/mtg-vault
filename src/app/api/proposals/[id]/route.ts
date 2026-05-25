@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { deckProposals } from "@/db/schema";
+import { patchProposalSchema } from "@/lib/rogue/schemas";
 import { serverError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
@@ -46,23 +47,24 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  if (typeof body !== "object" || body == null) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  const parsed = patchProposalSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid payload", details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
-  const b = body as {
-    cardList?: unknown;
-    archetypeBrief?: unknown;
-    targetBracket?: unknown;
-  };
+  // Only set fields the user actually sent. Spreading parsed.data into
+  // the update would write `undefined` for omitted fields, which
+  // Drizzle interprets as "set this column to NULL" — wiping
+  // cardList/archetypeBrief on a partial update.
   const update: Record<string, unknown> = {};
-  if (Array.isArray(b.cardList)) update.cardList = b.cardList;
-  if (typeof b.archetypeBrief === "string")
-    update.archetypeBrief = b.archetypeBrief;
-  if (b.targetBracket === null || typeof b.targetBracket === "number")
-    update.targetBracket = b.targetBracket;
-  if (Object.keys(update).length === 0) {
-    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-  }
+  if (parsed.data.cardList !== undefined)
+    update.cardList = parsed.data.cardList;
+  if (parsed.data.archetypeBrief !== undefined)
+    update.archetypeBrief = parsed.data.archetypeBrief;
+  if (parsed.data.targetBracket !== undefined)
+    update.targetBracket = parsed.data.targetBracket;
   try {
     await db
       .update(deckProposals)
