@@ -67,9 +67,16 @@ export async function GET(req: NextRequest) {
   }
 
   if (authError) {
+    // Log the provider's message server-side (helpful for diagnosing
+    // bad magic links / expired tokens / clock skew). Do NOT echo it
+    // into the redirect URL — Supabase / OAuth provider error text
+    // can include token fragments, internal endpoint paths, or other
+    // detail not meant for the user's address bar (and would land in
+    // the user's browser history). The /login page renders a generic
+    // message off `?error=callback_failed`.
     console.error("[auth/callback] failed:", authError);
     return NextResponse.redirect(
-      `${publicOrigin}/login?error=callback_failed&detail=${encodeURIComponent(authError.message)}`,
+      `${publicOrigin}/login?error=callback_failed`,
     );
   }
 
