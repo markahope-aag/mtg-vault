@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db/client";
 import { decks } from "@/db/schema";
 import { fetchDeckDetail } from "@/lib/decks/queries";
+import { rateLimit } from "@/lib/rate-limit";
 import { serverError } from "@/lib/api-errors";
 import {
   analyzeDeck,
@@ -67,6 +68,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  // Per-deck runaway-loop guard. 60 analyses of the same deck in a
+  // minute is impossible by hand; tripping this means a UI bug.
+  // Keyed by deck id so analyzing different decks in parallel doesn't
+  // share a bucket.
+  const limit = rateLimit(`analyze:${id}`, 60);
+  if (!limit.ok) {
+    return NextResponse.json(
+      {
+        error:
+          "Too many analyses of this deck in the last minute. Try again shortly.",
+      },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
+    );
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       {
