@@ -138,14 +138,6 @@ export function FilterBar({
             Banned only
           </ToggleLabel>
           <ToggleLabel
-            checked={false}
-            disabled
-            onChange={() => {}}
-            title="Wires up when decks have inventory bindings"
-          >
-            Available
-          </ToggleLabel>
-          <ToggleLabel
             checked={includeDisposed}
             onChange={onIncludeDisposedChange}
           >
