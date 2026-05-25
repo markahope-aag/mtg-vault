@@ -39,6 +39,16 @@ export async function proxy(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const allowList = parseAllowedEmails(process.env.ALLOWED_EMAIL);
+  if (allowList.length === 0) {
+    // Fail loud server-side. Empty ALLOWED_EMAIL silently locks every
+    // user out — login still works, magic links still send, but every
+    // authenticated request gets signed-out + redirected with
+    // ?error=not_allowed. Surface that as a real config error so the
+    // deploy is obviously broken instead of mysteriously empty.
+    console.error(
+      "[proxy] ALLOWED_EMAIL is empty or unset. No user will be allowed past auth. Set it to a comma-separated list of allowed emails in .env.local (and on Vercel).",
+    );
+  }
   const isAllowed = isAllowedEmail(user?.email, allowList);
 
   if (isAuthRoutePath(path)) {
