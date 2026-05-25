@@ -173,7 +173,18 @@ export async function PATCH(
   }
 
   try {
-    await db.update(transactions).set(update).where(eq(transactions.id, id));
+    // .returning() so we can tell the user when their id didn't match
+    // any row. Without this the PATCH would 200 + {ok:true} even when
+    // zero rows were updated — a silent no-op for a missing or stale
+    // id is a worse UX than a 404 the client can react to.
+    const updated = await db
+      .update(transactions)
+      .set(update)
+      .where(eq(transactions.id, id))
+      .returning({ id: transactions.id });
+    if (updated.length === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     return serverError(
@@ -198,7 +209,15 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    await db.delete(transactions).where(eq(transactions.id, id));
+    // Same .returning() trick as PATCH — a DELETE that matched zero
+    // rows should 404, not silently succeed.
+    const deleted = await db
+      .delete(transactions)
+      .where(eq(transactions.id, id))
+      .returning({ id: transactions.id });
+    if (deleted.length === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     return serverError(
