@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { games, gamePlayers, decks } from "@/db/schema";
+import { games, decks } from "@/db/schema";
 
 export type GameListRow = {
   id: string;
