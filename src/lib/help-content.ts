@@ -248,7 +248,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         type: "p",
-        text: "Click New to log a transaction. Pick a Kind (Purchase, Sale, or Trade) and the form reshapes: Purchase has cards in + cash out; Sale has cards out + cash in; Trade has both sides with optional cash legs (handy for $5 to even out a difference). Add a date, counterparty (LGS, eBay seller, trade partner), channel, and notes. Then search to add lines — going out searches your inventory, coming in searches any card.",
+        text: "Click Log transaction to open the form. Pick a Kind (Purchase, Sale, or Trade) and the form reshapes: Purchase has cards in + cash out; Sale has cards out + cash in; Trade has both sides with optional cash legs (handy for $5 to even out a difference). Add a date, counterparty (LGS, eBay seller, trade partner), channel, and notes. Then search to add lines — going out searches your inventory, coming in searches any card.",
       },
       {
         type: "p",

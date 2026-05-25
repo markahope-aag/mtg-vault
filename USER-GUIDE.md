@@ -303,8 +303,8 @@ unified ledger; purchases and sales now live here too.
 
 ### Logging a transaction
 
-Click **New** (top-right). The form opens with three fixed parts plus a
-live allocation preview.
+Click **Log transaction** (top-right). The form opens with three fixed
+parts plus a live allocation preview.
 
 1. **Kind** — pick **Purchase**, **Sale**, or **Trade**. The form
    reshapes based on the choice:
