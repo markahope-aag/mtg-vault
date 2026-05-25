@@ -55,7 +55,7 @@ The auth boundary lives **entirely** in `src/proxy.ts`. Every request matching t
 
 **Admin elevation.** `/api/admin/*` routes, `/(app)/admin/*` pages, and the `refreshBracketFlagsAction` Server Action are gated by `requireAdmin()` / `requireAdminUser()` in `src/lib/auth/require-admin.ts`. Admin list is parsed from `ADMIN_EMAIL` (comma-separated), falling back to `ALLOWED_EMAIL` when unset — single-user deploys keep working out of the box, but adding a second allowlisted user no longer silently grants admin.
 
-**Session in scope.** When a non-admin route legitimately needs the User object inside the handler (audit logging, echoing the user's email back, future per-user isolation), use `requireSession()` from `src/lib/auth/require-session.ts`. Returns `{ ok: true, user }` or `{ ok: false, res }` where `res` is the 401 / 403 Response. Do **not** retrofit it onto routes that don't need the user identity — the proxy already gates them and adding `getUser()` to every handler would multiply Supabase round-trips for no security gain (see PR #5's auth-model contract).
+**Session inside a handler.** Non-admin routes generally should NOT call `auth.getUser()` per-handler — the proxy already gates them and adding it everywhere would multiply Supabase round-trips for no security gain (see PR #5's auth-model contract). If a future route legitimately needs the user identity inside the handler (audit logging, echoing email back, per-user isolation), copy the small `requireAdmin`-style pattern locally rather than introducing a shared helper — keeping the friction high stops it from sprawling.
 
 This means **the proxy matcher is load-bearing**. Two contract tests pin it:
 
