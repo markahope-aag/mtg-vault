@@ -164,6 +164,14 @@ function GroupRow({
   return (
     <>
       <tr
+        // content-visibility:auto lets the browser skip layout + paint
+        // for off-screen rows once the collection grows past a few
+        // hundred entries. contain-intrinsic-size reserves an estimated
+        // height so scroll position stays stable when rows are
+        // collapsed. ⌘+F search still surfaces hidden rows
+        // (per the content-visibility spec), and AT can reach them.
+        // ~37px is the measured row height for the grouped table.
+        style={{ contentVisibility: "auto", containIntrinsicSize: "auto 37px" }}
         className={cn(
           "border-b border-border-subtle transition-colors",
           isOpen ? "bg-surface-inset/40" : "hover:bg-surface-inset/40",
@@ -301,6 +309,7 @@ function GroupChildRow({
   const paid = row.acquiredPrice ? Number(row.acquiredPrice) : null;
   return (
     <tr
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 33px" }}
       className={cn(
         "group/row border-b border-border-subtle bg-surface-inset/30 transition-colors hover:bg-surface-inset/60",
         disposed && "opacity-55",
@@ -500,6 +509,7 @@ function PhysicalRow({
   const disposed = !!row.disposedAt;
   return (
     <tr
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 33px" }}
       className={cn(
         "group/row border-b border-border-subtle transition-colors hover:bg-surface-inset/40",
         disposed && "opacity-55",
