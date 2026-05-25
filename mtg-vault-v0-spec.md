@@ -45,7 +45,7 @@ Multi-user (deferred — `proxy.ts` allowlist works for the single-user case), n
 | Auth | Supabase Auth (magic link) | Comma-separated `ALLOWED_EMAIL` allowlist |
 | Tables | Custom (`inventory-table/index.tsx`) | Hand-rolled grouped/physical view with client-side state; no virtualization |
 | Client state | `fetch` + `useState`/`useEffect` | Each pane owns its own fetches and error toasts; no global query cache |
-| Forms | Bare React + Zod | API + dialog validation (`react-hook-form` was dropped — `useState` + manual `safeParse` is enough at this scale) |
+| Forms | Bare React + Zod | `useState` + Zod `safeParse` in dialogs and API routes (no third-party form library) |
 | Charts | Recharts | Dashboard + price history |
 | AI | Anthropic SDK | Strategy tab only; optional |
 | Cron | Vercel Cron + GitHub Actions | See §6 |
@@ -138,7 +138,7 @@ magic-app/
 │   │   ├── importers/
 │   │   └── supabase/
 │   └── proxy.ts                        # Auth + allowlist (was middleware.ts in Next 15)
-├── drizzle/                            # 16 migrations
+├── drizzle/                            # 21 migrations (0000–0020)
 ├── scripts/sync-scryfall.ts            # Full bulk sync (also `pnpm db:seed`)
 ├── .github/workflows/weekly-card-sync.yml
 ├── vercel.json
@@ -167,8 +167,9 @@ Rule of thumb: if the same query starts getting imported by a second feature, mo
 | `cards` | Oracle-level card data + bracket flags |
 | `printings` | Individual printings, prices, images, `card_faces` for DFCs |
 | `price_history` | Daily price snapshots per printing |
-| `combos` / `combo_pieces` | **Schema only — not populated.** Combo detection uses live Spellbook API. |
 | `sync_state` | Key/value sync metadata |
+
+Combo detection uses the **live Commander Spellbook API** (`src/lib/spellbook.ts`), not local tables. Legacy `combos` / `combo_pieces` were **dropped** in migration `0013`.
 
 Notable schema choices:
 - `cmc` is `numeric(12,1)` (Gleemax overflow fix)
@@ -193,7 +194,9 @@ Notable schema choices:
 
 ### RLS
 
-Migration `0002_enable_rls.sql` enables RLS with **no policies** on core tables, blocking anon/authenticated PostgREST access. Drizzle uses the Postgres owner role and bypasses RLS. The `locations` table was missed in 0002 and was retroactively enabled in `0013_locations_rls_and_drop_combos.sql`; `trades` (added in `0015_trades.sql`) was enabled at create time.
+Migration `0002_enable_rls.sql` enables RLS with **no policies** on application tables, blocking anon/authenticated PostgREST access. Drizzle uses the Postgres owner role and bypasses RLS.
+
+Migration `0013_locations_rls_and_drop_combos.sql` retroactively enabled RLS on `locations` (missed when `locations` was added in `0012`) and dropped unused `combos` / `combo_pieces`. Tables added in `0016`–`0020` (`deck_proposals`, `transactions`, `market_*`, `wants`, etc.) enable RLS in their create migrations. Legacy `trades` (`0015`) was removed in `0018`.
 
 ---
 
@@ -227,11 +230,9 @@ Scryfall `is:gamechanger` search; resets and re-flags `cards.is_game_changer`.
 
 ### Commander Spellbook (live API, not bulk sync)
 
-**Original spec:** nightly bulk sync of `variants.json` into `combos` / `combo_pieces`.
+**Original plan:** nightly bulk sync of `variants.json` into local combo tables.
 
-**As built:** `src/lib/spellbook.ts` calls `backend.commanderspellbook.com/estimate-bracket` at bracket-calculation time. 8s timeout, 1h in-memory cache per serverless instance. `bracket-engine.ts` degrades gracefully when Spellbook is unavailable.
-
-The local combo tables remain in schema but are unused. Either implement bulk sync later or drop the tables.
+**As built:** `src/lib/spellbook.ts` calls `backend.commanderspellbook.com/estimate-bracket` at bracket-calculation time. 8s timeout, 1h in-memory cache per serverless instance. `bracket-engine.ts` degrades gracefully when Spellbook is unavailable. No local combo tables — they were removed in migration `0013`.
 
 ### `vercel.json` (current)
 
@@ -372,7 +373,6 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 | Item | Severity | Notes |
 |---|---|---|
-| `locations` missing RLS | Low | Inconsistent with other tables. Currently moot since Drizzle runs as the table owner and bypasses RLS regardless, but the inconsistency would matter the day a Supabase JS client reads this table. |
 | Partner validation heuristic | Low | Regex `Partner` only; Background/Friends Forever deferred |
 | No color-identity enforcement on add | Low | Banned cards warn; off-color cards allowed |
 | Spellbook cache per-instance | Low | Cold starts re-hit external API |
@@ -383,7 +383,8 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 Listed here so future audits don't re-flag them:
 
-- ~~Automated tests partial~~ — 32 files / 376 tests covering API routes (api.test.ts), proxy + auth-gate contract (proxy.test.ts, auth-gate.test.ts), bracket logic, importers, ledger allocation, market valuation/bargains, scraper denylist, rogue generator validation/reconciliation, plus component smoke tests.
+- ~~Automated tests partial~~ — 33 files / 380 tests covering API routes (`api.test.ts`), proxy + auth-gate contract (`proxy.test.ts`, `auth-gate.test.ts`), bracket logic, importers, ledger allocation, market valuation/bargains, scraper denylist, rogue generator validation/reconciliation, plus component smoke tests.
+- ~~`locations` missing RLS~~ — fixed in migration `0013` (retroactive enable on `locations`).
 - ~~`combos` tables unused~~ — dropped in migration `0013`; live Spellbook API is the source of truth.
 - ~~Import commit not transactional~~ — wrapped in `db.transaction` since the audit pass (see `api/import/csv/route.ts:228`).
 

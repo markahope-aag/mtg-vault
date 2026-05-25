@@ -98,7 +98,7 @@ Sync is split across two runners because the Scryfall bulk file (~500MB) cannot 
 | Game changers sync | Vercel cron `/api/cron/game-changers-sync` | 06:30 UTC daily | Refreshes `is_game_changer` flags |
 | Bracket flags refresh | Vercel cron `/api/cron/refresh-bracket-flags` | 08:00 UTC daily | Extra turns, MLD, tutor flags |
 
-Combo detection for bracket calculation uses the **live Commander Spellbook API** (`src/lib/spellbook.ts`), not a local combo database. The `combos` / `combo_pieces` tables exist in schema but are not populated.
+Combo detection for bracket calculation uses the **live Commander Spellbook API** (`src/lib/spellbook.ts`), not a local combo database. Legacy `combos` / `combo_pieces` tables were dropped in migration `0013`.
 
 ## Project layout
 
@@ -135,7 +135,7 @@ There are no `user_id` columns — the app assumes one writer. Multi-user would 
 
 ## Testing
 
-Vitest unit + integration tests across 32 files / 376 tests. Coverage spans:
+Vitest unit + integration tests across 33 files / 380 tests. Coverage spans:
 
 - **Auth & proxy** — `proxy.ts` matcher behavior (allowlist branches, signout-on-deny, login redirect, cron pass-through), `parseAllowedEmails` / `parseAdminEmails` / `isAdminEmail` / `shouldBypassAuth`, `redirect.ts` open-redirect guard (10 attack vectors covered), `cron-auth.ts` constant-time bearer compare (wrong-same-length, wrong-shorter, wrong-longer, missing header, missing Bearer prefix).
 - **Auth-gate contract** — enumerates every `route.ts` under `src/app/api/` at test time; asserts each non-cron route 307s to `/login` when unauthenticated, cron routes pass through, and `/manifest.webmanifest` + `/sw.js` bypass the proxy entirely.
