@@ -54,7 +54,13 @@ vi.mock("@/db/queries/availability", () => ({
 }));
 
 vi.mock("@/lib/ai/scan-card", () => ({
-  scanCard: vi.fn().mockResolvedValue({ name: null, setCode: null }),
+  scanCard: vi.fn().mockResolvedValue({
+    name: null,
+    setCode: null,
+    collectorNumber: null,
+    confidence: "low",
+    notes: null,
+  }),
 }));
 
 // Admin gate is unit-tested separately (lib/auth/allowlist.test.ts +
@@ -65,11 +71,53 @@ vi.mock("@/lib/auth/require-admin", () => ({
   requireAdminUser: vi.fn().mockResolvedValue({ email: "op@example.com" }),
 }));
 
+vi.mock("@/lib/market/bargain-sweep", () => ({
+  sweepBargains: vi.fn().mockResolvedValue({
+    bargains: [],
+    unmetWants: [],
+    sourceStats: [{ sourceId: "ebay", enabled: false, listingCount: 0, errorCount: 0 }],
+  }),
+}));
+
+vi.mock("@/lib/market/wantlist", () => ({
+  fetchWantList: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/rogue/reconcile", () => ({
+  reconcile: vi.fn().mockResolvedValue({
+    buckets: {
+      available_now: [],
+      movable: [],
+      contested: [],
+      must_buy: [],
+    },
+    summary: { totalCards: 0, ownedCount: 0, mustBuyCount: 0 },
+    scenarios: {
+      buy_everything: { totalCostUsd: 0, shoppingList: [], cardsPulledFromDecks: [], decksImpacted: [] },
+      cannibalize_freely: { totalCostUsd: 0, shoppingList: [], cardsPulledFromDecks: [], decksImpacted: [] },
+      protect_primary: { totalCostUsd: 0, shoppingList: [], cardsPulledFromDecks: [], decksImpacted: [] },
+      price_threshold_split: { totalCostUsd: 0, shoppingList: [], cardsPulledFromDecks: [], decksImpacted: [] },
+    },
+    preExistingContention: [],
+  }),
+}));
+
+vi.mock("@/lib/rogue/generate", () => ({
+  generateDeck: vi.fn().mockResolvedValue({
+    ok: true,
+    commanderOracleId: "22222222-2222-4222-8222-222222222222",
+    cardList: [{ oracleId: "22222222-2222-4222-8222-222222222222", name: "Sol Ring" }],
+    analysis: { summary: "test" },
+    log: { model: { generate: "claude-test" }, passes: [] },
+  }),
+}));
+
 import { scanCard } from "@/lib/ai/scan-card";
 import { fetchDeckDetail } from "@/lib/decks/queries";
 import { calculateBracket } from "@/lib/bracket-engine";
 import { analyzeDeck } from "@/lib/ai/strategy";
 import type { DeckDetail } from "@/lib/decks/types";
+import type { BracketResult } from "@/lib/bracket-engine-types";
 
 const ROW_ID = "11111111-1111-4111-8111-111111111111";
 const ORACLE_ID = "22222222-2222-4222-8222-222222222222";
@@ -81,6 +129,32 @@ const LOCATION_ID = "77777777-7777-4777-8777-777777777777";
 const SNAPSHOT_ID = "88888888-8888-4888-8888-888888888888";
 const BRACKET_DECK_ID = "99999999-9999-4999-8999-999999999999";
 const RATE_LIMIT_DECK_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const TRANSACTION_ID = "66666666-6666-4666-8666-666666666666";
+const PROPOSAL_ID = "77777777-7777-4777-8777-777777777777";
+const MARKET_SOURCE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+function mockBracketResult(overrides?: Partial<BracketResult>): BracketResult {
+  return {
+    bracket: 3,
+    confidence: "calculated",
+    reasons: [],
+    metrics: {
+      gameChangerCount: 0,
+      twoCardComboCount: 0,
+      multiCardComboCount: 0,
+      massLandDenialCount: 0,
+      extraTurnCount: 0,
+      tutorCount: 0,
+      deckSize: 100,
+      commanderColorIdentity: ["G", "W", "U", "B"],
+    },
+    toReachBracket: {},
+    spellbookAvailable: true,
+    spellbookBracket: 3,
+    spellbookBracketTag: null,
+    ...overrides,
+  };
+}
 
 function minimalDeckDetail(overrides?: {
   commander?: DeckDetail["commander"] | null;
@@ -107,8 +181,10 @@ function minimalDeckDetail(overrides?: {
       usdFoil: null,
     },
   };
-  const commander =
-    overrides && "commander" in overrides ? overrides.commander : defaultCommander;
+  const commander: DeckDetail["commander"] =
+    overrides && "commander" in overrides
+      ? (overrides.commander ?? null)
+      : defaultCommander;
   const cards = overrides?.cards ?? [
     {
       deckCardRow: { printingId: PRINTING_ID, quantity: 1, category: "main" },
@@ -254,7 +330,7 @@ describe("API routes", () => {
     it("POST preview rejects missing file payload", async () => {
       const { POST } = await import("@/app/api/import/csv/route");
       const res = await POST(
-        new NextRequest("http://localhost/api/import/csv?mode=preview", {
+        new NextRequest("http://localhost/api/import/csv", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({}),
@@ -262,14 +338,73 @@ describe("API routes", () => {
       );
       expect(res.status).toBeGreaterThanOrEqual(400);
     });
+
+    it("POST commit creates a batch and inserts inventory rows", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([{ id: BATCH_ID }]);
+      const { POST } = await import("@/app/api/import/csv/route");
+      const res = await POST(
+        jsonRequest("http://localhost/api/import/csv?commit=true", "POST", {
+          fileHash: "deadbeef",
+          filename: "manabox.csv",
+          format: "manabox",
+          defaultLocation: "Binder A",
+          mode: "append",
+          totalRows: 1,
+          resolved: [
+            {
+              sourceRowIndex: 0,
+              printingId: PRINTING_ID,
+              quantity: 2,
+            },
+          ],
+          unmatchedCount: 0,
+          skippedCount: 0,
+        }),
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        batchId: BATCH_ID,
+        importedRows: 2,
+        unmatchedRows: 0,
+        skippedRows: 0,
+      });
+      expect(dbMock.mocks.transaction).toHaveBeenCalled();
+    });
   });
 
   describe("deck detail route", () => {
+    const deckParams = { params: Promise.resolve({ id: ROW_ID }) };
+
     it("GET returns 404 for missing deck", async () => {
+      vi.mocked(fetchDeckDetail).mockResolvedValueOnce(null);
       const { GET } = await import("@/app/api/decks/[id]/route");
       const res = await GET(
-        new NextRequest("http://localhost/api/decks/missing"),
-        { params: Promise.resolve({ id: "missing" }) },
+        new NextRequest(`http://localhost/api/decks/${ROW_ID}`),
+        deckParams,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("PATCH returns 404 when deck id is unknown", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([]);
+      const { PATCH } = await import("@/app/api/decks/[id]/route");
+      const res = await PATCH(
+        jsonRequest(`http://localhost/api/decks/${ROW_ID}`, "PATCH", {
+          name: "Renamed",
+        }),
+        deckParams,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("DELETE returns 404 when deck id is unknown", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([]);
+      const { DELETE } = await import("@/app/api/decks/[id]/route");
+      const res = await DELETE(
+        new NextRequest(`http://localhost/api/decks/${ROW_ID}`, {
+          method: "DELETE",
+        }),
+        deckParams,
       );
       expect(res.status).toBe(404);
     });
@@ -630,11 +765,430 @@ describe("API routes", () => {
     });
   });
 
-  // Legacy /api/trades routes were retired in migration 0018 — the
-  // transactions table now covers purchases, sales, and trades in one
-  // model. New transaction tests live in src/lib/ledger/allocate.test.ts
-  // for the math; the API surface is exercised manually until a
-  // transactions describe block is written.
+  describe("transactions routes", () => {
+    const txnUrl = "http://localhost/api/transactions";
+    const occurredAt = "2024-06-01T12:00:00.000Z";
+
+    it("GET returns transaction list JSON", async () => {
+      dbMock.mocks.execute.mockResolvedValueOnce([
+        {
+          id: TRANSACTION_ID,
+          kind: "purchase",
+          occurred_at: occurredAt,
+          counterparty: "LGS",
+          channel: "lgs",
+          cash_out_usd: "10.00",
+          cash_in_usd: null,
+          fees_usd: null,
+          notes: null,
+          created_at: occurredAt,
+          in_count: 1,
+          out_count: 0,
+          in_value: "10.00",
+          out_value: "0",
+        },
+      ]);
+      const { GET } = await import("@/app/api/transactions/route");
+      const res = await GET(new NextRequest(txnUrl));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.transactions).toHaveLength(1);
+      expect(body.transactions[0].kind).toBe("purchase");
+    });
+
+    it("POST rejects invalid JSON", async () => {
+      const { POST } = await import("@/app/api/transactions/route");
+      const res = await POST(
+        new NextRequest(txnUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{",
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("POST rejects purchase without in lines", async () => {
+      const { POST } = await import("@/app/api/transactions/route");
+      const res = await POST(
+        jsonRequest(txnUrl, "POST", {
+          kind: "purchase",
+          occurredAt,
+          cashOutUsd: 10,
+          lines: [{ direction: "out", printingId: PRINTING_ID, inventoryId: INVENTORY_ID }],
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("POST records a purchase and returns 201", async () => {
+      dbMock.mocks.execute.mockResolvedValueOnce([
+        { id: PRINTING_ID, usd: "10.00", usd_foil: null },
+      ]);
+      dbMock.mocks.returning
+        .mockResolvedValueOnce([{ id: TRANSACTION_ID }])
+        .mockResolvedValueOnce([{ id: INVENTORY_ID }]);
+      const { POST } = await import("@/app/api/transactions/route");
+      const res = await POST(
+        jsonRequest(txnUrl, "POST", {
+          kind: "purchase",
+          occurredAt,
+          cashOutUsd: 10,
+          lines: [{ direction: "in", printingId: PRINTING_ID }],
+        }),
+      );
+      expect(res.status).toBe(201);
+      await expect(res.json()).resolves.toEqual({ id: TRANSACTION_ID });
+    });
+
+    it("GET detail returns 404 when missing", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([]);
+      const { GET } = await import("@/app/api/transactions/[id]/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/transactions/${TRANSACTION_ID}`),
+        { params: Promise.resolve({ id: TRANSACTION_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("PATCH returns 404 when transaction id is unknown", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([]);
+      const { PATCH } = await import("@/app/api/transactions/[id]/route");
+      const res = await PATCH(
+        jsonRequest(
+          `http://localhost/api/transactions/${TRANSACTION_ID}`,
+          "PATCH",
+          { counterparty: "Updated" },
+        ),
+        { params: Promise.resolve({ id: TRANSACTION_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("DELETE returns 404 when transaction id is unknown", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([]);
+      const { DELETE } = await import("@/app/api/transactions/[id]/route");
+      const res = await DELETE(
+        new NextRequest(`http://localhost/api/transactions/${TRANSACTION_ID}`, {
+          method: "DELETE",
+        }),
+        { params: Promise.resolve({ id: TRANSACTION_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("POST undo returns 404 when transaction is missing", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([]);
+      const { POST } = await import("@/app/api/transactions/[id]/undo/route");
+      const res = await POST(
+        new NextRequest(
+          `http://localhost/api/transactions/${TRANSACTION_ID}/undo`,
+          { method: "POST" },
+        ),
+        { params: Promise.resolve({ id: TRANSACTION_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("POST undo returns 409 when in-lines were disposed downstream", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([{ id: TRANSACTION_ID }]);
+      dbMock.mocks.execute.mockResolvedValueOnce([
+        {
+          line_id: "line-1",
+          direction: "in",
+          inventory_id: INVENTORY_ID,
+          disposed_at: new Date("2024-07-01"),
+          row_txn_id: TRANSACTION_ID,
+          card_name: "Sol Ring",
+        },
+      ]);
+      const { POST } = await import("@/app/api/transactions/[id]/undo/route");
+      const res = await POST(
+        new NextRequest(
+          `http://localhost/api/transactions/${TRANSACTION_ID}/undo`,
+          { method: "POST" },
+        ),
+        { params: Promise.resolve({ id: TRANSACTION_ID }) },
+      );
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.conflicts).toHaveLength(1);
+    });
+
+    it("POST undo deletes in-lines and removes the transaction", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([{ id: TRANSACTION_ID }]);
+      dbMock.mocks.execute.mockResolvedValueOnce([
+        {
+          line_id: "line-1",
+          direction: "in",
+          inventory_id: INVENTORY_ID,
+          disposed_at: null,
+          row_txn_id: TRANSACTION_ID,
+          card_name: "Sol Ring",
+        },
+      ]);
+      dbMock.mocks.returning.mockResolvedValueOnce([{ id: INVENTORY_ID }]);
+      const { POST } = await import("@/app/api/transactions/[id]/undo/route");
+      const res = await POST(
+        new NextRequest(
+          `http://localhost/api/transactions/${TRANSACTION_ID}/undo`,
+          { method: "POST" },
+        ),
+        { params: Promise.resolve({ id: TRANSACTION_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        ok: true,
+        deleted: 1,
+        restored: 0,
+      });
+    });
+  });
+
+  describe("proposals routes", () => {
+    const proposalsUrl = "http://localhost/api/proposals";
+
+    it("POST rejects invalid commanderOracleId", async () => {
+      const { POST } = await import("@/app/api/proposals/route");
+      const res = await POST(
+        jsonRequest(proposalsUrl, "POST", {
+          commanderOracleId: "not-a-uuid",
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("POST creates a proposal after generation", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([{ id: PROPOSAL_ID }]);
+      const { POST } = await import("@/app/api/proposals/route");
+      const res = await POST(
+        jsonRequest(proposalsUrl, "POST", {
+          kind: "standard",
+          commanderOracleId: ORACLE_ID,
+          targetBracket: 3,
+        }),
+      );
+      expect(res.status).toBe(201);
+      await expect(res.json()).resolves.toMatchObject({ id: PROPOSAL_ID, ok: true });
+    });
+
+    it("GET returns 404 for unknown proposal", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([]);
+      const { GET } = await import("@/app/api/proposals/[id]/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/proposals/${PROPOSAL_ID}`),
+        { params: Promise.resolve({ id: PROPOSAL_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("POST reconcile returns 404 when proposal has no card list", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([
+        { cardList: null },
+      ]);
+      const { POST } = await import("@/app/api/proposals/[id]/reconcile/route");
+      const res = await POST(
+        new NextRequest(
+          `http://localhost/api/proposals/${PROPOSAL_ID}/reconcile`,
+          { method: "POST" },
+        ),
+        { params: Promise.resolve({ id: PROPOSAL_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("POST reconcile returns reconcile payload", async () => {
+      dbMock.mocks.limit.mockResolvedValueOnce([
+        {
+          cardList: [{ oracleId: ORACLE_ID, name: "Sol Ring" }],
+        },
+      ]);
+      const { POST } = await import("@/app/api/proposals/[id]/reconcile/route");
+      const res = await POST(
+        new NextRequest(
+          `http://localhost/api/proposals/${PROPOSAL_ID}/reconcile`,
+          { method: "POST" },
+        ),
+        { params: Promise.resolve({ id: PROPOSAL_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toHaveProperty("buckets");
+    });
+
+    it("POST save rejects missing deck name", async () => {
+      const { POST } = await import("@/app/api/proposals/[id]/save/route");
+      const res = await POST(
+        jsonRequest(
+          `http://localhost/api/proposals/${PROPOSAL_ID}/save`,
+          "POST",
+          {},
+        ),
+        { params: Promise.resolve({ id: PROPOSAL_ID }) },
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("PATCH updates proposal fields", async () => {
+      const { PATCH } = await import("@/app/api/proposals/[id]/route");
+      const res = await PATCH(
+        jsonRequest(`http://localhost/api/proposals/${PROPOSAL_ID}`, "PATCH", {
+          archetypeBrief: "more tokens",
+        }),
+        { params: Promise.resolve({ id: PROPOSAL_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ ok: true });
+    });
+
+    it("DELETE removes a proposal", async () => {
+      const { DELETE } = await import("@/app/api/proposals/[id]/route");
+      const res = await DELETE(
+        new NextRequest(`http://localhost/api/proposals/${PROPOSAL_ID}`, {
+          method: "DELETE",
+        }),
+        { params: Promise.resolve({ id: PROPOSAL_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ ok: true });
+    });
+  });
+
+  describe("market routes", () => {
+    it("POST bargains runs sweep and returns JSON", async () => {
+      const { POST } = await import("@/app/api/market/bargains/route");
+      const res = await POST();
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toHaveProperty("bargains");
+    });
+
+    it("GET wants returns list JSON", async () => {
+      const { GET } = await import("@/app/api/market/wants/route");
+      const res = await GET();
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ wants: [] });
+    });
+
+    it("POST wants rejects invalid payload", async () => {
+      const { POST } = await import("@/app/api/market/wants/route");
+      const res = await POST(
+        jsonRequest("http://localhost/api/market/wants", "POST", {}),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("DELETE wants rejects missing id", async () => {
+      const { DELETE } = await import("@/app/api/market/wants/route");
+      const res = await DELETE(
+        new NextRequest("http://localhost/api/market/wants", { method: "DELETE" }),
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe("deck reconcile route", () => {
+    it("GET returns 404 when deck is missing", async () => {
+      dbMock.mocks.execute
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      const { GET } = await import("@/app/api/decks/[id]/reconcile/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/decks/${ROW_ID}/reconcile`),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("GET returns reconcile JSON for an existing deck", async () => {
+      dbMock.mocks.execute
+        .mockResolvedValueOnce([{ oracle_id: ORACLE_ID, quantity: 1 }])
+        .mockResolvedValueOnce([
+          { commander_oracle_id: ORACLE_ID, partner_oracle_id: null },
+        ]);
+      const { GET } = await import("@/app/api/decks/[id]/reconcile/route");
+      const res = await GET(
+        new NextRequest(`http://localhost/api/decks/${ROW_ID}/reconcile`),
+        { params: Promise.resolve({ id: ROW_ID }) },
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toHaveProperty("buckets");
+    });
+  });
+
+  describe("admin market-sources route", () => {
+    it("GET returns sources list", async () => {
+      dbMock.mocks.execute.mockResolvedValueOnce([
+        {
+          id: ROW_ID,
+          source_key: "test-lgs",
+          display_name: "Test LGS",
+          base_url: "https://example-lgs.com",
+          enabled: false,
+        },
+      ]);
+      const { GET } = await import("@/app/api/admin/market-sources/route");
+      const res = await GET();
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.sources).toHaveLength(1);
+    });
+
+    it("POST rejects hostile marketplace URLs", async () => {
+      const { POST } = await import("@/app/api/admin/market-sources/route");
+      const res = await POST(
+        jsonRequest("http://localhost/api/admin/market-sources", "POST", {
+          sourceKey: "tcg",
+          displayName: "TCG",
+          baseUrl: "https://tcgplayer.com",
+          parserTemplate: "shopify",
+          enabled: false,
+          robotsAcknowledged: true,
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("POST creates a source when payload is valid", async () => {
+      dbMock.mocks.returning.mockResolvedValueOnce([{ id: MARKET_SOURCE_ID }]);
+      const { POST } = await import("@/app/api/admin/market-sources/route");
+      const res = await POST(
+        jsonRequest("http://localhost/api/admin/market-sources", "POST", {
+          sourceKey: "friendly-lgs",
+          displayName: "Friendly LGS",
+          baseUrl: "https://example-lgs.com",
+          parserTemplate: "shopify",
+          enabled: false,
+          robotsAcknowledged: true,
+        }),
+      );
+      expect(res.status).toBe(201);
+      await expect(res.json()).resolves.toEqual({ id: MARKET_SOURCE_ID });
+    });
+
+    it("PATCH updates an existing source", async () => {
+      const { PATCH } = await import("@/app/api/admin/market-sources/route");
+      const res = await PATCH(
+        jsonRequest("http://localhost/api/admin/market-sources", "PATCH", {
+          id: MARKET_SOURCE_ID,
+          enabled: true,
+          robotsAcknowledged: true,
+        }),
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ ok: true });
+    });
+
+    it("DELETE removes a source by id query param", async () => {
+      const { DELETE } = await import("@/app/api/admin/market-sources/route");
+      const res = await DELETE(
+        new NextRequest(
+          `http://localhost/api/admin/market-sources?id=${MARKET_SOURCE_ID}`,
+          { method: "DELETE" },
+        ),
+      );
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ ok: true });
+    });
+  });
 
   describe("card detail route", () => {
     it("GET returns 404 when card is missing", async () => {
@@ -721,14 +1275,7 @@ describe("API routes", () => {
 
     it("POST returns bracket result without writing snapshot", async () => {
       vi.mocked(fetchDeckDetail).mockResolvedValueOnce(minimalDeckDetail());
-      vi.mocked(calculateBracket).mockResolvedValueOnce({
-        bracket: 3,
-        reasons: [],
-        metrics: {},
-        confidence: "high",
-        spellbookAvailable: true,
-        spellbookBracket: 3,
-      });
+      vi.mocked(calculateBracket).mockResolvedValueOnce(mockBracketResult());
       const { POST } = await import("@/app/api/decks/[id]/bracket/route");
       const res = await POST(
         new NextRequest(bracketUrl(BRACKET_DECK_ID)),
@@ -740,14 +1287,7 @@ describe("API routes", () => {
 
     it("POST rate limits rapid recalculation", async () => {
       vi.mocked(fetchDeckDetail).mockResolvedValue(minimalDeckDetail());
-      vi.mocked(calculateBracket).mockResolvedValue({
-        bracket: 3,
-        reasons: [],
-        metrics: {},
-        confidence: "high",
-        spellbookAvailable: true,
-        spellbookBracket: 3,
-      });
+      vi.mocked(calculateBracket).mockResolvedValue(mockBracketResult());
       const { POST } = await import("@/app/api/decks/[id]/bracket/route");
       const params = { params: Promise.resolve({ id: RATE_LIMIT_DECK_ID }) };
       const req = new NextRequest(bracketUrl(RATE_LIMIT_DECK_ID));
@@ -1063,6 +1603,9 @@ describe("API routes", () => {
       vi.mocked(scanCard).mockResolvedValueOnce({
         name: null,
         setCode: null,
+        collectorNumber: null,
+        confidence: "low",
+        notes: null,
       });
       const { POST } = await import("@/app/api/scan-card/route");
       const res = await POST(
@@ -1074,7 +1617,13 @@ describe("API routes", () => {
       expect(res.status).toBe(200);
       expect(scanCard).toHaveBeenCalledWith(VALID_IMAGE_BASE64, "image/png");
       await expect(res.json()).resolves.toEqual({
-        scan: { name: null, setCode: null },
+        scan: {
+          name: null,
+          setCode: null,
+          collectorNumber: null,
+          confidence: "low",
+          notes: null,
+        },
         match: null,
         candidates: [],
       });

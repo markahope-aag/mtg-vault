@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import { computeManabase, extractTool } from "./generate";
+import { bracketDescription, computeManabase, extractTool } from "./generate";
 
 // generate.ts is a multi-pass LLM pipeline; the LLM-touching passes
 // aren't worth testing without real API keys (cost) or a heavy SDK
@@ -16,6 +16,20 @@ import { computeManabase, extractTool } from "./generate";
 //    paths (max_tokens truncation and missing tool call) that the
 //    pipeline relies on to fail loudly rather than silently produce
 //    garbage.
+
+describe("bracketDescription", () => {
+  it("returns a description for each bracket tier", () => {
+    expect(bracketDescription(1)).toContain("Exhibition");
+    expect(bracketDescription(2)).toContain("Core");
+    expect(bracketDescription(3)).toContain("Upgraded");
+    expect(bracketDescription(4)).toContain("Optimized");
+    expect(bracketDescription(5)).toContain("cEDH");
+  });
+
+  it("defaults to bracket 3 guidance when bracket is null", () => {
+    expect(bracketDescription(null)).toContain("bracket 3");
+  });
+});
 
 describe("computeManabase", () => {
   it("returns Wastes for a colorless commander", () => {
@@ -140,12 +154,15 @@ function fakeMessage(
           },
     ) as Anthropic.Message["content"],
     stop_reason,
+    stop_details: null,
     stop_sequence: null,
     usage: {
       input_tokens: 0,
       output_tokens: 0,
       cache_creation_input_tokens: 0,
       cache_read_input_tokens: 0,
+      cache_creation: null,
+      inference_geo: null,
       server_tool_use: null,
       service_tier: null,
     },

@@ -437,3 +437,65 @@ export const marketSourcesTable = pgTable(
     enabledIdx: index("market_sources_enabled_idx").on(t.enabled),
   }),
 );
+
+// ─── GAMES (Phase 2: Result tracking) ───────────────────────────
+
+// A single game played at a table. The user's deck (myDeckId) is the
+// only first-class FK — opponents are stored in game_players. We keep a
+// myDeckNameSnapshot so deletion of the deck (set null) doesn't orphan
+// the historical record. podBracket is the Rule-0 agreed level, distinct
+// from the deck's calculated bracket; stats compare the two.
+export const games = pgTable(
+  "games",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playedAt: timestamp("played_at").notNull(),
+    myDeckId: uuid("my_deck_id").references(() => decks.id, {
+      onDelete: "set null",
+    }),
+    myDeckNameSnapshot: text("my_deck_name_snapshot"),
+    podSize: integer("pod_size"),
+    myFinish: integer("my_finish"),
+    won: boolean("won"),
+    podBracket: integer("pod_bracket"),
+    durationMinutes: integer("duration_minutes"),
+    // 'combo' | 'damage' | 'commander_damage' | 'alt_win' | 'mill'
+    //   | 'poison' | 'concede' | 'other'
+    winType: text("win_type"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    playedAtIdx: index("games_played_at_idx").on(t.playedAt),
+    myDeckIdx: index("games_my_deck_id_idx").on(t.myDeckId),
+    podBracketIdx: index("games_pod_bracket_idx").on(t.podBracket),
+  }),
+);
+
+// One row per seat at the table, including the user themselves
+// (isMe = true on exactly one row per game). commanderOracleId is
+// resolved when the user picked a known card; the snapshot preserves
+// what they typed even if resolution fails or the card later changes.
+export const gamePlayers = pgTable(
+  "game_players",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    isMe: boolean("is_me").default(false).notNull(),
+    playerName: text("player_name"),
+    commanderOracleId: uuid("commander_oracle_id").references(
+      () => cards.oracleId,
+    ),
+    commanderNameSnapshot: text("commander_name_snapshot"),
+    finish: integer("finish"),
+    knockedOutBy: text("knocked_out_by"),
+  },
+  (t) => ({
+    gameIdx: index("game_players_game_id_idx").on(t.gameId),
+    commanderIdx: index("game_players_commander_oracle_idx").on(
+      t.commanderOracleId,
+    ),
+  }),
+);

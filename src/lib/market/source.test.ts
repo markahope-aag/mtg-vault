@@ -95,3 +95,9 @@ describe("detectFoilInTitle", () => {
     expect(detectFoilInTitle("Sol Ring NM Commander 2021")).toBeNull();
   });
 });
+
+describe("flagsFromTitle — edge cases", () => {
+  it("does not flag a normal single with a set code in the title", () => {
+    expect(flagsFromTitle("Sol Ring - C21 - NM")).not.toContain("possible_lot");
+  });
+});

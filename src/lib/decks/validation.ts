@@ -37,9 +37,10 @@ export async function validatePartnerPrinting(
   commanderPrintingId: string,
   partnerPrintingId: string,
 ): Promise<CommanderCheck> {
-  // v0 heuristic: only allow a partner if the commander's oracle text mentions
-  // "Partner". Refining this (Choose a Background, Friends Forever, Partner
-  // with X) is a Phase-7+ concern.
+  // Commander must advertise a supported multi-commander keyword (Partner,
+  // Background, Friends Forever, or "Partner with …"). Background/Friends
+  // Forever still accept any partner printing id — stricter partner-card
+  // rules are deferred.
   const rows = (await db.execute(sql`
     SELECT c.oracle_text
     FROM printings p
@@ -50,8 +51,18 @@ export async function validatePartnerPrinting(
   if (rows.length === 0) {
     return { ok: false, reason: "commander not found" };
   }
-  if (!/Partner/i.test(rows[0].oracle_text ?? "")) {
-    return { ok: false, reason: "commander does not have Partner" };
+  const oracle = rows[0].oracle_text ?? "";
+  const allowsPartner =
+    /\bPartner\b/i.test(oracle) ||
+    /Choose a Background/i.test(oracle) ||
+    /Friends Forever/i.test(oracle) ||
+    /Partner with/i.test(oracle);
+  if (!allowsPartner) {
+    return {
+      ok: false,
+      reason:
+        "commander does not support a partner (needs Partner, Choose a Background, Friends Forever, or Partner with)",
+    };
   }
   // We don't strictly validate the partner itself here — Phase 7 will be
   // stricter once we handle Backgrounds / Friends Forever explicitly.

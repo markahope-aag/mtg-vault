@@ -162,6 +162,13 @@
 			"when": 1780900000000,
 			"tag": "0022_pg_trgm_to_extensions_schema",
 			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1781000000000,
+			"tag": "0023_games",
+			"breakpoints": true
 		}
 	]
 }

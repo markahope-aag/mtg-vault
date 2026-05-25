@@ -312,4 +312,26 @@ describe("reconcile (SQL-backed)", () => {
     ]);
     expect(split.totalCostUsd).toBe(45.1);
   });
+
+  it("buckets partial free stock as available_now when owned exceeds committed", async () => {
+    mockExecute.mockResolvedValueOnce([
+      {
+        oracle_id: "55555555-5555-4555-8555-555555555555",
+        name: "Lightning Bolt",
+        type_line: "Instant",
+        owned_count: 3,
+        committed_total: 1,
+        cheapest_printing_id: "p-bolt",
+        cheapest_usd: "2.00",
+        held_by: [{ deckId: "deck-a", deckName: "A", qty: 1, isPrimary: false }],
+      },
+    ]);
+
+    const result = await reconcile({
+      targetOracleIds: ["55555555-5555-4555-8555-555555555555"],
+    });
+    expect(result.buckets.available_now.map((c) => c.name)).toEqual([
+      "Lightning Bolt",
+    ]);
+  });
 });

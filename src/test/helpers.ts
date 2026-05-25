@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { vi } from "vitest";
 
 export function createDbMock() {
@@ -25,22 +26,35 @@ export function createDbMock() {
 
   return {
     db: { execute, insert, update, select, delete: del, transaction },
-    mocks: { execute, insert, values, returning, select, from, limit, orderBy, where, selectWhere },
+    mocks: {
+      execute,
+      insert,
+      values,
+      returning,
+      select,
+      from,
+      limit,
+      orderBy,
+      where,
+      selectWhere,
+      transaction,
+      delete: del,
+    },
   };
 }
 
-export function cronRequest(path: string, secret?: string): Request {
+export function cronRequest(path: string, secret?: string): NextRequest {
   const headers = new Headers();
   if (secret) headers.set("authorization", `Bearer ${secret}`);
-  return new Request(`http://localhost${path}`, { headers });
+  return new NextRequest(`http://localhost${path}`, { headers });
 }
 
 export function jsonRequest(
   url: string,
   method: string,
   body?: unknown,
-): Request {
-  return new Request(url, {
+): NextRequest {
+  return new NextRequest(url, {
     method,
     headers: { "content-type": "application/json" },
     body: body != null ? JSON.stringify(body) : undefined,

@@ -153,6 +153,55 @@ describe("admin gate contract", () => {
     });
   });
 
+  describe("/api/admin/market-sources PATCH", () => {
+    async function load() {
+      return (await import("@/app/api/admin/market-sources/route")).PATCH;
+    }
+    function req() {
+      return jsonReq("http://localhost/api/admin/market-sources", "PATCH", {
+        id: "11111111-1111-4111-8111-111111111111",
+      });
+    }
+    it("401 when no user", async () => {
+      setUser(null);
+      expect((await (await load())(req())).status).toBe(401);
+    });
+    it("403 when non-admin user", async () => {
+      setUser(NON_ADMIN_EMAIL);
+      expect((await (await load())(req())).status).toBe(403);
+    });
+    it("allows admin user past the gate", async () => {
+      setUser(ADMIN_EMAIL);
+      const res = await (await load())(req());
+      expect([401, 403]).not.toContain(res.status);
+    });
+  });
+
+  describe("/api/admin/market-sources DELETE", () => {
+    async function load() {
+      return (await import("@/app/api/admin/market-sources/route")).DELETE;
+    }
+    function req() {
+      return new NextRequest(
+        "http://localhost/api/admin/market-sources?id=11111111-1111-4111-8111-111111111111",
+        { method: "DELETE" },
+      );
+    }
+    it("401 when no user", async () => {
+      setUser(null);
+      expect((await (await load())(req())).status).toBe(401);
+    });
+    it("403 when non-admin user", async () => {
+      setUser(NON_ADMIN_EMAIL);
+      expect((await (await load())(req())).status).toBe(403);
+    });
+    it("allows admin user past the gate", async () => {
+      setUser(ADMIN_EMAIL);
+      const res = await (await load())(req());
+      expect([401, 403]).not.toContain(res.status);
+    });
+  });
+
   describe("/api/admin/market-sources/[id]/test POST", () => {
     async function load() {
       return (

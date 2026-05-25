@@ -151,4 +151,20 @@ describe("detectBargains", () => {
     });
     expect(bs).toHaveLength(0);
   });
+
+  it("skips zero or negative baselines", () => {
+    const bs = detectBargains(
+      input([listing({ priceUsd: 1 })], 0),
+    );
+    expect(bs).toHaveLength(0);
+  });
+
+  it("honors a custom minConfidence floor", () => {
+    const bs = detectBargains(
+      input([listing({ priceUsd: 2, confidence: 0.55 })], 5, {
+        minConfidence: 0.6,
+      }),
+    );
+    expect(bs).toHaveLength(0);
+  });
 });

@@ -276,4 +276,48 @@ describe("validateDeck", () => {
     expect(result.isClean).toBe(true);
     expect(mockExecute).not.toHaveBeenCalled();
   });
+
+  it("enforces bracket-3 extra-turn cap (max 2)", async () => {
+    const cards = [
+      ...Array.from({ length: 96 }, (_, i) => makeBolt(i + 1)),
+      {
+        ...makeBolt(97),
+        name: "Time Warp",
+        is_extra_turn: true,
+      },
+      {
+        ...makeBolt(98),
+        name: "Temporal Manipulation",
+        is_extra_turn: true,
+      },
+      {
+        ...makeBolt(99),
+        name: "Capture of Jingzhou",
+        is_extra_turn: true,
+      },
+    ];
+    queueLookups({ cards, commander: { oracle_id: "cmd", color_identity: ["U"] } });
+    const result = await validateDeck(
+      cards.map((c) => c.name),
+      "cmd",
+      3,
+    );
+    expect(
+      result.violations.filter((v) => v.type === "extra_turns_over_bracket"),
+    ).toHaveLength(1);
+    expect(result.isClean).toBe(false);
+    expect(result.metrics.extraTurnCount).toBe(3);
+  });
+
+  it("sets isClean false when any violation is present", async () => {
+    const cards = Array.from({ length: 50 }, (_, i) => makeBolt(i + 1));
+    queueLookups({ cards, commander: { oracle_id: "cmd", color_identity: ["R"] } });
+    const result = await validateDeck(
+      cards.map((c) => c.name),
+      "cmd",
+      3,
+    );
+    expect(result.isClean).toBe(false);
+    expect(result.violations.length).toBeGreaterThan(0);
+  });
 });

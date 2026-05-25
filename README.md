@@ -74,7 +74,7 @@ pnpm db:migrate    # apply migrations from drizzle/
 pnpm db:seed       # full Scryfall bulk sync (long-running; ~500MB download)
 ```
 
-Migrations live in `drizzle/` (21 applied). Schema source of truth: `src/db/schema.ts`.
+Migrations live in `drizzle/` (23 applied, `0000`–`0022`). Schema source of truth: `src/db/schema.ts`.
 
 ### Scripts
 
@@ -83,6 +83,8 @@ Migrations live in `drizzle/` (21 applied). Schema source of truth: `src/db/sche
 | `pnpm dev` | Next.js dev server |
 | `pnpm build` | Production build |
 | `pnpm lint` | ESLint |
+| `pnpm test` | Vitest (no coverage gate) |
+| `pnpm test:coverage` | Vitest + coverage thresholds on `src/lib/**` and `proxy.ts` |
 | `pnpm db:generate` | Generate Drizzle migration |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm db:seed` | Scryfall bulk sync (`scripts/sync-scryfall.ts`) |
@@ -135,7 +137,7 @@ There are no `user_id` columns — the app assumes one writer. Multi-user would 
 
 ## Testing
 
-Vitest unit + integration tests across 33 files / 380 tests. Coverage spans:
+Vitest unit + integration tests across 40 files / 479 tests. CI runs `pnpm test:coverage` (thresholds on `src/lib/**` and `proxy.ts`). Coverage spans:
 
 - **Auth & proxy** — `proxy.ts` matcher behavior (allowlist branches, signout-on-deny, login redirect, cron pass-through), `parseAllowedEmails` / `parseAdminEmails` / `isAdminEmail` / `shouldBypassAuth`, `redirect.ts` open-redirect guard (10 attack vectors covered), `cron-auth.ts` constant-time bearer compare (wrong-same-length, wrong-shorter, wrong-longer, missing header, missing Bearer prefix).
 - **Auth-gate contract** — enumerates every `route.ts` under `src/app/api/` at test time; asserts each non-cron route 307s to `/login` when unauthenticated, cron routes pass through, and `/manifest.webmanifest` + `/sw.js` bypass the proxy entirely.

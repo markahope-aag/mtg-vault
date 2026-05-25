@@ -70,4 +70,26 @@ describe("validatePartnerPrinting", () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it("accepts Choose a Background commanders", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { oracle_text: "Choose a Background (You can look at face-down Backgrounds.)" },
+    ]);
+    const result = await validatePartnerPrinting(
+      PRINTING_ID,
+      "22222222-2222-4222-8222-222222222222",
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts Friends Forever commanders", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { oracle_text: "Friends forever (You can have two commanders if both have this.)" },
+    ]);
+    const result = await validatePartnerPrinting(
+      PRINTING_ID,
+      "22222222-2222-4222-8222-222222222222",
+    );
+    expect(result).toEqual({ ok: true });
+  });
 });

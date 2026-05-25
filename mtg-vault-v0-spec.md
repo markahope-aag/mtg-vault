@@ -138,7 +138,7 @@ magic-app/
 │   │   ├── importers/
 │   │   └── supabase/
 │   └── proxy.ts                        # Auth + allowlist (was middleware.ts in Next 15)
-├── drizzle/                            # 21 migrations (0000–0020)
+├── drizzle/                            # 23 migrations (0000–0022)
 ├── scripts/sync-scryfall.ts            # Full bulk sync (also `pnpm db:seed`)
 ├── .github/workflows/weekly-card-sync.yml
 ├── vercel.json
@@ -373,20 +373,22 @@ Post-v0 work (AI strategy, locations, import history, admin tools) was added wit
 
 | Item | Severity | Notes |
 |---|---|---|
-| Partner validation heuristic | Low | Regex `Partner` only; Background/Friends Forever deferred |
+| Partner validation heuristic | Low | Commander oracle must include Partner / Choose a Background / Friends Forever / Partner with; partner-card legality still permissive |
 | No color-identity enforcement on add | Low | Banned cards warn; off-color cards allowed |
 | Spellbook cache per-instance | Low | Cold starts re-hit external API |
-| Trade ledger has no undo | Medium | Import batches have Undo; transactions (purchase/sale/trade) don't. Schema can support it (`transaction_lines` link back to inventory), but the safety rules around already-touched 'in' rows haven't been built yet. |
+| Transaction undo edge cases | Low | `POST /api/transactions/[id]/undo` refuses when downstream inventory was disposed or re-tagged; full chain reversal is manual. |
 | Inventory table not virtualized | Medium | Custom table renders every loaded row. "Load more" caps the initial set at 200, but a fully-loaded collection (10K+ rows) chokes the DOM. Switch to `@tanstack/react-virtual` when this starts mattering. |
 
 ### Resolved since v0
 
 Listed here so future audits don't re-flag them:
 
-- ~~Automated tests partial~~ — 33 files / 380 tests covering API routes (`api.test.ts`), proxy + auth-gate contract (`proxy.test.ts`, `auth-gate.test.ts`), bracket logic, importers, ledger allocation, market valuation/bargains, scraper denylist, rogue generator validation/reconciliation, plus component smoke tests.
+- ~~Automated tests partial~~ — 40 files / 479 tests; CI runs `pnpm test:coverage` with thresholds on `src/lib/**` and `proxy.ts`. API smoke tests cover v1 routes (transactions, proposals, market, reconcile, admin market-sources).
+- ~~Admin API gate gaps~~ — `spellbook-test` and `bracket-flag-audit` use `requireAdmin()`; market-sources CRUD + test route gated the same way (`admin-gate.test.ts`).
 - ~~`locations` missing RLS~~ — fixed in migration `0013` (retroactive enable on `locations`).
 - ~~`combos` tables unused~~ — dropped in migration `0013`; live Spellbook API is the source of truth.
 - ~~Import commit not transactional~~ — wrapped in `db.transaction` since the audit pass (see `api/import/csv/route.ts:228`).
+- ~~Trade ledger has no undo~~ — `POST /api/transactions/[id]/undo` reverses inventory side-effects with 409 on downstream conflicts.
 
 ---
 
